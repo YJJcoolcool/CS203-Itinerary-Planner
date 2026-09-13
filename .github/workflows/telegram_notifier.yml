@@ -1,0 +1,37 @@
+name: Telegram_Notifier
+
+on: [push, pull_request]
+
+jobs:
+  notifyTelegram:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prepare Commit Messages
+        id: prepare_msg
+        env:
+          # Pass the JSON and context as env vars to avoid shell injection/syntax issues
+          COMMITS_JSON: ${{ toJson(github.event.commits) }}
+          ACTOR: ${{ github.actor }}
+          REPO: ${{ github.repository }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.after }}
+        run: |
+          # Use jq directly on the environment variable
+          # We format the messages into a clean list inside jq itself
+          MSG_BODY=$(echo "$COMMITS_JSON" | jq -r '.[] | "• " + .message' || echo "No commit messages found")
+          
+          # Build the full message
+          FULL_MSG="$ACTOR pushed to $REPO:"$'\n\n'"$MSG_BODY"$'\n\n'
+          FULL_MSG="${FULL_MSG}View Changes: https://github.com/$REPO/compare/$BEFORE...$AFTER"
+
+          # Use the multiline GITHUB_OUTPUT syntax
+          echo "commit_msg<<EOF" >> $GITHUB_OUTPUT
+          echo "$FULL_MSG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Send Notification to Telegram
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_TO }}
+          token: ${{ secrets.TELEGRAM_TOKEN }}
+          message: ${{ steps.prepare_msg.outputs.commit_msg }}

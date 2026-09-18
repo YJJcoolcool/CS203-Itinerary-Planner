@@ -6,6 +6,10 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.ManyToMany;
+import java.util.List;
+import java.util.ArrayList;
+import com.smu.cs203_g1_1.itinerary_planner.trips.Trip;
 
 @Entity
 @Table(name = "users")
@@ -19,13 +23,10 @@ public class User {
 
     private String displayName;
 
-    /*
-     * TODO: Uncomment after the Trip entity is added.
-     * The mappedBy value must match the users field in Trip.
-     *
-     * @ManyToMany(mappedBy = "users")
-     * private List<Trip> trips = new ArrayList<>();
-     */
+
+     @ManyToMany(mappedBy = "users")
+     private List<Trip> trips = new ArrayList<>();
+     
 
     protected User() {
         // Required by JPA.
@@ -56,9 +57,10 @@ public class User {
         this.displayName = displayName;
     }
 
-    /*
-     * public List<Trip> getTrips() {
-     *     return trips;
-     * }
-     */
+    
+    public List<Trip> getTrips() {
+          return trips;
+      }
+     
 }
+

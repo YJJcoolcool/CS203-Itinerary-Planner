@@ -57,12 +57,7 @@ public class Activity {
     }
 
 
-    public Activity(
-            String name,
-            Location location,
-            ZonedDateTime startDateTime,
-            ZonedDateTime endDateTime,
-            String status) {
+    public Activity( String name, Location location, ZonedDateTime startDateTime, ZonedDateTime endDateTime, String status) {
 
         this.name = name;
         this.location = location;

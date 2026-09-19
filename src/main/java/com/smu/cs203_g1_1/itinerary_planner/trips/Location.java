@@ -1,21 +1,38 @@
 package com.smu.cs203_g1_1.itinerary_planner.trips;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import java.util.*;
 
 @Entity
 public class Location {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false)
     private String name;
+
     private String category;
+
+    @Column(nullable = false)
     private Double latitude;
+
+    @Column(nullable = false)
     private Double longitude;
+
     private Boolean isIndoor;
+
+    // Not sure if want to include
+    /*
+    private String address; this one kinda obv
+    private String osmId; (for overpass - easier to refresh data?)
+    private String openingHours (for extra context for AI)
+    */
 
     // No arg constructor
     public Location() {
@@ -29,6 +46,11 @@ public class Location {
         this.latitude = latitude;
         this.longitude = longitude;
         this.isIndoor = isIndoor;
+        /*
+        this.address = address;
+        this.osmId = osmId;
+        this.openingHours = openingHours;
+        */
     }
 
     // Getters/Setters
@@ -79,5 +101,56 @@ public class Location {
 
     public void setIsIndoor(Boolean isIndoor) {
         this.isIndoor = isIndoor;
+    }
+
+    /*    
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress() {
+        this.address = address;
+    }
+    
+    public String getOsmId() {
+        return osmId;
+    }
+
+    public void set() {
+        this.osmId = osmId;
+    }
+    
+    public String getOpeningHours() {
+        return openingHours;
+    }
+
+    public void set() {
+        this.openingHours = openingHours;
+    }
+    */
+
+    // Utility methods
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        Location location = (Location) o;
+        return id != null && id.equals(location.getId());
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
+    }
+
+    @Override
+    public String toString() {
+        return "[Location:" + " id = " + id + ", name = " + name + ", category = " + category + ", isIndoor = " + isIndoor + "]";
     }
 }

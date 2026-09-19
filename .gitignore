@@ -34,3 +34,7 @@ build/
 
 ### Serena (MCP tooling) ###
 .serena/
+
+### Local environment variables ###
+.env
+.env.local

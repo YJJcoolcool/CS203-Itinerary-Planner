@@ -5,6 +5,11 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.JoinColumn;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.util.*;
 
 @Entity
@@ -33,6 +38,17 @@ public class Location {
     private String osmId; (for overpass - easier to refresh data?)
     private String openingHours (for extra context for AI)
     */
+
+    @ManyToOne
+    @JoinColumn(name = "parent_location_id")
+    private Location parentLocation;
+
+    @OneToMany(mappedBy = "parentLocation") 
+    private List<Location> subLocations = new ArrayList<>();
+
+    @ManyToMany(mappedBy = "locations")
+    @JsonIgnore
+    private List<Activity> activities = new ArrayList<>();
 
     // No arg constructor
     public Location() {
@@ -103,12 +119,20 @@ public class Location {
         this.isIndoor = isIndoor;
     }
 
+    public List<Activity> getActivities() {
+        return activities;
+    }
+
+    public void setActivities(List<Activity> activities) {
+        this.activities = activities;
+    }
+
     /*    
     public String getAddress() {
         return address;
     }
 
-    public void setAddress() {
+    public void setAddress(String address) {
         this.address = address;
     }
     
@@ -116,7 +140,7 @@ public class Location {
         return osmId;
     }
 
-    public void set() {
+    public void setosmId(String osmId) {
         this.osmId = osmId;
     }
     
@@ -124,7 +148,7 @@ public class Location {
         return openingHours;
     }
 
-    public void set() {
+    public void setOpeningHours(String openingHours) {
         this.openingHours = openingHours;
     }
     */

@@ -17,6 +17,40 @@
   }
 }
 
+.auth-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.auth-button {
+  font: inherit;
+  font-size: 14px;
+  padding: 8px 12px;
+  border: 1px solid var(--accent-border);
+  border-radius: 5px;
+  color: var(--accent);
+  background: transparent;
+  cursor: pointer;
+}
+
+.auth-button-primary {
+  color: var(--text-h);
+  background: var(--accent-bg);
+}
+
+.auth-user-name,
+.auth-setup-notice {
+  font-size: 14px;
+}
+
+.auth-setup-notice {
+  margin-top: 24px;
+}
+
 .hero {
   position: relative;
 

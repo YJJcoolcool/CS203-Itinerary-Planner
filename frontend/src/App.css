@@ -43,7 +43,8 @@
 }
 
 .auth-user-name,
-.auth-setup-notice {
+.auth-setup-notice,
+.auth-profile-status {
   font-size: 14px;
 }
 

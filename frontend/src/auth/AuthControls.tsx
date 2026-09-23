@@ -6,7 +6,9 @@ import {
   UserButton,
   useUser,
 } from '@clerk/react'
+import { useState } from 'react'
 import { useAuthConfiguration } from './authConfiguration'
+import { useBackendProfile } from './useBackendProfile'
 
 function CurrentUser() {
   const { user } = useUser()
@@ -14,6 +16,43 @@ function CurrentUser() {
     user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? 'your account'
 
   return <span className="auth-user-name">Signed in as {name}</span>
+}
+
+function BackendProfileControl() {
+  const { user } = useUser()
+  const syncProfile = useBackendProfile()
+  const [status, setStatus] = useState<string>()
+  const [isLoading, setIsLoading] = useState(false)
+
+  const handleConnect = async () => {
+    setIsLoading(true)
+    setStatus(undefined)
+
+    try {
+      const profile = await syncProfile(
+        user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? 'New user',
+      )
+      setStatus(`Backend profile connected (internal ID ${profile.id}).`)
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Unable to connect profile.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        className="auth-button"
+        onClick={handleConnect}
+        disabled={isLoading}
+      >
+        {isLoading ? 'Connecting…' : 'Connect backend profile'}
+      </button>
+      {status && <span className="auth-profile-status" role="status">{status}</span>}
+    </>
+  )
 }
 
 /**
@@ -47,6 +86,7 @@ export function AuthControls() {
       </Show>
       <Show when="signed-in">
         <CurrentUser />
+        <BackendProfileControl />
         <UserButton />
         <SignOutButton>
           <button type="button" className="auth-button">

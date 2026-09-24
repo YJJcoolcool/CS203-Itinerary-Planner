@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  backend:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Disable Clerk authentication for tests
+        working-directory: backend
+        run: |
+          sed -i 's/^spring\.security\.oauth2\.resourceserver\.jwt\.issuer-uri=/#spring.security.oauth2.resourceserver.jwt.issuer-uri=/' src/main/resources/application.properties
+          sed -i 's/^spring\.security\.oauth2\.resourceserver\.jwt\.jwk-set-uri=/#spring.security.oauth2.resourceserver.jwt.jwk-set-uri=/' src/main/resources/application.properties
+
+      - name: Make Maven wrapper executable
+        working-directory: backend
+        run: chmod +x mvnw
+
+      - name: Run backend tests
+        working-directory: backend
+        run: ./mvnw test
+
+  frontend:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build

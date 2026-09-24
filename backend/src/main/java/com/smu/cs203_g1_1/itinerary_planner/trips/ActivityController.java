@@ -15,9 +15,6 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
-import com.smu.cs203_g1_1.itinerary_planner.location.Location;
-import com.smu.cs203_g1_1.itinerary_planner.location.LocationRepository;
-
 
 @RestController
 @RequestMapping("/api/trips/{tripId}/activities")

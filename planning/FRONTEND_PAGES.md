@@ -23,6 +23,8 @@ the tables as a shared vocabulary, not a contract.
 - Design tokens source: the same export's `src/index.css`; the values we rely on are captured in §2.
 - Current frontend: `frontend/` (React 19 + Vite 8 + TS + Tailwind 4; landing page only).
 - Backend: Spring Boot REST API under `backend/`.
+- Implementation status by branch: **§1.1** (what already exists vs what is still to build).
+- Backend auth conventions: `docs/authenticated-endpoints.md` (on `clerk_login`).
 
 ---
 
@@ -34,8 +36,30 @@ presents this as one dense dark workspace: top bar, collapsible traveler/stats s
 a vertical column of collapsible day boxes, an add-activity modal, and a right-hand
 AI chat drawer.
 
-The current app has **no router, no auth wiring, and no API client** — only a static
-landing page. All of the structure below still has to be created.
+On `main` the app has **no router and no API client** — only a static landing page. Auth
+scaffolding already exists on the unmerged `clerk_login` branch, so parts of the plan below
+are not greenfield (see §1.1). All of the page *structure* still has to be built.
+
+### 1.1 Current implementation status (by branch)
+
+The plan describes the target. This is what already exists, so nobody rebuilds it. `main` is
+the baseline; the branches below are **not merged yet** unless noted.
+
+| Branch | State | What it already provides |
+| --- | --- | --- |
+| `main` | baseline | Static landing page; full backend API; no CORS/auth wiring; no router or API client |
+| `clerk_login` | **not merged** (diverged) | Backend `config/SecurityConfig.java` (CORS + security), Clerk frontend scaffold under `src/auth/`, Clerk-wired landing buttons, `docs/authenticated-endpoints.md`, `.env.example` moved to `backend/.env.example` |
+| `feature/logging-and-run-script` | **not merged** | Backend SLF4J logging + `logback-spring.xml`, `frontend/src/lib/logger.ts`, `run.sh` |
+| `front-end-design` | **not merged** | Same as the logging branch, plus this plan doc |
+| `feature/homepage` | **merged** (PR #3) | Landing page |
+| `feature/activity-locations-endpoint`, `trip`, `trips/location`, `user_class` | backend-only (older) | Backend pieces already absorbed into `main`'s API |
+
+Implications for the page work below:
+
+- **Auth is not greenfield.** `clerk_login` already wires `ClerkProvider`, sign-in/up controls,
+  and a backend call that attaches the Clerk bearer token — build on `src/auth/`, don't restart.
+- **The CORS blocker is solved on `clerk_login`** (see §8.5 gap 2); only `main` is still blocked.
+- `frontend/src/lib/logger.ts` exists **only on the logging branch**, not on `main`.
 
 ---
 
@@ -162,8 +186,9 @@ States to cover generally: **loading, empty, error, not-found, unauthorized.**
   secondary CTA ("Sign in"), optional screenshot of the workspace.
 - **Data:** none.
 - **States:** if the Clerk session is already active, redirect to `/trips`.
-- **Notes:** wire the existing "Sign In" / "Create Account" buttons to Clerk instead of
-  being dead buttons.
+- **Notes:** on `main` the "Sign In" / "Create Account" buttons are dead. `clerk_login`
+  already wires them to Clerk (`SignInButton` / `SignUpButton` / `UserButton`, §1.1) — reuse
+  that instead of re-implementing.
 
 ### 5.2 Sign-in / Sign-up — `/sign-in/*`, `/sign-up/*` (MVP)
 
@@ -174,6 +199,9 @@ States to cover generally: **loading, empty, error, not-found, unauthorized.**
 - **States:** loading (Clerk initialising), error (invalid credentials), already signed in →
   redirect.
 - **Notes:** No custom password UI — Clerk owns it. Our job is layout + redirects.
+  `clerk_login` uses **modal** `SignInButton` / `SignUpButton` rather than `/sign-in/*` routes;
+  decide modal vs dedicated routes. Its `src/auth/` scaffold (`AuthProvider`, `AuthControls`,
+  `authConfiguration`) should be extended, not rebuilt.
 
 ### 5.3 Onboarding / display name — `/onboarding` (MVP)
 
@@ -424,10 +452,12 @@ backend. Treat the **Gaps** rows as explicit work items or decisions.
 1. **No user-scoped trips endpoint.** `GET /api/trips` returns all trips. The dashboard must
    filter by membership client-side, or the backend adds `GET /api/users/me/trips`
    (already sketched as a TODO in `UserController`).
-2. **No CORS configuration.** There is no CORS/security config in `backend/src/main`, so a
-   browser on the Vite origin (`http://localhost:5173`) cannot call the API
-   (`http://localhost:8080`). This blocks **all** frontend↔backend work until fixed.
-   Interim option: Vite dev proxy for `/api` → `localhost:8080`.
+2. **CORS — open on `main`, resolved on `clerk_login`.** `main` has no security/CORS config, so
+   a browser on the Vite origin (`http://localhost:5173`) cannot call the API
+   (`http://localhost:8080`). `clerk_login` adds `backend/.../config/SecurityConfig.java` with a
+   `CorsConfigurationSource` allowing `app.cors.allowed-origin` (env `APP_CORS_ALLOWED_ORIGIN`,
+   default `http://localhost:5173`) and a `SecurityFilterChain` that requires JWT auth when Clerk
+   is configured and `permitAll`s otherwise. This gap closes once that branch merges.
 3. **No way to find a user to invite.** Member add/remove needs a numeric `userId`; there is
    no lookup by email/Clerk id. Blocks the invite flow.
 4. **No AI endpoint.** `Trip AI` can only be a shell.
@@ -445,6 +475,10 @@ backend. Treat the **Gaps** rows as explicit work items or decisions.
 
 ## 9. API client & auth approach (suggested)
 
+- **Already partially built:** `clerk_login` has `frontend/src/auth/` — `AuthProvider`
+  (`ClerkProvider`), `AuthControls`, `authConfiguration`, and `useBackendProfile` which calls
+  `useAuth().getToken()` and sends `Authorization: Bearer <token>`. Reuse this; the notes below
+  describe the target shape and what is still missing (a shared API module, error envelope, types).
 - **Single API module** (e.g. `frontend/src/lib/api.ts`) that reads `VITE_API_URL` and wraps
   `fetch`. One place for base URL, JSON handling, and error normalisation.
 - **Auth header:** attach `Authorization: Bearer <Clerk token>` per request. In
@@ -459,14 +493,16 @@ backend. Treat the **Gaps** rows as explicit work items or decisions.
   frontend/src/
   ├─ main.tsx              # providers: Clerk, Router
   ├─ App.tsx               # route table
+  ├─ auth/                 # ClerkProvider + token getter (exists on clerk_login)
   ├─ lib/api.ts            # fetch wrapper + endpoints
-  ├─ lib/logger.ts         # already present
+  ├─ lib/logger.ts         # only on the logging branch — not on main yet
   ├─ types/                # Trip, Activity, Location, User
   ├─ routes/               # one folder per page
   └─ components/           # shared components (§6)
   ```
-- **Env:** `VITE_API_URL` (already in `.env.example`), `VITE_CLERK_PUBLISHABLE_KEY`
-  (currently empty — needs a real key).
+- **Env:** `VITE_API_URL` and `VITE_CLERK_PUBLISHABLE_KEY` live in `frontend/.env.example`
+  (the Clerk key is empty — needs a real value). On `clerk_login` the root `.env.example` is
+  moved to `backend/.env.example`; the backend CORS origin is `APP_CORS_ALLOWED_ORIGIN`.
 
 ---
 

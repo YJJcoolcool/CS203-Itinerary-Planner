@@ -1,4 +1,9 @@
 package com.smu.cs203_g1_1.itinerary_planner.user;
+import com.smu.cs203_g1_1.itinerary_planner.trips.Trip;
+import jakarta.persistence.ManyToMany;
+import java.util.ArrayList;
+import java.util.List;
+
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -19,9 +24,9 @@ public class User {
 
     private String displayName;
 
-    // Re-enable this relationship when the Trip entity is merged.
-    // @ManyToMany(mappedBy = "users")
-    // private List<Trip> trips = new ArrayList<>();
+    
+    @ManyToMany(mappedBy = "users")
+    private List<Trip> trips = new ArrayList<>();
 
     protected User() {
         // Required by JPA.
@@ -51,8 +56,8 @@ public class User {
     public void setDisplayName(String displayName) {
         this.displayName = displayName;
     }
-    // Re-enable alongside the Trip relationship above.
-    // public List<Trip> getTrips() {
-    //     return trips;
-    // }
+   
+    public List<Trip> getTrips() {
+        return trips;
+    }
 }

@@ -18,8 +18,9 @@ the tables as a shared vocabulary, not a contract.
 
 **Related references**
 
-- Reference design: `planning/Collaborative Trip Itinerary/src/App.tsx` (single-screen dark workspace).
-- Design tokens: `planning/Collaborative Trip Itinerary/src/index.css`.
+- Reference design: a Figma Make export of the single-screen dark workspace, kept locally at
+  `planning/Collaborative Trip Itinerary/` (gitignored — not in the repo).
+- Design tokens source: the same export's `src/index.css`; the values we rely on are captured in §2.
 - Current frontend: `frontend/` (React 19 + Vite 8 + TS + Tailwind 4; landing page only).
 - Backend: Spring Boot REST API under `backend/`.
 

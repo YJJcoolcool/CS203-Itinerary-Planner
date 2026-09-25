@@ -2,6 +2,7 @@ package com.smu.cs203_g1_1.itinerary_planner;
 
 import java.time.LocalDate;
 import java.time.ZonedDateTime;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -72,7 +73,7 @@ class LocationActivityRepositoryTest {
 
         Activity activity = new Activity(
             "Visit Marina Bay Sands",
-            location,
+            List.of(location),
             start,
             end,
             "PLANNED"
@@ -88,8 +89,8 @@ class LocationActivityRepositoryTest {
         assertNotNull(activity.getId());
 
         // Verify Activity -> Location relationship
-        assertNotNull(activity.getLocation());
-        assertEquals(location.getId(), activity.getLocation().getId());
+        assertNotNull(activity.getLocations());
+        assertEquals(location.getId(), activity.getLocations().get(0).getId());
 
         // Verify Activity -> Trip relationship
         assertNotNull(activity.getTrip());

@@ -1,8 +1,8 @@
 package com.smu.cs203_g1_1.itinerary_planner.trips;
 
-import org.springframework.stereotype.Service;
 import java.util.List;
-import java.util.Optional;
+
+import org.springframework.stereotype.Service;
 
 @Service
 public class LocationService {
@@ -16,8 +16,9 @@ public class LocationService {
         return locationRepository.findAll();
     }
 
-    public Optional<Location> getLocationById(Long id) {
-        return locationRepository.findById(id);
+    public Location getLocationById(Long id) {
+        return locationRepository.findById(id)
+                .orElseThrow(() -> new LocationNotFoundException(id));
     }
 
     public Location createLocation(Location location) {

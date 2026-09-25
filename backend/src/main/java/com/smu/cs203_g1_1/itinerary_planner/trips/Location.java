@@ -11,6 +11,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 
@@ -48,7 +49,7 @@ public class Location {
     @OneToMany(mappedBy = "parentLocation") 
     private List<Location> subLocations = new ArrayList<>();
 
-    @OneToMany(mappedBy = "location")
+    @ManyToMany(mappedBy = "locations")
     @JsonIgnore
     private List<Activity> activities = new ArrayList<>();
 

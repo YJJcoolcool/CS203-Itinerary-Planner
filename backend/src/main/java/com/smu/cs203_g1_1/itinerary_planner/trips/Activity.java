@@ -1,6 +1,8 @@
 package com.smu.cs203_g1_1.itinerary_planner.trips;
 
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
@@ -9,7 +11,10 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OrderColumn;
 import jakarta.persistence.Table;
 
 @Entity
@@ -34,9 +39,14 @@ public class Activity {
      * Database:
      * activities.location_id -> locations.id
      */
-    @ManyToOne
-    @JoinColumn(name = "location_id", nullable = false)
-    private Location location;
+    @ManyToMany
+    @JoinTable(
+            name = "activity_locations",
+            joinColumns = @JoinColumn(name = "activity_id"),
+            inverseJoinColumns = @JoinColumn(name = "location_id")
+    )
+    @OrderColumn(name = "location_order")
+    private List<Location> locations = new ArrayList<>();
 
     /*
      * Many activities belong to one Trip.
@@ -55,10 +65,10 @@ public class Activity {
     }
 
 
-    public Activity( String name, Location location, ZonedDateTime startDateTime, ZonedDateTime endDateTime, String status) {
+    public Activity( String name, List<Location> locations, ZonedDateTime startDateTime, ZonedDateTime endDateTime, String status) {
 
         this.name = name;
-        this.location = location;
+        this.locations = locations;
         this.startDateTime = startDateTime;
         this.endDateTime = endDateTime;
         this.status = status;
@@ -110,13 +120,13 @@ public class Activity {
     }
 
 
-    public Location getLocation() {
-        return location;
+    public List<Location> getLocations() {
+        return locations;
     }
 
 
-    public void setLocation(Location location) {
-        this.location = location;
+    public void setLocations(List<Location> locations) {
+        this.locations = locations;
     }
 
 

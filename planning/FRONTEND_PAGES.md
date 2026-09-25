@@ -50,7 +50,6 @@ the baseline; the branches below are **not merged yet** unless noted.
 | `main` | baseline | Static landing page; full backend API; no CORS/auth wiring; no router or API client |
 | `clerk_login` | **not merged** (diverged) | Backend `config/SecurityConfig.java` (CORS + security), Clerk frontend scaffold under `src/auth/`, Clerk-wired landing buttons, `docs/authenticated-endpoints.md`, `.env.example` moved to `backend/.env.example` |
 | `feature/logging-and-run-script` | **not merged** | Backend SLF4J logging + `logback-spring.xml`, `frontend/src/lib/logger.ts`, `run.sh` |
-| `front-end-design` | **not merged** | Same as the logging branch, plus this plan doc |
 | `feature/homepage` | **merged** (PR #3) | Landing page |
 | `feature/activity-locations-endpoint`, `trip`, `trips/location`, `user_class` | backend-only (older) | Backend pieces already absorbed into `main`'s API |
 

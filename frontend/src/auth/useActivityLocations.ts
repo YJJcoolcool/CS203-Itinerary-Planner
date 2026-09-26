@@ -14,6 +14,9 @@ export interface Location {
 export interface Activity {
     id: number;
     name: string;
+    startDateTime: string;
+    endDateTime: string;
+    status: string;
 }
 
 export function useActivityLocations(tripId: number) {

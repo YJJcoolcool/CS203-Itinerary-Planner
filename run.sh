@@ -73,9 +73,9 @@ fi
 # -------------------------------------------------------------- env files
 # Backend reads backend/.env; Vite reads frontend/.env. Create them from the
 # checked-in examples on first run so the app can boot without manual setup.
-if [ "$RUN_BACKEND" -eq 1 ] && [ ! -f "$BACKEND_DIR/.env" ] && [ -f "$ROOT_DIR/.env.example" ]; then
-  cp "$ROOT_DIR/.env.example" "$BACKEND_DIR/.env"
-  warn "Created backend/.env from .env.example - add real Clerk keys for authenticated endpoints."
+if [ "$RUN_BACKEND" -eq 1 ] && [ ! -f "$BACKEND_DIR/.env" ] && [ -f "$BACKEND_DIR/.env.example" ]; then
+  cp "$BACKEND_DIR/.env.example" "$BACKEND_DIR/.env"
+  warn "Created backend/.env from backend/.env.example - add real Clerk keys for authenticated endpoints."
 fi
 if [ "$RUN_FRONTEND" -eq 1 ] && [ ! -f "$FRONTEND_DIR/.env" ] && [ -f "$FRONTEND_DIR/.env.example" ]; then
   cp "$FRONTEND_DIR/.env.example" "$FRONTEND_DIR/.env"
@@ -91,10 +91,15 @@ if [ -f "$BACKEND_DIR/.env" ]; then
   set +a
 fi
 
+# Treat the example placeholders (and an empty value) as "not configured":
+# drop CLERK_ISSUER_URI before launching so Spring starts the backend without
+# authentication instead of pointing JWT validation at a non-existent Clerk
+# instance. Set real credentials in backend/.env to enable authentication.
 if [ "$RUN_BACKEND" -eq 1 ]; then
   case "${CLERK_ISSUER_URI:-}" in
     ""|*replace_me*|*your-instance*)
-      warn "CLERK_ISSUER_URI is not configured. The backend will start, but JWT-protected endpoints will reject requests until you set real Clerk credentials in backend/.env." ;;
+      unset CLERK_ISSUER_URI
+      warn "No real Clerk issuer configured. Starting the backend WITHOUT authentication; JWT-protected endpoints are open until backend/.env is filled in." ;;
   esac
 fi
 

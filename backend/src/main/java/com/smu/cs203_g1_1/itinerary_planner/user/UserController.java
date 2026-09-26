@@ -9,7 +9,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 // TODO: Validate that display names are present and not blank before saving.
-@RestController 
+@RestController
 public class UserController{
     private final UserService userService;
 

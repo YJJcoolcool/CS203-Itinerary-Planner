@@ -1,4 +1,9 @@
 package com.smu.cs203_g1_1.itinerary_planner.user;
+import com.smu.cs203_g1_1.itinerary_planner.trips.Trip;
+import jakarta.persistence.ManyToMany;
+import java.util.ArrayList;
+import java.util.List;
+
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -6,10 +11,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import jakarta.persistence.ManyToMany;
-import java.util.List;
-import java.util.ArrayList;
-import com.smu.cs203_g1_1.itinerary_planner.trips.Trip;
 
 @Entity
 @Table(name = "users")
@@ -23,10 +24,9 @@ public class User {
 
     private String displayName;
 
-
-     @ManyToMany(mappedBy = "users")
-     private List<Trip> trips = new ArrayList<>();
-     
+    
+    @ManyToMany(mappedBy = "users")
+    private List<Trip> trips = new ArrayList<>();
 
     protected User() {
         // Required by JPA.
@@ -56,11 +56,8 @@ public class User {
     public void setDisplayName(String displayName) {
         this.displayName = displayName;
     }
-
-    
+   
     public List<Trip> getTrips() {
-          return trips;
-      }
-     
+        return trips;
+    }
 }
-

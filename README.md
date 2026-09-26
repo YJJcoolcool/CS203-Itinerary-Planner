@@ -10,6 +10,17 @@ SMU CS203 Human-AI Collaborative Software Development
 
 ## Running the Project
 
+## Environment Variables
+
+Environment variables may be used for local configuration (things like Clerk).
+However, the project has been specifically set up such that it can be run without setting up these variables.
+For proper testing of authentication though, it is recommended that you have a .env file in both /frontend and /backend.
+Here is how to set it up:
+
+1. In `/frontend` and `/backend`, make a copy of the respective `.env.example` file, and rename that copy to `.env`
+2. Fill in the fields as provided within our group. **`.env` files contain private keys that must not be shared with others!**
+3. Run the project with the instructions below.
+
 ### Backend
 
 From the project's root directory:
@@ -43,8 +54,3 @@ npm run build
 ```
 
 This generates the production frontend in `frontend/dist/`.
-
-## Environment Variables
-
-The frontend will use environment variables for local configuration. See
-frontend/.env.example for the required variables.

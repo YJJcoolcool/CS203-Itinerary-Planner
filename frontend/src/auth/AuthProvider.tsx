@@ -19,7 +19,16 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   return (
     <AuthConfigurationContext.Provider value={configuration}>
-      <ClerkProvider publishableKey={publishableKey}>{children}</ClerkProvider>
+      <ClerkProvider
+        publishableKey={publishableKey}
+        localization={{
+          userButton: {
+            action__manageAccount: 'Settings',
+          },
+        }}
+      >
+        {children}
+      </ClerkProvider>
     </AuthConfigurationContext.Provider>
   )
 }

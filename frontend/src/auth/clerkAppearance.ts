@@ -99,6 +99,17 @@ export const clerkAppearanceDark: ClerkAppearance = {
       fontWeight: 500,
       '&:hover': { color: '#f5efe6' },
     },
+    /*
+     * The footer renders as a sibling of the opaque card, so its default
+     * 4%-alpha background lets the page show through. Pin an opaque muted band
+     * (the solid equivalent of white 4% over `#162032`) and round only the
+     * bottom corners so card + footer read as one panel.
+     */
+    footer: {
+      backgroundColor: '#1f293a',
+      borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+      borderRadius: '0 0 16px 16px',
+    },
     identityPreviewText: { color: '#f5efe6' },
     identityPreviewEditButton: {
       color: '#e8a84c',
@@ -187,6 +198,11 @@ export const clerkAppearanceLight: ClerkAppearance = {
       color: '#a35f0e',
       fontWeight: 500,
       '&:hover': { color: '#7d4a0b' },
+    },
+    footer: {
+      backgroundColor: '#f5f6f6',
+      borderTop: '1px solid rgba(13, 27, 42, 0.10)',
+      borderRadius: '0 0 16px 16px',
     },
     identityPreviewText: { color: '#182430' },
     identityPreviewEditButton: {

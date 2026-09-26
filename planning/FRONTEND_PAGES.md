@@ -45,13 +45,13 @@ are not greenfield (see §1.1). All of the page *structure* still has to be buil
 The plan describes the target. This is what already exists, so nobody rebuilds it. `main` is
 the baseline; the branches below are **not merged yet** unless noted.
 
-| Branch | State | What it already provides |
-| --- | --- | --- |
-| `main` | baseline | Static landing page; full backend API; no CORS/auth wiring; no router or API client |
-| `clerk_login` | **not merged** (diverged) | Backend `config/SecurityConfig.java` (CORS + security), Clerk frontend scaffold under `src/auth/`, Clerk-wired landing buttons, `docs/authenticated-endpoints.md`, `.env.example` moved to `backend/.env.example` |
-| `feature/logging-and-run-script` | **not merged** | Backend SLF4J logging + `logback-spring.xml`, `frontend/src/lib/logger.ts`, `run.sh` |
-| `feature/homepage` | **merged** (PR #3) | Landing page |
-| `feature/activity-locations-endpoint`, `trip`, `trips/location`, `user_class` | backend-only (older) | Backend pieces already absorbed into `main`'s API |
+| Branch                                                                                | State                           | What it already provides                                                                                                                                                                                                   |
+| ------------------------------------------------------------------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `main`                                                                              | baseline                        | Static landing page; full backend API; no CORS/auth wiring; no router or API client                                                                                                                                        |
+| `clerk_login`                                                                       | **not merged** (diverged) | Backend`config/SecurityConfig.java` (CORS + security), Clerk frontend scaffold under `src/auth/`, Clerk-wired landing buttons, `docs/authenticated-endpoints.md`, `.env.example` moved to `backend/.env.example` |
+| `feature/logging-and-run-script`                                                    | **not merged**            | Backend SLF4J logging +`logback-spring.xml`, `frontend/src/lib/logger.ts`, `run.sh`                                                                                                                                  |
+| `feature/homepage`                                                                  | **merged** (PR #3)        | Landing page                                                                                                                                                                                                               |
+| `feature/activity-locations-endpoint`, `trip`, `trips/location`, `user_class` | backend-only (older)            | Backend pieces already absorbed into`main`'s API                                                                                                                                                                         |
 
 Implications for the page work below:
 
@@ -71,20 +71,20 @@ We should honour this direction unless the team deliberately pivots. Keep it as
 
 ### 2.1 Color tokens
 
-| Token (suggested name) | Value | Usage |
-| --- | --- | --- |
-| `--color-navy` | `#0d1b2a` | App background / AI panel |
-| `--color-navy-deep` | `#0b1825` | Left sidebar |
-| `--color-navy-mid` | `#162032` | Cards, modal, AI bubbles |
-| `--color-navy-light` | `#1e2f45` | Controls, floating buttons |
-| `--color-amber` | `#d4882a` | Primary accent, CTAs, times, stats |
-| `--color-amber-light` | `#e8a84c` | Hover / highlight |
-| `--color-terracotta` | `#c15a3f` | Food type, destructive tint |
-| `--color-sage` | `#5c8a6e` | Costs, online status, success |
-| `--color-purple` | `#a07bc4` | Transport type |
-| `--color-blue` | `#7bb8d4` | Flight type |
-| `--color-cream` | `#f5efe6` | Primary text |
-| `--color-cream-dim` | `#d6ccbf` | Secondary text |
+| Token (suggested name)  | Value       | Usage                              |
+| ----------------------- | ----------- | ---------------------------------- |
+| `--color-navy`        | `#0d1b2a` | App background / AI panel          |
+| `--color-navy-deep`   | `#0b1825` | Left sidebar                       |
+| `--color-navy-mid`    | `#162032` | Cards, modal, AI bubbles           |
+| `--color-navy-light`  | `#1e2f45` | Controls, floating buttons         |
+| `--color-amber`       | `#d4882a` | Primary accent, CTAs, times, stats |
+| `--color-amber-light` | `#e8a84c` | Hover / highlight                  |
+| `--color-terracotta`  | `#c15a3f` | Food type, destructive tint        |
+| `--color-sage`        | `#5c8a6e` | Costs, online status, success      |
+| `--color-purple`      | `#a07bc4` | Transport type                     |
+| `--color-blue`        | `#7bb8d4` | Flight type                        |
+| `--color-cream`       | `#f5efe6` | Primary text                       |
+| `--color-cream-dim`   | `#d6ccbf` | Secondary text                     |
 
 Notes:
 
@@ -98,11 +98,11 @@ Notes:
 
 ### 2.2 Typography
 
-| Role | Font | Used for |
-| --- | --- | --- |
-| Display | **Fraunces** (serif) | Trip name, day city, section headings |
-| Body | **Outfit** (sans) | Everything else |
-| Mono | **JetBrains Mono** | Times, costs, stats, type badges, date pills |
+| Role    | Font                       | Used for                                     |
+| ------- | -------------------------- | -------------------------------------------- |
+| Display | **Fraunces** (serif) | Trip name, day city, section headings        |
+| Body    | **Outfit** (sans)    | Everything else                              |
+| Mono    | **JetBrains Mono**   | Times, costs, stats, type badges, date pills |
 
 Load via Google Fonts `@import` in `frontend/src/index.css`, then expose as
 `--font-display`, `--font-body`, `--font-mono` so components use utility classes.
@@ -151,21 +151,21 @@ Routing notes:
 
 ## 4. Page inventory (at a glance)
 
-| # | Page | Suggested route | Auth | Priority | Primary user |
-| --- | --- | --- | --- | --- | --- |
-| 1 | Landing | `/` | Public | MVP | Visitor |
-| 2 | Sign-in / Sign-up | `/sign-in/*`, `/sign-up/*` | Public | MVP | Returning / new user |
-| 3 | Onboarding (display name) | `/onboarding` | Auth | MVP | First-time user |
-| 4 | Trip Dashboard / My Trips | `/trips` | Auth | MVP | Organizer |
-| 5 | Trip Detail / Itinerary | `/trips/:tripId` | Auth (member) | MVP | Organizer + traveler |
-| 6 | Add / Edit Activity | modal on `/trips/:tripId` | Auth (member) | MVP | Organizer + traveler |
-| 7 | Trip Settings / Members | `/trips/:tripId/settings` | Auth (owner) | MVP (basic) | Organizer |
-| 8 | User Profile / Account | `/profile` | Auth | MVP (basic) | Any signed-in user |
-| 9 | 404 / Error | `*` | Public | MVP | Anyone |
-| 10 | Invite / Join trip | `/trips/join/:token` | Auth | Later | Invited traveler |
-| 11 | Trip AI Assistant | drawer on `/trips/:tripId` | Auth (member) | Later (UI shell in MVP) | Organizer |
-| 12 | Location picker / map explorer | modal / panel | Auth | Later | Organizer |
-| 13 | Locations admin (CRUD) | `/locations` | Auth | Later | Power user / dev |
+| #  | Page                           | Suggested route                | Auth          | Priority                | Primary user         |
+| -- | ------------------------------ | ------------------------------ | ------------- | ----------------------- | -------------------- |
+| 1  | Landing                        | `/`                          | Public        | MVP                     | Visitor              |
+| 2  | Sign-in / Sign-up              | `/sign-in/*`, `/sign-up/*` | Public        | MVP                     | Returning / new user |
+| 3  | Onboarding (display name)      | `/onboarding`                | Auth          | MVP                     | First-time user      |
+| 4  | Trip Dashboard / My Trips      | `/trips`                     | Auth          | MVP                     | Organizer            |
+| 5  | Trip Detail / Itinerary        | `/trips/:tripId`             | Auth (member) | MVP                     | Organizer + traveler |
+| 6  | Add / Edit Activity            | modal on`/trips/:tripId`     | Auth (member) | MVP                     | Organizer + traveler |
+| 7  | Trip Settings / Members        | `/trips/:tripId/settings`    | Auth (owner)  | MVP (basic)             | Organizer            |
+| 8  | User Profile / Account         | `/profile`                   | Auth          | MVP (basic)             | Any signed-in user   |
+| 9  | 404 / Error                    | `*`                          | Public        | MVP                     | Anyone               |
+| 10 | Invite / Join trip             | `/trips/join/:token`         | Auth          | Later                   | Invited traveler     |
+| 11 | Trip AI Assistant              | drawer on`/trips/:tripId`    | Auth (member) | Later (UI shell in MVP) | Organizer            |
+| 12 | Location picker / map explorer | modal / panel                  | Auth          | Later                   | Organizer            |
+| 13 | Locations admin (CRUD)         | `/locations`                 | Auth          | Later                   | Power user / dev     |
 
 MVP = needed for a usable end-to-end demo. Later = valuable but not on the critical path.
 
@@ -350,29 +350,29 @@ This is the reference screen. Highest-value page.
 
 Build these once, reuse everywhere. Names are suggestions; internals are free.
 
-| Component | Purpose | Notes |
-| --- | --- | --- |
-| `AppShell` | Page chrome: header + content slot + optional side panels | Used by all authed pages |
-| `TopBar` | Page/trip header row | Trip variant vs dashboard variant |
-| `SideNav` / `AccountMenu` | Global nav + sign-out | MVP can be a simple menu |
-| `Button` | Primary / secondary / ghost / danger | Amber primary |
-| `Avatar` | Initials avatar with color + online dot | Derive color from id |
-| `AvatarStack` | Overlapping collaborator avatars + count | Top bar |
-| `TypeBadge` | Activity type pill (icon + label) | Presentational; see §8 |
-| `DayBox` | Collapsible day container with header stats | `open` state, stop count, day total |
-| `ActivityRow` | Timeline row: time + duration, badge, title, location, cost, notes, author | Core list item |
-| `Timeline` | Spine/dot rail wrapping `ActivityRow`s | Part of `DayBox` if simpler |
-| `Modal` | Centered dialog | Reused by Add/Edit Activity, confirm-delete |
-| `FormField` | Label + input/select/textarea wrapper | Shared `input-field` styling |
-| `DateRangePicker` | Trip start/end selection | Validate end >= start |
-| `TripCard` | Dashboard trip summary card | Name, dates, members, counts |
-| `StatRow` | Label + mono value | Trip Stats sidebar |
-| `EmptyState` | Icon + message + CTA | Dashboard, day, AI, members |
-| `LoadingSkeleton` | Content-shaped placeholders | Days, cards, lists |
-| `ErrorView` / `ErrorBoundary` | Error + retry | 404 page shares visuals |
-| `Toast` | Transient success/error feedback | Optional in MVP |
-| `AIChatDrawer` | AI message list + input | Shell in MVP, wired later |
-| `ConfirmDialog` | Destructive-action confirmation | Delete trip/activity/member |
+| Component                         | Purpose                                                                    | Notes                                       |
+| --------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------- |
+| `AppShell`                      | Page chrome: header + content slot + optional side panels                  | Used by all authed pages                    |
+| `TopBar`                        | Page/trip header row                                                       | Trip variant vs dashboard variant           |
+| `SideNav` / `AccountMenu`     | Global nav + sign-out                                                      | MVP can be a simple menu                    |
+| `Button`                        | Primary / secondary / ghost / danger                                       | Amber primary                               |
+| `Avatar`                        | Initials avatar with color + online dot                                    | Derive color from id                        |
+| `AvatarStack`                   | Overlapping collaborator avatars + count                                   | Top bar                                     |
+| `TypeBadge`                     | Activity type pill (icon + label)                                          | Presentational; see §8                     |
+| `DayBox`                        | Collapsible day container with header stats                                | `open` state, stop count, day total       |
+| `ActivityRow`                   | Timeline row: time + duration, badge, title, location, cost, notes, author | Core list item                              |
+| `Timeline`                      | Spine/dot rail wrapping`ActivityRow`s                                    | Part of`DayBox` if simpler                |
+| `Modal`                         | Centered dialog                                                            | Reused by Add/Edit Activity, confirm-delete |
+| `FormField`                     | Label + input/select/textarea wrapper                                      | Shared`input-field` styling               |
+| `DateRangePicker`               | Trip start/end selection                                                   | Validate end >= start                       |
+| `TripCard`                      | Dashboard trip summary card                                                | Name, dates, members, counts                |
+| `StatRow`                       | Label + mono value                                                         | Trip Stats sidebar                          |
+| `EmptyState`                    | Icon + message + CTA                                                       | Dashboard, day, AI, members                 |
+| `LoadingSkeleton`               | Content-shaped placeholders                                                | Days, cards, lists                          |
+| `ErrorView` / `ErrorBoundary` | Error + retry                                                              | 404 page shares visuals                     |
+| `Toast`                         | Transient success/error feedback                                           | Optional in MVP                             |
+| `AIChatDrawer`                  | AI message list + input                                                    | Shell in MVP, wired later                   |
+| `ConfirmDialog`                 | Destructive-action confirmation                                            | Delete trip/activity/member                 |
 
 ---
 
@@ -399,52 +399,52 @@ backend. Treat the **Gaps** rows as explicit work items or decisions.
 
 ### 8.1 Trip
 
-| Frontend field | Backend field | Status |
-| --- | --- | --- |
-| `id` | `id` (Long) | OK |
-| `name` | `name` (String) | OK |
-| `startDate` | `startDate` (LocalDate) | OK |
-| `endDate` | `endDate` (LocalDate) | OK |
-| `ownerId` | `owner.id` | OK (nested) |
-| `members` | `users` (List<User>) | OK |
-| `itinerary` | `itinerary` (List<Activity>) | OK |
-| `city` / `country` (Figma day) | — | **GAP:** no field on Trip or Location |
-| `budget` | — | **GAP:** no field; Figma derives from activity costs |
+| Frontend field                     | Backend field                             | Status                                                     |
+| ---------------------------------- | ----------------------------------------- | ---------------------------------------------------------- |
+| `id`                             | `id` (Long)                             | OK                                                         |
+| `name`                           | `name` (String)                         | OK                                                         |
+| `startDate`                      | `startDate` (LocalDate)                 | OK                                                         |
+| `endDate`                        | `endDate` (LocalDate)                   | OK                                                         |
+| `ownerId`                        | `owner.id`                              | OK (nested)                                                |
+| `members`                        | `users` (List<User></user>)             | OK                                                         |
+| `itinerary`                      | `itinerary` (List<Activity></activity>) | OK                                                         |
+| `city` / `country` (Figma day) | —                                        | **GAP:** no field on Trip or Location                |
+| `budget`                         | —                                        | **GAP:** no field; Figma derives from activity costs |
 
 ### 8.2 Activity
 
-| Frontend field | Backend field | Status |
-| --- | --- | --- |
-| `id` | `id` (Long) | OK |
-| `title` | `name` (String) | Rename mapping |
-| `startTime` | `startDateTime` (ZonedDateTime) | OK; format differs |
-| `endTime` | `endDateTime` (ZonedDateTime) | OK; format differs |
-| `location` (free text) | `locations` (List<Location> by id) | **GAP:** backend needs real location ids |
-| `type` (flight/hotel/food/activity/transport) | — | **GAP:** no field; presentation-only for now |
-| `cost` | — | **GAP:** no field; Figma budget/totals can't persist |
-| `notes` | — | **GAP:** no field; user notes would be lost |
-| `addedBy` | — | **GAP:** no author field; `ActivityRow` author avatar can't resolve |
-| — | `status` (String) | Backend-only; decide what it means (planned/confirmed/done?) |
-| — | `trip` | `@JsonIgnore`; comes from the URL |
+| Frontend field                                  | Backend field                                   | Status                                                                      |
+| ----------------------------------------------- | ----------------------------------------------- | --------------------------------------------------------------------------- |
+| `id`                                          | `id` (Long)                                   | OK                                                                          |
+| `title`                                       | `name` (String)                               | Rename mapping                                                              |
+| `startTime`                                   | `startDateTime` (ZonedDateTime)               | OK; format differs                                                          |
+| `endTime`                                     | `endDateTime` (ZonedDateTime)                 | OK; format differs                                                          |
+| `location` (free text)                        | `locations` (List<Location></location> by id) | **GAP:** backend needs real location ids                              |
+| `type` (flight/hotel/food/activity/transport) | —                                              | **GAP:** no field; presentation-only for now                          |
+| `cost`                                        | —                                              | **GAP:** no field; Figma budget/totals can't persist                  |
+| `notes`                                       | —                                              | **GAP:** no field; user notes would be lost                           |
+| `addedBy`                                     | —                                              | **GAP:** no author field; `ActivityRow` author avatar can't resolve |
+| —                                              | `status` (String)                             | Backend-only; decide what it means (planned/confirmed/done?)                |
+| —                                              | `trip`                                        | `@JsonIgnore`; comes from the URL                                         |
 
 ### 8.3 Day
 
-| Frontend field | Backend field | Status |
-| --- | --- | --- |
-| `id` / `label` / `date` | — | **GAP:** no Day entity. Derive from `trip.startDate..endDate` |
-| `city` / `country` | — | **GAP:** nothing to derive from |
-| `activities[]` | grouped from trip activities | Derived client-side |
+| Frontend field                | Backend field                | Status                                                                |
+| ----------------------------- | ---------------------------- | --------------------------------------------------------------------- |
+| `id` / `label` / `date` | —                           | **GAP:** no Day entity. Derive from `trip.startDate..endDate` |
+| `city` / `country`        | —                           | **GAP:** nothing to derive from                                 |
+| `activities[]`              | grouped from trip activities | Derived client-side                                                   |
 
 ### 8.4 User
 
-| Frontend field | Backend field | Status |
-| --- | --- | --- |
-| `id` | `id` (Long) | OK |
-| `displayName` | `displayName` | OK |
-| `clerkUserId` | `clerkUserId` | Backend-only; don't expose needlessly |
-| `avatar` initials | — | Derive client-side from name |
-| `online` / `away` | — | **GAP:** no presence concept. Fake/cosmetic in MVP |
-| `role` (organizer/traveler) | `owner.id === userId` | Derive from ownership |
+| Frontend field                | Backend field           | Status                                                   |
+| ----------------------------- | ----------------------- | -------------------------------------------------------- |
+| `id`                        | `id` (Long)           | OK                                                       |
+| `displayName`               | `displayName`         | OK                                                       |
+| `clerkUserId`               | `clerkUserId`         | Backend-only; don't expose needlessly                    |
+| `avatar` initials           | —                      | Derive client-side from name                             |
+| `online` / `away`         | —                      | **GAP:** no presence concept. Fake/cosmetic in MVP |
+| `role` (organizer/traveler) | `owner.id === userId` | Derive from ownership                                    |
 
 ### 8.5 Cross-cutting gaps
 
@@ -509,17 +509,17 @@ backend. Treat the **Gaps** rows as explicit work items or decisions.
 
 Split so people rarely touch the same files. Put names in the Owner column.
 
-| Lane | Scope | Owner | Depends on |
-| --- | --- | --- | --- |
-| **A — Foundation** | Router setup, `AppShell`, theme tokens in `index.css`, fonts, API client, auth context, Clerk provider | _TBD_ | — |
-| **B — Auth & Account** | Sign-in/up wiring, onboarding/display-name, profile, account menu, `RequireAuth` guard | _TBD_ | A |
-| **C — Dashboard** | `/trips` list, `TripCard`, create-trip modal, empty/loading states | _TBD_ | A, CORS fix |
-| **D — Trip Workspace** | `/trips/:tripId`, top bar, `DayBox`, `ActivityRow`, day-derivation helper, stats sidebar | _TBD_ | A, CORS fix |
-| **E — Activity CRUD** | Add/Edit modal, form validation, time/type mapping, delete | _TBD_ | D, backend decision on §8 Gaps |
-| **F — Collaboration** | Members list, Trip Settings, add/remove member, invite flow | _TBD_ | D, user-lookup gap resolved |
-| **G — AI Panel** | Drawer shell, suggestion chips, message list, loading, input | _TBD_ | D |
-| **H — Locations** | Location picker list, optional map, location admin | _TBD_ | E |
-| **I — Backend enablement** | CORS config, user-scoped trips, activity fields (type/cost/notes/author), user lookup, invite | _TBD (backend)_ | — |
+| Lane                              | Scope                                                                                                     | Owner             | Depends on                      |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------- | ----------------- | ------------------------------- |
+| **A — Foundation**         | Router setup,`AppShell`, theme tokens in `index.css`, fonts, API client, auth context, Clerk provider | _TBD_           | —                              |
+| **B — Auth & Account**     | Sign-in/up wiring, onboarding/display-name, profile, account menu,`RequireAuth` guard                   | _TBD_           | A                               |
+| **C — Dashboard**          | `/trips` list, `TripCard`, create-trip modal, empty/loading states                                    | _TBD_           | A, CORS fix                     |
+| **D — Trip Workspace**     | `/trips/:tripId`, top bar, `DayBox`, `ActivityRow`, day-derivation helper, stats sidebar            | _TBD_           | A, CORS fix                     |
+| **E — Activity CRUD**      | Add/Edit modal, form validation, time/type mapping, delete                                                | _TBD_           | D, backend decision on §8 Gaps |
+| **F — Collaboration**      | Members list, Trip Settings, add/remove member, invite flow                                               | _TBD_           | D, user-lookup gap resolved     |
+| **G — AI Panel**           | Drawer shell, suggestion chips, message list, loading, input                                              | _TBD_           | D                               |
+| **H — Locations**          | Location picker list, optional map, location admin                                                        | _TBD_           | E                               |
+| **I — Backend enablement** | CORS config, user-scoped trips, activity fields (type/cost/notes/author), user lookup, invite             | _TBD (backend)_ | —                              |
 
 Coordination rules:
 
@@ -530,14 +530,14 @@ Coordination rules:
 
 ### Milestones
 
-| Milestone | Goal | Lanes | Exit criteria |
-| --- | --- | --- | --- |
-| **M1** | Auth + shell | A, B | Sign in with Clerk, token sent to a health check, `AppShell` renders, tokens/fonts live |
-| **M2** | Dashboard | C | `/trips` lists trips and creates one (create may be blocked on CORS/owner id) |
-| **M3** | Trip detail (read-only) | D, I (CORS) | Open a trip, see derived days + activities, stats, members |
-| **M4** | Create/edit | E | Add/edit/delete activity with a real location; reload keeps data |
-| **M5** | Collaboration / invites | F, I (lookup+invite) | Manage members; (if backend ready) join via invite |
-| **M6** | AI panel | G, I (AI endpoint) | Real or clearly-labelled simulated AI conversation in the drawer |
+| Milestone    | Goal                    | Lanes                | Exit criteria                                                                            |
+| ------------ | ----------------------- | -------------------- | ---------------------------------------------------------------------------------------- |
+| **M1** | Auth + shell            | A, B                 | Sign in with Clerk, token sent to a health check,`AppShell` renders, tokens/fonts live |
+| **M2** | Dashboard               | C                    | `/trips` lists trips and creates one (create may be blocked on CORS/owner id)          |
+| **M3** | Trip detail (read-only) | D, I (CORS)          | Open a trip, see derived days + activities, stats, members                               |
+| **M4** | Create/edit             | E                    | Add/edit/delete activity with a real location; reload keeps data                         |
+| **M5** | Collaboration / invites | F, I (lookup+invite) | Manage members; (if backend ready) join via invite                                       |
+| **M6** | AI panel                | G, I (AI endpoint)   | Real or clearly-labelled simulated AI conversation in the drawer                         |
 
 Suggested sequencing: unblock **Lane I CORS** during M1; start M2/M3 UI in parallel against
 mocked data while the API decision on §8 Gaps is pending.

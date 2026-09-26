@@ -1,1 +1,95 @@
-@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,300;1,9..144,400&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import 'tailwindcss';
+
+/*
+ * Design tokens — dark editorial travel journal (FRONTEND_PAGES.md §2).
+ * Defined once here; components consume them through Tailwind utilities
+ * (bg-navy, text-cream, font-display, …) instead of raw hex values.
+ *
+ * Note: we intentionally do NOT restyle html/body/#root. The public landing
+ * page stays light; dark pages opt in with the `.page-dark` wrapper below.
+ */
+@theme {
+  --color-navy: #0d1b2a;
+  --color-navy-deep: #0b1825;
+  --color-navy-mid: #162032;
+  --color-navy-light: #1e2f45;
+  --color-amber: #d4882a;
+  --color-amber-light: #e8a84c;
+  --color-terracotta: #c15a3f;
+  --color-sage: #5c8a6e;
+  --color-purple: #a07bc4;
+  --color-blue: #7bb8d4;
+  --color-cream: #f5efe6;
+  --color-cream-dim: #d6ccbf;
+
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body: 'Outfit', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+@layer components {
+  /*
+   * Dark page opt-in. Applied to the `<main>` of the Trips dashboard and the
+   * 404 page only — never globally — so the light landing page is untouched.
+   */
+  .page-dark {
+    background-color: var(--color-navy);
+    color: var(--color-cream);
+    font-family: var(--font-body);
+  }
+
+  /* Shared form control styling, reused by later lanes (Add/Edit Activity, …). */
+  .input-field {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    color: var(--color-cream);
+    font-family: var(--font-body);
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+  .input-field::placeholder {
+    color: rgba(214, 204, 191, 0.45);
+  }
+  .input-field:focus {
+    border-color: rgba(212, 136, 42, 0.5);
+  }
+  .input-field option {
+    background: var(--color-navy-mid);
+    color: var(--color-cream);
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+  }
+  .font-mono {
+    font-family: var(--font-mono);
+  }
+  .animate-rise {
+    animation: page-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@keyframes page-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise {
+    animation: none;
+  }
+}

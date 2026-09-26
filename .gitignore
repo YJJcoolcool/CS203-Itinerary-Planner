@@ -96,3 +96,10 @@ lerna-debug.log*
 .env
 .env.*
 !.env.example
+
+# =========================
+# Local design references
+# =========================
+
+# Figma Make export kept locally as a design reference; not part of the repo.
+planning/Collaborative Trip Itinerary/

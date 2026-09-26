@@ -55,6 +55,22 @@ public class ActivityController {
 
 
     /*
+     * GET /api/trips/5/activities/10/locations
+     *
+     * Get all locations belonging to Activity 10 in Trip 5.
+     */
+    @GetMapping("/{activityId}/locations")
+    public List<Location> getActivityLocations(
+            @PathVariable("tripId") Long tripId,
+            @PathVariable("activityId") Long activityId) {
+
+        return activityService.getActivityLocations(
+                tripId,
+                activityId);
+    }
+
+
+    /*
      * POST /api/trips/5/activities
      *
      * Create a NEW activity inside Trip 5.

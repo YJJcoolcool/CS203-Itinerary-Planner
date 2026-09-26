@@ -1,21 +1,8 @@
-import {
-  Show,
-  SignInButton,
-  SignUpButton,
-  UserButton,
-} from '@clerk/react'
+import { Show, SignInButton, SignUpButton, UserButton, useAuth } from '@clerk/react'
 import { Link } from 'react-router'
 import { useAuthConfiguration } from '../auth/authConfiguration'
-import { clerkAppearance } from '../auth/clerkAppearance'
-
-type NavbarProps = {
-  /** Use the light treatment on the public landing page and dark elsewhere. */
-  variant?: 'light' | 'dark'
-  /** Optional label shown on the right for pages such as sign-in and 404. */
-  pageLabel?: string
-  /** Only show the signed-in account control; useful for protected pages. */
-  accountOnly?: boolean
-}
+import { getClerkAppearance } from '../auth/clerkAppearance'
+import { useTheme } from '../lib/theme'
 
 function CompassMark() {
   return (
@@ -33,142 +20,150 @@ function CompassMark() {
   )
 }
 
-function AccountMenu({ variant }: { variant: NavbarProps['variant'] }) {
+function SunIcon() {
   return (
-    <Show when="signed-in">
-      <UserButton
-        appearance={variant === 'dark' ? clerkAppearance : undefined}
-        userProfileMode="modal"
-      >
-        <UserButton.MenuItems>
-          <UserButton.Action label="manageAccount" />
-          <UserButton.Link label="Trips" href="/trips" />
-          <UserButton.Action label="signOut" />
-        </UserButton.MenuItems>
-      </UserButton>
-    </Show>
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-4 w-4"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+    </svg>
   )
 }
 
-function AuthActions({ variant, accountOnly }: { variant: NavbarProps['variant']; accountOnly: boolean }) {
-  if (accountOnly) {
-    return <AccountMenu variant={variant} />
+function MoonIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-4 w-4"
+      aria-hidden="true"
+    >
+      <path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z" />
+    </svg>
+  )
+}
+
+const FOCUS_RING =
+  'focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none'
+
+function ThemeToggle() {
+  const { theme, toggleTheme } = useTheme()
+  const isDark = theme === 'dark'
+
+  return (
+    <button
+      type="button"
+      onClick={toggleTheme}
+      aria-label={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
+      title={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
+      className={`flex h-9 w-9 items-center justify-center rounded-full border border-border bg-surface-subtle text-muted transition-colors hover:border-border-strong hover:text-foreground ${FOCUS_RING}`}
+    >
+      {isDark ? <SunIcon /> : <MoonIcon />}
+    </button>
+  )
+}
+
+/** Clerk-only: renders the "My Trips" link for signed-in users. */
+function MyTripsLink() {
+  const { isSignedIn } = useAuth()
+
+  if (!isSignedIn) {
+    return null
   }
 
   return (
-    <>
-      <Show when="signed-out">
-        <div className="flex items-center gap-2">
-          <SignInButton mode="modal">
-            <button
-              type="button"
-              className={
-                variant === 'dark'
-                  ? 'rounded-lg px-3 py-2 text-sm font-medium text-cream-dim transition-colors hover:bg-white/[0.05] hover:text-cream'
-                  : 'rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900'
-              }
-            >
-              Sign in
-            </button>
-          </SignInButton>
-          <SignUpButton mode="modal">
-            <button
-              type="button"
-              className={
-                variant === 'dark'
-                  ? 'rounded-lg bg-amber px-3.5 py-2 text-sm font-semibold text-navy transition-colors hover:bg-amber-light'
-                  : 'rounded-lg bg-gray-900 px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-gray-700'
-              }
-            >
-              Create account
-            </button>
-          </SignUpButton>
-        </div>
-      </Show>
-
-      <AccountMenu variant={variant} />
-    </>
+    <Link
+      to="/trips"
+      className={`rounded-lg px-2 py-1.5 text-xs font-medium text-muted transition-colors hover:text-foreground sm:text-sm ${FOCUS_RING}`}
+    >
+      My Trips
+    </Link>
   )
 }
 
-export function Navbar({
-  variant = 'dark',
-  pageLabel,
-  accountOnly = false,
-}: NavbarProps) {
-  const { isConfigured } = useAuthConfiguration()
-
-  const isDark = variant === 'dark'
+/** Clerk-only: sign-in / sign-up for signed-out users, avatar menu when signed in. */
+function NavAuthControls() {
+  const { theme } = useTheme()
 
   return (
-    <header
-      className={
-        isDark
-          ? 'relative z-20 border-b border-white/[0.06] bg-navy/95'
-          : 'relative z-20 border-b border-gray-200 bg-white'
-      }
-    >
-      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-6 sm:px-8">
-        <Link
-          to="/"
-          className={
-            isDark
-              ? 'flex items-center gap-3 rounded-xl focus-visible:ring-2 focus-visible:ring-amber/70 focus-visible:ring-offset-2 focus-visible:ring-offset-navy focus-visible:outline-none'
-              : 'flex items-center gap-3 rounded-xl focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2 focus-visible:outline-none'
-          }
-          aria-label="Itinerary Planner home"
-        >
-          <span
-            className={
-              isDark
-                ? 'flex h-9 w-9 items-center justify-center rounded-xl bg-amber/10 text-amber ring-1 ring-amber/20'
-                : 'flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-gray-900 ring-1 ring-gray-200'
-            }
-            aria-hidden="true"
+    <div className="flex items-center gap-2 sm:gap-3">
+      <Show when="signed-out">
+        <SignInButton mode="modal">
+          <button
+            type="button"
+            className={`inline-flex rounded-xl border border-border px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:border-border-strong hover:text-foreground sm:px-4 sm:py-2 sm:text-sm ${FOCUS_RING}`}
           >
-            <CompassMark />
-          </span>
-          <span
-            className={
-              isDark
-                ? 'font-display text-lg font-medium tracking-tight text-cream'
-                : 'font-display text-lg font-medium tracking-tight text-gray-900'
-            }
+            Sign in
+          </button>
+        </SignInButton>
+        <SignUpButton mode="modal">
+          <button
+            type="button"
+            className={`inline-flex rounded-xl bg-accent px-3 py-1.5 text-xs font-semibold text-accent-contrast transition-colors hover:bg-accent-strong sm:px-4 sm:py-2 sm:text-sm ${FOCUS_RING}`}
           >
-            Itinerary Planner
-          </span>
-        </Link>
-
-        <div className="flex items-center gap-3">
-          {pageLabel && (
-            <span
-              className={
-                isDark
-                  ? 'font-mono text-[11px] tracking-[0.28em] text-cream-dim/45 uppercase'
-                  : 'font-mono text-[11px] tracking-[0.28em] text-gray-500 uppercase'
-              }
-            >
-              {pageLabel}
-            </span>
-          )}
-
-          {isConfigured ? (
-            <AuthActions variant={variant} accountOnly={accountOnly} />
-          ) : (
-            !accountOnly && pageLabel === undefined && (
-              <span
-                className={
-                  isDark
-                    ? 'text-xs text-cream-dim/45'
-                    : 'text-xs text-gray-500'
-                }
-              >
-                Authentication unavailable
-              </span>
-            )
-          )}
+            Get started
+          </button>
+        </SignUpButton>
+      </Show>
+      <Show when="signed-in">
+        <div className="flex items-center rounded-full border border-border bg-surface-subtle p-0.5">
+          <UserButton appearance={getClerkAppearance(theme)} />
         </div>
-      </div>
+      </Show>
+    </div>
+  )
+}
+
+/**
+ * Shared top navigation. Safe to render on public pages: the wordmark and theme
+ * toggle always render, while any Clerk component is gated on `isConfigured` so
+ * no Clerk context is required when auth is not set up.
+ */
+export function Navbar() {
+  const { isConfigured } = useAuthConfiguration()
+
+  return (
+    <header className="sticky top-0 z-40 border-b border-border bg-surface/80 backdrop-blur-md">
+      <nav
+        aria-label="Primary"
+        className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-8"
+      >
+        <div className="flex min-w-0 items-center gap-3 sm:gap-6">
+          <Link
+            to="/"
+            className={`flex items-center gap-2.5 rounded-lg ${FOCUS_RING}`}
+          >
+            <span
+              className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-soft text-accent ring-1 ring-accent/25"
+              aria-hidden="true"
+            >
+              <CompassMark />
+            </span>
+            <span className="font-display text-base font-medium tracking-tight text-foreground sm:text-lg">
+              Agile Trips
+            </span>
+          </Link>
+
+          {isConfigured ? <MyTripsLink /> : null}
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          <ThemeToggle />
+          {isConfigured ? <NavAuthControls /> : null}
+        </div>
+      </nav>
     </header>
   )
 }

@@ -1,8 +1,18 @@
-import { Link } from 'react-router'
+import { useMemo, useState } from 'react'
 import { Navbar } from '../components/Navbar'
-import { useAuthConfiguration } from '../auth/authConfiguration'
+import { CreateTripModal } from '../components/trips/CreateTripModal'
+import { TripCard, TripCardSkeleton } from '../components/trips/TripCard'
+import { tripsForUser } from '../lib/api'
+import { useCurrentUser, useTrips } from '../lib/useTrips'
 
-function PlusIcon({ className = '' }: { className?: string }) {
+const FOCUS_RING =
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface'
+
+const PRIMARY_BUTTON = `inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-5 py-3 text-sm font-semibold text-accent-contrast transition-colors hover:bg-accent-strong ${FOCUS_RING}`
+
+const SHOWCASE_SKELETONS = [0, 1, 2]
+
+function PlusIcon() {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -10,7 +20,7 @@ function PlusIcon({ className = '' }: { className?: string }) {
       stroke="currentColor"
       strokeWidth="1.75"
       strokeLinecap="round"
-      className={`h-4 w-4 ${className}`}
+      className="h-4 w-4"
       aria-hidden="true"
     >
       <path d="M12 5v14M5 12h14" />
@@ -18,119 +28,165 @@ function PlusIcon({ className = '' }: { className?: string }) {
   )
 }
 
-function ArrowLeftIcon() {
+function CompassIcon() {
   return (
     <svg
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.75"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-4 w-4"
+      strokeWidth="1.5"
+      className="h-6 w-6"
       aria-hidden="true"
     >
-      <path d="M19 12H5M11 18l-6-6 6-6" />
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M15 9l-1.9 4.6L8.5 15.5l1.9-4.6L15 9Z" strokeLinejoin="round" />
     </svg>
   )
 }
 
-function ItinerarySkeleton() {
-  const rows = [
-    { dot: 'bg-blue', bar: 'w-3/5' },
-    { dot: 'bg-amber', bar: 'w-4/5' },
-    { dot: 'bg-sage', bar: 'w-2/5' },
-  ]
+function AlertIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-6 w-6"
+      aria-hidden="true"
+    >
+      <path d="M12 3.5 21 20H3L12 3.5Z" />
+      <path d="M12 10v4M12 17.2v.1" />
+    </svg>
+  )
+}
 
+function TripGridSkeleton() {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {SHOWCASE_SKELETONS.map((index) => (
+        <TripCardSkeleton key={index} />
+      ))}
+    </div>
+  )
+}
+
+function EmptyState({ onCreate }: { onCreate: () => void }) {
+  return (
+    <div className="animate-rise mx-auto flex max-w-xl flex-col items-center rounded-2xl border border-border bg-surface-raised px-6 py-12 text-center">
+      <span
+        className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-soft text-accent ring-1 ring-accent/25"
+        aria-hidden="true"
+      >
+        <CompassIcon />
+      </span>
+      <h2 className="mt-5 font-display text-2xl font-medium tracking-tight text-foreground">
+        No trips yet
+      </h2>
+      <p className="mt-3 max-w-sm text-sm leading-relaxed text-muted">
+        Create your first trip and it will show up here.
+      </p>
+      <button type="button" onClick={onCreate} className={`mt-7 ${PRIMARY_BUTTON}`}>
+        <PlusIcon />
+        Create your first trip
+      </button>
+    </div>
+  )
+}
+
+function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
     <div
-      aria-hidden="true"
-      className="rounded-xl border border-white/[0.06] bg-white/[0.015] p-5"
+      role="alert"
+      className="animate-rise mx-auto flex max-w-xl flex-col items-center rounded-2xl border border-terracotta/40 bg-terracotta/10 px-6 py-12 text-center"
     >
-      <div className="flex items-center justify-between">
-        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-cream-dim/45">
-          Itinerary preview
-        </span>
-        <span className="font-mono text-[10px] text-cream-dim/35">0 stops</span>
-      </div>
-
-      <div className="mt-5 flex flex-col gap-4">
-        {rows.map((row) => (
-          <div key={row.bar} className="flex items-center gap-3">
-            <span className={`h-2 w-2 flex-shrink-0 rounded-full opacity-70 ${row.dot}`} />
-            <span className={`h-2 rounded-full bg-white/[0.06] ${row.bar}`} />
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-5 flex items-center gap-2 rounded-lg border border-dashed border-white/[0.1] px-3 py-2.5">
-        <PlusIcon className="text-cream-dim/30" />
-        <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-cream-dim/30">
-          Add activity
-        </span>
-      </div>
+      <span
+        className="flex h-12 w-12 items-center justify-center rounded-2xl bg-terracotta/15 text-terracotta"
+        aria-hidden="true"
+      >
+        <AlertIcon />
+      </span>
+      <h2 className="mt-5 font-display text-2xl font-medium tracking-tight text-foreground">
+        Couldn&apos;t load your trips
+      </h2>
+      <p className="mt-3 max-w-md text-sm leading-relaxed text-muted">{message}</p>
+      <button type="button" onClick={onRetry} className={`mt-7 ${PRIMARY_BUTTON}`}>
+        Retry
+      </button>
     </div>
   )
 }
 
 export function TripsPage() {
-  const { isConfigured } = useAuthConfiguration()
+  const { user, isLoading: isUserLoading } = useCurrentUser()
+  const { trips, isLoading: isTripsLoading, error, refresh } = useTrips()
+  const [isCreateOpen, setIsCreateOpen] = useState(false)
+
+  // `GET /api/trips` returns every trip, so scope the list to the current user.
+  const myTrips = useMemo(() => tripsForUser(trips, user?.id), [trips, user?.id])
+
+  const isLoading = isTripsLoading || isUserLoading
+  const hasTrips = !isLoading && !error && myTrips.length > 0
+
+  let subtitle: string
+  if (isLoading) {
+    subtitle = 'Loading your trips…'
+  } else if (error) {
+    subtitle = 'We couldn\u2019t load your trips.'
+  } else if (myTrips.length === 0) {
+    subtitle = 'Trips you create or join will appear here.'
+  } else {
+    subtitle = `${myTrips.length} ${myTrips.length === 1 ? 'trip' : 'trips'}`
+  }
 
   return (
-    <main className="page-dark relative flex min-h-screen flex-col overflow-hidden">
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-amber/[0.07] blur-[120px]" />
-        <div className="absolute -right-16 -bottom-32 h-80 w-80 rounded-full bg-blue/[0.05] blur-[120px]" />
-      </div>
+    <main className="relative flex min-h-screen flex-col bg-surface text-foreground">
+      <Navbar />
 
-      <Navbar variant="dark" accountOnly={isConfigured} />
-
-      <section className="relative z-10 flex flex-1 items-center justify-center px-6 py-16 sm:px-8">
-        <div className="w-full max-w-3xl">
-          <div className="animate-rise grid gap-10 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-8 shadow-[0_30px_80px_-40px_rgba(0,0,0,0.9)] sm:p-12 md:grid-cols-[1.15fr_0.85fr] md:items-center">
-            <div>
-              <span className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.28em] text-cream-dim/60">
-                <span className="h-1.5 w-1.5 rounded-full bg-amber" aria-hidden="true" />
-                My Trips
-              </span>
-
-              <h1 className="mt-5 font-display text-4xl leading-[1.05] font-medium tracking-tight text-cream sm:text-5xl">
-                No trips <span className="text-amber-light italic">yet</span>.
-              </h1>
-
-              <p className="mt-5 max-w-md text-[15px] leading-relaxed text-cream-dim">
-                This dashboard is a placeholder. Once trips can be created and loaded,
-                they&apos;ll show up here — for now there is nothing to display.
-              </p>
-
-              <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <button
-                  type="button"
-                  disabled
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber px-5 py-3 text-sm font-semibold text-navy transition-colors disabled:cursor-not-allowed disabled:opacity-40 disabled:saturate-50"
-                >
-                  <PlusIcon />
-                  Create your first trip
-                </button>
-
-                <Link
-                  to="/"
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/[0.12] px-5 py-3 text-sm font-medium text-cream-dim transition-colors hover:border-white/20 hover:bg-white/[0.05] hover:text-cream focus-visible:ring-2 focus-visible:ring-amber/70 focus-visible:ring-offset-2 focus-visible:ring-offset-navy focus-visible:outline-none"
-                >
-                  <ArrowLeftIcon />
-                  Back to home
-                </Link>
-              </div>
-
-              <p className="mt-4 font-mono text-[11px] text-cream-dim/45">
-                Trip creation isn&apos;t wired up yet.
-              </p>
-            </div>
-
-            <ItinerarySkeleton />
+      <section className="mx-auto w-full max-w-6xl flex-1 px-6 py-10 sm:px-8 sm:py-14">
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <span className="flex items-center gap-2 font-mono text-[11px] tracking-[0.28em] text-faint uppercase">
+              <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
+              Trips
+            </span>
+            <h1 className="mt-3 font-display text-3xl font-medium tracking-tight text-foreground sm:text-4xl">
+              My Trips
+            </h1>
+            <p className="mt-2 text-sm text-muted">{subtitle}</p>
           </div>
+
+          {hasTrips && (
+            <button type="button" onClick={() => setIsCreateOpen(true)} className={PRIMARY_BUTTON}>
+              <PlusIcon />
+              New trip
+            </button>
+          )}
+        </header>
+
+        <div className="mt-8">
+          {isLoading ? (
+            <TripGridSkeleton />
+          ) : error ? (
+            <ErrorState message={error} onRetry={refresh} />
+          ) : myTrips.length === 0 ? (
+            <EmptyState onCreate={() => setIsCreateOpen(true)} />
+          ) : (
+            <ul className="grid list-none gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {myTrips.map((trip) => (
+                <li key={trip.id}>
+                  <TripCard trip={trip} />
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </section>
+
+      {isCreateOpen && (
+        <CreateTripModal onClose={() => setIsCreateOpen(false)} onCreated={refresh} />
+      )}
     </main>
   )
 }

@@ -15,7 +15,10 @@ function SignedInGuard({ children }: PropsWithChildren) {
     return <>{children}</>
   }
 
-  return <Navigate to="/sign-in" replace state={{ from: location }} />
+  // Bounce to the landing page with the origin recorded; LandingPage opens the
+  // sign-in modal once from that state. We deliberately do NOT open the modal
+  // here, so signing out never triggers an immediate re-login prompt.
+  return <Navigate to="/" replace state={{ from: location }} />
 }
 
 export function RequireAuth({ children }: PropsWithChildren) {

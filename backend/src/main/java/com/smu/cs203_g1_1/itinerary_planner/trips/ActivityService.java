@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+
 @Service
 public class ActivityService {
 
@@ -55,6 +56,20 @@ public class ActivityService {
                         -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "Activity not found"));
+    }
+
+
+    /*
+     * GET all locations belonging to one activity in one specific trip.
+     */
+    @Transactional(readOnly = true)
+    public List<Location> getActivityLocations(
+            Long tripId,
+            Long activityId) {
+
+        Activity activity = getActivity(tripId, activityId);
+
+        return new ArrayList<>(activity.getLocations());
     }
 
 

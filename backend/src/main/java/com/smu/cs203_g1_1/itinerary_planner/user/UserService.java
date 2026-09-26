@@ -1,9 +1,13 @@
 package com.smu.cs203_g1_1.itinerary_planner.user;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class UserService {
+    private static final Logger log = LoggerFactory.getLogger(UserService.class);
+
     private final UserRepository userRepository;
 
     public UserService(UserRepository userRepository) {
@@ -17,7 +21,15 @@ public class UserService {
 
     public User findOrCreateUser(String clerkUserId, String displayName) {
         return userRepository.findByClerkUserId(clerkUserId)
-                .orElseGet(() -> userRepository.save(new User(clerkUserId, displayName)));
+                .map(existing -> {
+                    log.debug("Found existing user for clerk id {}", clerkUserId);
+                    return existing;
+                })
+                .orElseGet(() -> {
+                    User created = userRepository.save(new User(clerkUserId, displayName));
+                    log.info("Created user id={} for clerk id {}", created.getId(), clerkUserId);
+                    return created;
+                });
     }
 
     public User getUserById(long id){
@@ -31,7 +43,9 @@ public class UserService {
 
     public User updateDisplayName(User user, String displayName) {
         user.setDisplayName(displayName);
-        return userRepository.save(user);
+        User saved = userRepository.save(user);
+        log.info("Updated display name for user id={}", user.getId());
+        return saved;
     }
 
     /*

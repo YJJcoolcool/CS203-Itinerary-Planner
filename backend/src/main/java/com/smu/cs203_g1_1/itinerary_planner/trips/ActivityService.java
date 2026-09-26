@@ -4,6 +4,8 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,6 +14,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class ActivityService {
+
+    private static final Logger log = LoggerFactory.getLogger(ActivityService.class);
 
     private final ActivityRepository activityRepository;
     private final TripService tripService;
@@ -53,9 +57,12 @@ public class ActivityService {
         return activityRepository
                 .findByIdAndTripId(activityId, tripId)
                 .orElseThrow(()
-                        -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Activity not found"));
+                        -> {
+                    log.warn("Activity not found: id={} tripId={}", activityId, tripId);
+                    return new ResponseStatusException(
+                            HttpStatus.NOT_FOUND,
+                            "Activity not found");
+                });
     }
 
 
@@ -97,7 +104,9 @@ public class ActivityService {
         // Activity.trip
         trip.addActivity(activity);
 
-        return activityRepository.save(activity);
+        Activity saved = activityRepository.save(activity);
+        log.info("Created activity id={} in trip id={}", saved.getId(), tripId);
+        return saved;
     }
 
 
@@ -135,7 +144,9 @@ public class ActivityService {
 
         activity.setLocations(locations);
 
-        return activityRepository.save(activity);
+        Activity saved = activityRepository.save(activity);
+        log.info("Updated activity id={} in trip id={}", activityId, tripId);
+        return saved;
     }
 
 
@@ -156,6 +167,8 @@ public class ActivityService {
         activity.getTrip().removeActivity(activity);
 
         activityRepository.delete(activity);
+
+        log.info("Deleted activity id={} from trip id={}", activityId, tripId);
     }
 
 
@@ -170,6 +183,7 @@ public class ActivityService {
         if (requestedLocations == null
                 || requestedLocations.isEmpty()) {
 
+            log.warn("Activity rejected: no locations provided");
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Activity must contain at least one location");
@@ -183,6 +197,7 @@ public class ActivityService {
             if (location == null
                     || location.getId() == null) {
 
+                log.warn("Activity rejected: location without a valid id");
                 throw new ResponseStatusException(
                         HttpStatus.BAD_REQUEST,
                         "Every location must contain a location id");
@@ -208,6 +223,7 @@ public class ActivityService {
                 && endDateTime != null
                 && endDateTime.isBefore(startDateTime)) {
 
+            log.warn("Activity rejected: end {} is before start {}", endDateTime, startDateTime);
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Activity end time cannot be before start time");

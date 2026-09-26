@@ -1,9 +1,9 @@
 package com.smu.cs203_g1_1.itinerary_planner.config;
 
 import java.util.List;
+import java.util.Locale;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -26,10 +26,18 @@ public class SecurityConfig {
     @Value("${CLERK_ISSUER_URI:}")
     private String issuerUri;
 
-    @Bean
-    @ConditionalOnProperty(name = "CLERK_ISSUER_URI")
-    JwtDecoder jwtDecoder() {
-        return JwtDecoders.fromIssuerLocation(issuerUri);
+    /**
+     * A Clerk issuer is only usable if it is non-blank and not one of the
+     * placeholders shipped in {@code backend/.env.example}. Copying that example
+     * to {@code .env} must not silently enable JWT auth (the placeholder host
+     * does not exist and would break startup).
+     */
+    static boolean isClerkConfigured(String candidate) {
+        if (!StringUtils.hasText(candidate)) {
+            return false;
+        }
+        String normalized = candidate.trim().toLowerCase(Locale.ROOT);
+        return !normalized.contains("replace_me") && !normalized.contains("your-instance");
     }
 
     @Bean
@@ -38,14 +46,15 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults());
 
-        boolean jwtConfigured = StringUtils.hasText(issuerUri);
-
-        if (jwtConfigured) {
+        if (isClerkConfigured(issuerUri)) {
+            // Built lazily so an unconfigured/placeholder issuer never triggers a
+            // network lookup against a non-existent Clerk instance at startup.
+            JwtDecoder jwtDecoder = JwtDecoders.fromIssuerLocation(issuerUri);
             http
                     .authorizeHttpRequests(authorize -> authorize
                             .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                             .anyRequest().authenticated())
-                    .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()));
+                    .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.decoder(jwtDecoder)));
         } else {
             http.authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll());
         }

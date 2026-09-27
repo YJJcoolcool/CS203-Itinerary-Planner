@@ -150,3 +150,8 @@ export function tripsForUser(trips: Trip[], userId: number | undefined): Trip[] 
   if (userId === undefined) return []
   return trips.filter((trip) => isUserMemberOfTrip(trip, userId))
 }
+
+/** Fetches a single trip. Throws `ApiError` with status 404 when it does not exist. */
+export function getTrip(token: string | null, tripId: number): Promise<Trip> {
+  return request<Trip>(`/api/trips/${tripId}`, { token })
+}

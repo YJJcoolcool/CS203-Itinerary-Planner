@@ -3,6 +3,7 @@ import { RequireAuth } from './auth/RequireAuth'
 import { LandingPage } from './routes/LandingPage'
 import { NotFoundPage } from './routes/NotFoundPage'
 import { TripsPage } from './routes/TripsPage'
+import { TripDetailsPage } from './routes/TripDetailsPage'
 
 function App() {
   return (
@@ -14,6 +15,14 @@ function App() {
           element={
             <RequireAuth>
               <TripsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/trips/:tripId"
+          element={
+            <RequireAuth>
+              <TripDetailsPage />
             </RequireAuth>
           }
         />

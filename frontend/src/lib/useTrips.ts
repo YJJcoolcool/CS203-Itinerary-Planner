@@ -6,6 +6,7 @@ import {
   ApiError,
   createBackendUser,
   createTrip as createTripRequest,
+  getTrip,
   getTrips,
 } from './api'
 
@@ -21,6 +22,16 @@ export interface UseTripsResult {
   trips: Trip[]
   isLoading: boolean
   error: string | null
+  refresh: () => void
+}
+
+/** Result of `useTrip(tripId)`. */
+export interface UseTripResult {
+  trip: Trip | null
+  isLoading: boolean
+  error: string | null
+  /** HTTP status of the failed request (e.g. 404), or null. */
+  errorStatus: number | null
   refresh: () => void
 }
 
@@ -162,6 +173,59 @@ function useConfiguredTrips(): UseTripsResult {
   return { trips, isLoading, error, refresh }
 }
 
+function useConfiguredTrip(tripId: number): UseTripResult {
+  const { getToken, isLoaded, isSignedIn } = useAuth()
+
+  const [trip, setTrip] = useState<Trip | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [errorStatus, setErrorStatus] = useState<number | null>(null)
+  const [reloadCount, setReloadCount] = useState(0)
+
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) return
+
+    let cancelled = false
+
+    async function load() {
+      setIsLoading(true)
+      setError(null)
+      setErrorStatus(null)
+
+      try {
+        const token = await getToken()
+        if (cancelled) return
+        if (!token) throw new ApiError(401, NO_SESSION_MESSAGE)
+
+        const result = await getTrip(token, tripId)
+        if (!cancelled) setTrip(result)
+      } catch (cause) {
+        if (!cancelled) {
+          setError(describeError(cause))
+          setErrorStatus(cause instanceof ApiError ? cause.status : null)
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+
+    void load()
+
+    return () => {
+      cancelled = true
+    }
+  }, [getToken, isLoaded, isSignedIn, reloadCount, tripId])
+
+  const refresh = useCallback(() => {
+    setReloadCount((count) => count + 1)
+  }, [])
+
+  if (!isLoaded) return { trip: null, isLoading: true, error: null, errorStatus: null, refresh }
+  // Only expose the trip that matches the requested id, never a stale one.
+  const current = trip?.id === tripId ? trip : null
+  return { trip: current, isLoading, error, errorStatus, refresh }
+}
+
 function useConfiguredCreateTrip(): UseCreateTripResult {
   const { getToken } = useAuth()
   const { user: clerkUser } = useUser()
@@ -220,6 +284,14 @@ function useUnconfiguredTrips(): UseTripsResult {
   }
 }
 
+function useUnconfiguredTrip(): UseTripResult {
+  const refresh = useCallback(() => {
+    // Nothing to refresh while authentication is unconfigured.
+  }, [])
+
+  return { trip: null, isLoading: false, error: NOT_CONFIGURED_MESSAGE, errorStatus: null, refresh }
+}
+
 function rejectWithNotConfigured(): Promise<Trip> {
   return Promise.reject(new ApiError(0, NOT_CONFIGURED_MESSAGE))
 }
@@ -251,6 +323,11 @@ export const useTrips: () => UseTripsResult = CLERK_CONFIGURED
   ? useConfiguredTrips
   : useUnconfiguredTrips
 
+/** Loads a single trip by id for the trip details page. */
+export const useTrip: (tripId: number) => UseTripResult = CLERK_CONFIGURED
+  ? useConfiguredTrip
+  : useUnconfiguredTrip
+  
 /**
  * Creates a trip, resolving the owner via `POST /api/users/me` internally.
  */

@@ -1,4 +1,4 @@
-import type { CreateTripInput, Trip, User } from '../types/trip'
+import type { Activity, CreateTripInput, Location, Trip, User } from '../types/trip'
 
 /**
  * Base URL for the Spring backend. Falls back to local development so the
@@ -154,4 +154,18 @@ export function tripsForUser(trips: Trip[], userId: number | undefined): Trip[] 
 /** Fetches a single trip. Throws `ApiError` with status 404 when it does not exist. */
 export function getTrip(token: string | null, tripId: number): Promise<Trip> {
   return request<Trip>(`/api/trips/${tripId}`, { token })
+}
+
+/** Fetches a trip's activities, ordered by start time. */
+export function getActivities(token: string | null, tripId: number): Promise<Activity[]> {
+  return request<Activity[]>(`/api/trips/${tripId}/activities`, { token })
+}
+
+/** Fetches the locations attached to one activity of a trip. */
+export function getActivityLocations(
+  token: string | null,
+  tripId: number,
+  activityId: number,
+): Promise<Location[]> {
+  return request<Location[]>(`/api/trips/${tripId}/activities/${activityId}/locations`, { token })
 }

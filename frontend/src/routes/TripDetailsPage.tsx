@@ -3,6 +3,7 @@ import { Navbar } from '../components/Navbar'
 import { TripDetailsCard } from '../components/trips/TripDetailsCard'
 import { useTrip } from '../lib/useTrips'
 import { NotFoundPage } from './NotFoundPage'
+import { TripItinerary } from '../components/trips/TripItinerary'
 
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface'
@@ -57,14 +58,17 @@ function TripDetailsContent({ tripId }: { tripId: number }) {
         ) : error ? (
           <ErrorState message={error} onRetry={refresh} />
         ) : trip ? (
-          <TripDetailsCard trip={trip} />
+          <>
+            <TripDetailsCard trip={trip} />
+            <TripItinerary tripId={trip.id} />
+          </>
         ) : null}
       </section>
     </main>
   )
 }
 
-/** `/trips/:tripId` — header card now; the itinerary is added below it later. */
+/** `/trips/:tripId` — header card with the itinerary below it. */
 export function TripDetailsPage() {
   const { tripId } = useParams()
   const id = Number(tripId)

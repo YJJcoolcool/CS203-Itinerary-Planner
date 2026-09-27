@@ -1,13 +1,15 @@
 import { useAuth, useUser } from '@clerk/react'
 import { useCallback, useEffect, useState } from 'react'
 import { publishableKey } from '../auth/authConfiguration'
-import type { CreateTripInput, Trip, User } from '../types/trip'
+import type { Activity, CreateTripInput, Location, Trip, User } from '../types/trip'
 import {
   ApiError,
   createBackendUser,
   createTrip as createTripRequest,
   getTrip,
   getTrips,
+  getActivities,
+  getActivityLocations,
 } from './api'
 
 /** Result of `useCurrentUser()`. */
@@ -32,6 +34,20 @@ export interface UseTripResult {
   error: string | null
   /** HTTP status of the failed request (e.g. 404), or null. */
   errorStatus: number | null
+  refresh: () => void
+}
+
+/** Result of `useTripItinerary(tripId)`. */
+export interface UseTripItineraryResult {
+  activities: Activity[]
+  /**
+   * Locations keyed by activity id. A missing key means that activity's
+   * locations failed to load; an empty array means it has none.
+   */
+  locationsByActivity: Record<number, Location[]>
+  isLoading: boolean
+  isLoadingLocations: boolean
+  error: string | null
   refresh: () => void
 }
 
@@ -226,6 +242,93 @@ function useConfiguredTrip(tripId: number): UseTripResult {
   return { trip: current, isLoading, error, errorStatus, refresh }
 }
 
+interface ItineraryState {
+  tripId: number
+  activities: Activity[]
+  locationsByActivity: Record<number, Location[]>
+}
+
+function useConfiguredTripItinerary(tripId: number): UseTripItineraryResult {
+  const { getToken, isLoaded, isSignedIn } = useAuth()
+
+  const [state, setState] = useState<ItineraryState | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingLocations, setIsLoadingLocations] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [reloadCount, setReloadCount] = useState(0)
+
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) return
+
+    let cancelled = false
+
+    async function load() {
+      setIsLoading(true)
+      setIsLoadingLocations(false)
+      setError(null)
+
+      try {
+        const token = await getToken()
+        if (cancelled) return
+        if (!token) throw new ApiError(401, NO_SESSION_MESSAGE)
+
+        // Step 1: the activities themselves.
+        const activities = await getActivities(token, tripId)
+        if (cancelled) return
+        setState({ tripId, activities, locationsByActivity: {} })
+        setIsLoading(false)
+
+        // Step 2: once the activities are in, fetch every activity's
+        // locations in parallel. allSettled keeps one failure from hiding
+        // the locations of all the other activities.
+        if (activities.length === 0) return
+        setIsLoadingLocations(true)
+
+        const results = await Promise.allSettled(
+          activities.map((activity) => getActivityLocations(token, tripId, activity.id)),
+        )
+        if (cancelled) return
+
+        const locationsByActivity: Record<number, Location[]> = {}
+        results.forEach((result, index) => {
+          if (result.status === 'fulfilled') {
+            locationsByActivity[activities[index].id] = result.value
+          }
+        })
+        setState({ tripId, activities, locationsByActivity })
+      } catch (cause) {
+        if (!cancelled) setError(describeError(cause))
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false)
+          setIsLoadingLocations(false)
+        }
+      }
+    }
+
+    void load()
+
+    return () => {
+      cancelled = true
+    }
+  }, [getToken, isLoaded, isSignedIn, reloadCount, tripId])
+
+  const refresh = useCallback(() => {
+    setReloadCount((count) => count + 1)
+  }, [])
+
+  // Only expose data loaded for the requested trip, never a stale one.
+  const current = state?.tripId === tripId ? state : null
+  return {
+    activities: current?.activities ?? EMPTY_ACTIVITIES,
+    locationsByActivity: current?.locationsByActivity ?? EMPTY_LOCATIONS,
+    isLoading: !isLoaded || isLoading,
+    isLoadingLocations,
+    error,
+    refresh,
+  }
+}
+
 function useConfiguredCreateTrip(): UseCreateTripResult {
   const { getToken } = useAuth()
   const { user: clerkUser } = useUser()
@@ -270,6 +373,8 @@ function useUnconfiguredCurrentUser(): UseCurrentUserResult {
 }
 
 const EMPTY_TRIPS: Trip[] = []
+const EMPTY_ACTIVITIES: Activity[] = []
+const EMPTY_LOCATIONS: Record<number, Location[]> = {}
 
 function useUnconfiguredTrips(): UseTripsResult {
   const refresh = useCallback(() => {
@@ -290,6 +395,21 @@ function useUnconfiguredTrip(): UseTripResult {
   }, [])
 
   return { trip: null, isLoading: false, error: NOT_CONFIGURED_MESSAGE, errorStatus: null, refresh }
+}
+
+function useUnconfiguredTripItinerary(): UseTripItineraryResult {
+  const refresh = useCallback(() => {
+    // Nothing to refresh while authentication is unconfigured.
+  }, [])
+
+  return {
+    activities: EMPTY_ACTIVITIES,
+    locationsByActivity: EMPTY_LOCATIONS,
+    isLoading: false,
+    isLoadingLocations: false,
+    error: NOT_CONFIGURED_MESSAGE,
+    refresh,
+  }
 }
 
 function rejectWithNotConfigured(): Promise<Trip> {
@@ -327,6 +447,14 @@ export const useTrips: () => UseTripsResult = CLERK_CONFIGURED
 export const useTrip: (tripId: number) => UseTripResult = CLERK_CONFIGURED
   ? useConfiguredTrip
   : useUnconfiguredTrip
+
+/**
+ * Loads a trip's activities, then each activity's locations, for the
+ * itinerary section of the trip details page.
+ */
+export const useTripItinerary: (tripId: number) => UseTripItineraryResult = CLERK_CONFIGURED
+  ? useConfiguredTripItinerary
+  : useUnconfiguredTripItinerary
   
 /**
  * Creates a trip, resolving the owner via `POST /api/users/me` internally.

@@ -5,6 +5,29 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>frontend</title>
+    <script>
+      // Pre-hydration theme: applies the stored (or OS) theme class before React
+      // mounts so there is no flash of the wrong theme. Keep the storage key in
+      // sync with `src/lib/theme.tsx`.
+      (function () {
+        try {
+          var stored = localStorage.getItem('agile-trips-theme')
+          var theme =
+            stored === 'light' || stored === 'dark'
+              ? stored
+              : window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
+                ? 'light'
+                : 'dark'
+          var root = document.documentElement
+          root.classList.remove('light', 'dark')
+          root.classList.add(theme)
+          root.style.colorScheme = theme
+        } catch (error) {
+          document.documentElement.classList.add('dark')
+          document.documentElement.style.colorScheme = 'dark'
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

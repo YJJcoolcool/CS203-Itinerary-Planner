@@ -1,1 +1,166 @@
-@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,300;1,9..144,400&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import 'tailwindcss';
+
+/*
+ * Design tokens — dark editorial travel journal (FRONTEND_PAGES.md §2).
+ *
+ * Two layers:
+ *  1. Brand accents + the original navy/cream palette (static).
+ *  2. Semantic tokens (`surface`, `foreground`, `border`, `accent`, …) whose
+ *     values are swapped by the `<html>` theme class. Components should prefer
+ *     the semantic tokens so every page works in both themes.
+ *
+ * The theme class is applied before React mounts (see index.html) and kept in
+ * sync by `src/lib/theme.tsx`. Base (`:root`) values are the dark theme, so the
+ * brand look is the fallback if no class is present.
+ */
+@theme {
+  /* ---- Brand accents (identical in light & dark) ---- */
+  --color-amber: #d4882a;
+  --color-amber-light: #e8a84c;
+  --color-terracotta: #c15a3f;
+  --color-sage: #5c8a6e;
+  --color-purple: #a07bc4;
+  --color-blue: #7bb8d4;
+
+  /* ---- Legacy dark-editorial palette (still used by `.page-dark` pages) ---- */
+  --color-navy: #0d1b2a;
+  --color-navy-deep: #0b1825;
+  --color-navy-mid: #162032;
+  --color-navy-light: #1e2f45;
+  --color-cream: #f5efe6;
+  --color-cream-dim: #d6ccbf;
+
+  /* ---- Semantic tokens — default values are the DARK theme ---- */
+  --color-surface: #0d1b2a;
+  --color-surface-raised: #162032;
+  --color-surface-subtle: rgba(255, 255, 255, 0.03);
+  --color-foreground: #f5efe6;
+  --color-muted: #d6ccbf;
+  --color-faint: rgba(214, 204, 191, 0.55);
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 255, 255, 0.16);
+  --color-accent: #d4882a;
+  --color-accent-strong: #e8a84c;
+  --color-accent-soft: rgba(212, 136, 42, 0.14);
+  --color-accent-contrast: #0d1b2a;
+
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body: 'Outfit', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+/* Light theme: a warm paper counterpart, not a naive invert. */
+html.light {
+  color-scheme: light;
+  --color-surface: #f6f2ea;
+  --color-surface-raised: #ffffff;
+  --color-surface-subtle: rgba(13, 27, 42, 0.04);
+  --color-foreground: #182430;
+  --color-muted: #4f5b69;
+  --color-faint: rgba(24, 36, 48, 0.55);
+  --color-border: rgba(13, 27, 42, 0.12);
+  --color-border-strong: rgba(13, 27, 42, 0.2);
+  --color-accent: #a35f0e;
+  --color-accent-strong: #854c08;
+  --color-accent-soft: rgba(163, 95, 14, 0.12);
+  --color-accent-contrast: #ffffff;
+}
+
+/* Dark theme is the base; listed explicitly so `<html class="dark">` is valid. */
+html.dark {
+  color-scheme: dark;
+}
+
+@layer base {
+  html {
+    background-color: var(--color-surface);
+  }
+
+  body {
+    min-height: 100vh;
+    background-color: var(--color-surface);
+    color: var(--color-foreground);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html,
+  body {
+    transition:
+      background-color 0.3s ease,
+      color 0.3s ease;
+  }
+}
+
+@layer components {
+  /*
+   * Legacy fixed-dark page wrapper, kept for the existing Trips dashboard
+   * until it is rebuilt on the semantic tokens.
+   */
+  .page-dark {
+    background-color: var(--color-navy);
+    color: var(--color-cream);
+    font-family: var(--font-body);
+  }
+
+  /* Shared form control styling (theme-aware). */
+  .input-field {
+    width: 100%;
+    background: var(--color-surface-subtle);
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    color: var(--color-foreground);
+    font-family: var(--font-body);
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+  .input-field::placeholder {
+    color: var(--color-faint);
+  }
+  .input-field:focus {
+    border-color: var(--color-accent);
+  }
+  .input-field option {
+    background: var(--color-surface-raised);
+    color: var(--color-foreground);
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+  }
+  .font-mono {
+    font-family: var(--font-mono);
+  }
+  .animate-rise {
+    animation: page-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@keyframes page-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise {
+    animation: none;
+  }
+}

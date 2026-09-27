@@ -57,6 +57,21 @@ export const clerkAppearanceDark: ClerkAppearance = {
       borderRadius: '1rem',
       boxShadow: '0 30px 80px -40px rgba(0, 0, 0, 0.9)',
     },
+    /*
+     * The UserProfile modal (signed-in "Manage account") never renders `card`:
+     * its chrome is `cardBox` + `modalContent` + `pageScrollBox`, and its side
+     * nav is `navbar` / `navbarMobileMenuRow`. Without explicit backgrounds those
+     * keys fall back to no background or to `colorMuted` (4% alpha), letting the
+     * page show through. Pin the same opaque surfaces as card/footer.
+     */
+    cardBox: { backgroundColor: '#162032' },
+    modalContent: { backgroundColor: '#162032' },
+    pageScrollBox: { backgroundColor: '#162032' },
+    navbar: {
+      backgroundColor: '#1f293a',
+      borderRight: '1px solid rgba(255, 255, 255, 0.08)',
+    },
+    navbarMobileMenuRow: { backgroundColor: '#1f293a' },
     headerTitle: {
       fontFamily: DISPLAY_FONT,
       fontWeight: 500,
@@ -157,6 +172,21 @@ export const clerkAppearanceLight: ClerkAppearance = {
       borderRadius: '1rem',
       boxShadow: '0 24px 60px -34px rgba(16, 27, 42, 0.4)',
     },
+    /*
+     * The UserProfile modal (signed-in "Manage account") never renders `card`:
+     * its chrome is `cardBox` + `modalContent` + `pageScrollBox`, and its side
+     * nav is `navbar` / `navbarMobileMenuRow`. Without explicit backgrounds those
+     * keys fall back to no background or to `colorMuted` (4% alpha), letting the
+     * page show through. Pin the same opaque surfaces as card/footer.
+     */
+    cardBox: { backgroundColor: '#ffffff' },
+    modalContent: { backgroundColor: '#ffffff' },
+    pageScrollBox: { backgroundColor: '#ffffff' },
+    navbar: {
+      backgroundColor: '#f5f6f6',
+      borderRight: '1px solid rgba(13, 27, 42, 0.10)',
+    },
+    navbarMobileMenuRow: { backgroundColor: '#f5f6f6' },
     headerTitle: {
       fontFamily: DISPLAY_FONT,
       fontWeight: 500,

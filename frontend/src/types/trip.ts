@@ -12,6 +12,26 @@ export interface User {
   displayName: string | null
 }
 
+/** A place an activity happens at, as returned by the locations endpoints. */
+export interface Location {
+  id: number
+  name: string
+  category: string | null
+  latitude: number
+  longitude: number
+  isIndoor: boolean | null
+}
+
+/** An itinerary entry, as returned by `GET /api/trips/{tripId}/activities`. */
+export interface Activity {
+  id: number
+  name: string
+  /** ISO-8601 date-time with offset, e.g. `2026-10-14T08:30:00+09:00`. */
+  startDateTime: string | null
+  endDateTime: string | null
+  status: string | null
+}
+
 /** A trip as returned by `GET /api/trips` and `POST /api/trips`. */
 export interface Trip {
   id: number
@@ -22,7 +42,7 @@ export interface Trip {
   endDate: string
   owner: User
   users: User[]
-  itinerary: unknown[]
+  itinerary: Activity[]
 }
 
 /** Client-supplied fields for creating a trip. `ownerId` is added by the data layer. */

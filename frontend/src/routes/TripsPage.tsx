@@ -4,6 +4,7 @@ import { CreateTripModal } from '../components/trips/CreateTripModal'
 import { TripCard, TripCardSkeleton } from '../components/trips/TripCard'
 import { tripsForUser } from '../lib/api'
 import { useCurrentUser, useTrips } from '../lib/useTrips'
+import { Link } from 'react-router'
 
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface'
@@ -176,7 +177,13 @@ export function TripsPage() {
             <ul className="grid list-none gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {myTrips.map((trip) => (
                 <li key={trip.id}>
-                  <TripCard trip={trip} />
+                  <Link
+                    to={`/trips/${trip.id}`}
+                    className={`block h-full rounded-2xl ${FOCUS_RING}`}
+                    aria-label={`Open ${trip.name}`}
+                  >
+                    <TripCard trip={trip} />
+                  </Link>
                 </li>
               ))}
             </ul>

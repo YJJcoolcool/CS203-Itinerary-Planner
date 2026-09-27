@@ -11,8 +11,8 @@ import {
 const MAX_AVATARS = 4
 
 /**
- * Summary card for a single trip. Purely presentational and non-navigating:
- * the trip detail route is not built yet, so the card avoids implying a link.
+ * Summary card for a single trip. Purely presentational; the parent wraps it
+ * in a link to the trip detail page
  */
 export function TripCard({ trip }: { trip: Trip }) {
   const days = daysInclusive(trip.startDate, trip.endDate)
@@ -23,7 +23,7 @@ export function TripCard({ trip }: { trip: Trip }) {
   const overflow = members.length - visibleMembers.length
 
   return (
-    <article className="animate-rise flex h-full flex-col gap-4 rounded-2xl border border-border bg-surface-raised p-5">
+    <article className="animate-rise flex h-full flex-col gap-4 rounded-2xl border border-border bg-surface-raised p-5 transition-colors hover:border-border-strong">
       <div className="flex items-start justify-between gap-3">
         <h2 className="font-display text-xl leading-tight font-medium tracking-tight text-foreground">
           {trip.name}

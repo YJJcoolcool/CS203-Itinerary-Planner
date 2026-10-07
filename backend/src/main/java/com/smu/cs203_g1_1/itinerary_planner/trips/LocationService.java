@@ -5,15 +5,29 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import com.smu.cs203_g1_1.itinerary_planner.geo.GeoNotFoundException;
+import com.smu.cs203_g1_1.itinerary_planner.geo.GeoService;
+import com.smu.cs203_g1_1.itinerary_planner.geo.dto.PlaceDto;
+
+/**
+ * Manages stored locations, including idempotent import of OpenStreetMap places by identity.
+ */
 @Service
 public class LocationService {
     private static final Logger log = LoggerFactory.getLogger(LocationService.class);
 
     private final LocationRepository locationRepository;
+    private final GeoService geoService;
 
-    public LocationService(LocationRepository locationRepository) {
+    /**
+     * @param locationRepository persistence for stored locations
+     * @param geoService         hydrates new locations from OSM when a row is not already stored
+     */
+    public LocationService(LocationRepository locationRepository, GeoService geoService) {
         this.locationRepository = locationRepository;
+        this.geoService = geoService;
     }
 
     public List<Location> getAllLocations() {
@@ -32,6 +46,46 @@ public class LocationService {
         Location saved = locationRepository.save(location);
         log.info("Created location id={} name={}", saved.getId(), saved.getName());
         return saved;
+    }
+
+    /**
+     * Returns the location for an OSM identity, importing it on first use. Idempotent by
+     * {@code (osmType, osmId)}; new rows are hydrated from {@link GeoService#lookup} and
+     * saved in a transaction.
+     *
+     * @throws GeoNotFoundException when OSM has no record for the given identity
+     */
+    @Transactional
+    public Location findOrCreateFromOsm(String osmType, long osmId) {
+        return locationRepository.findByOsmTypeAndOsmId(osmType, osmId)
+                .orElseGet(() -> {
+                    PlaceDto place = geoService.lookup(osmType, osmId)
+                            .orElseThrow(() -> new GeoNotFoundException( "No OSM place found for " + osmType + "/" + osmId));
+
+                    Location location = new Location();
+                    location.setName(firstNonBlank( place.name(), place.displayName(), osmType + " " + osmId));
+                    location.setCategory(place.type() != null ? place.type() : place.category());
+                    location.setLatitude(place.latitude());
+                    location.setLongitude(place.longitude());
+                    location.setOsmType(place.osmType() != null ? place.osmType() : osmType);
+                    location.setOsmId(place.osmId() != null ? place.osmId() : osmId);
+                    location.setAddress(place.displayName());
+                    location.setOpeningHours(place.openingHours());
+
+                    Location saved = locationRepository.save(location);
+                    log.info("Imported OSM location id={} osm={}/{}", saved.getId(), saved.getOsmType(), saved.getOsmId());
+                    return saved;
+                });
+    }
+
+    /** Returns the first non-blank value, or null when none qualify. */
+    private static String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return null;
     }
 
     public boolean deleteLocation(Long id) {

@@ -4,7 +4,9 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.smu.cs203_g1_1.itinerary_planner.trips.invitations.TripInvitation;
 import com.smu.cs203_g1_1.itinerary_planner.user.User;
 
 import jakarta.persistence.*;
@@ -51,6 +53,12 @@ public class Trip {
      */
     @OneToMany(mappedBy = "trip", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Activity> itinerary = new ArrayList<>();
+
+    // cascade so deleting a trip removes its invites (FK would block it otherwise).
+    // No orphanRemoval: cancelling is a status change, not a delete.
+    @OneToMany(mappedBy = "trip", cascade = CascadeType.ALL)
+    @JsonIgnore
+    private List<TripInvitation> invitations = new ArrayList<>();
 
     // Required by JPA.
     protected Trip() {
@@ -125,5 +133,17 @@ public class Trip {
     public void removeActivity(Activity activity) {
         itinerary.remove(activity);
         // activities.trip_id is NOT NULL, so the back-reference is left intact.
+    }
+
+    public List<TripInvitation> getInvitations() {
+        return invitations;
+    }
+
+    // Only way to create an invite: guarantees invitation.trip == this and that it is in
+    // this list, so both sides of the relationship stay in sync (no setTrip on purpose).
+    public TripInvitation invite(User sender, User receiver) {
+        TripInvitation invitation = new TripInvitation(this, sender, receiver);
+        invitations.add(invitation);
+        return invitation;
     }
 }

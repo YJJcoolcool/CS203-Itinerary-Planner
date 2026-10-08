@@ -5,24 +5,24 @@
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
         <mxCell id="k8dJ5aZOfXiuoBGJ-63Q-3" parent="1" style="swimlane;whiteSpace=wrap;html=1;startSize=23;" value="com.smu.cs203_g1_1.itinerary_planner" vertex="1">
-          <mxGeometry height="1765.0" width="2020.0" x="590" y="-240" as="geometry">
+          <mxGeometry height="2639" width="2020.0" x="590" y="-240" as="geometry">
             <mxRectangle height="30" width="110" x="600" y="-290" as="alternateBounds" />
           </mxGeometry>
         </mxCell>
         <mxCell id="gEJpQPu-KACZBr15JeJe-1" parent="k8dJ5aZOfXiuoBGJ-63Q-3" style="swimlane;whiteSpace=wrap;html=1;" value="users" vertex="1">
-          <mxGeometry height="504" width="710.0" x="80" y="60" as="geometry" />
+          <mxGeometry height="580" width="710.0" x="80" y="60" as="geometry" />
         </mxCell>
         <mxCell id="xeXeo1Z9lcH9SvbHD81H-1" parent="gEJpQPu-KACZBr15JeJe-1" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="User" vertex="1">
-          <mxGeometry height="250" width="280.0" x="20.0" y="50" as="geometry" />
+          <mxGeometry height="304" width="280.0" x="20.0" y="50" as="geometry" />
         </mxCell>
-        <mxCell id="xeXeo1Z9lcH9SvbHD81H-2" parent="xeXeo1Z9lcH9SvbHD81H-1" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=visible;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;- id: Long&lt;/div&gt;&lt;div&gt;- clerkUserId: String&lt;/div&gt;&lt;div&gt;- displayName: String&lt;/div&gt;&lt;div&gt;- trips: List&amp;lt;Trip&amp;gt;&lt;/div&gt;" vertex="1">
-          <mxGeometry height="72" width="280.0" y="26" as="geometry" />
+        <mxCell id="xeXeo1Z9lcH9SvbHD81H-2" parent="xeXeo1Z9lcH9SvbHD81H-1" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=visible;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;- id: Long&lt;/div&gt;&lt;div&gt;- clerkUserId: String&lt;/div&gt;&lt;div&gt;- displayName: String&lt;/div&gt;&lt;div&gt;- email: String&lt;/div&gt;&lt;div&gt;- trips: List&amp;lt;Trip&amp;gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="90" width="280.0" y="26" as="geometry" />
         </mxCell>
         <mxCell id="xeXeo1Z9lcH9SvbHD81H-3" parent="xeXeo1Z9lcH9SvbHD81H-1" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" value="" vertex="1">
-          <mxGeometry height="8" width="280.0" y="98" as="geometry" />
+          <mxGeometry height="8" width="280.0" y="116" as="geometry" />
         </mxCell>
-        <mxCell id="xeXeo1Z9lcH9SvbHD81H-4" parent="xeXeo1Z9lcH9SvbHD81H-1" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=visible;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontColor=default;" value="&lt;div&gt;// Constructors&lt;/div&gt;&lt;div&gt;+ User(clerkUserId: String, displayName: String)&lt;/div&gt;&lt;div&gt;// Accessors &amp;amp; Mutators&lt;/div&gt;&lt;div&gt;+ getClerkUserId(): String&lt;/div&gt;&lt;div&gt;+ setClerkUserId(clerkUserId: String): void&lt;/div&gt;&lt;div&gt;+ getDisplayName(): String&lt;/div&gt;&lt;div&gt;+ setDisplayName(displayName: String): void&lt;/div&gt;&lt;div&gt;+ getTrips(): List&amp;lt;Trip&amp;gt;&lt;/div&gt;" vertex="1">
-          <mxGeometry height="144" width="280.0" y="106" as="geometry" />
+        <mxCell id="xeXeo1Z9lcH9SvbHD81H-4" parent="xeXeo1Z9lcH9SvbHD81H-1" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=visible;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontColor=default;" value="&lt;div&gt;// Constructors&lt;/div&gt;&lt;div&gt;+ User(clerkUserId: String, displayName: String)&lt;/div&gt;&lt;div&gt;// Accessors &amp;amp; Mutators&lt;/div&gt;&lt;div&gt;+ getClerkUserId(): String&lt;/div&gt;&lt;div&gt;+ setClerkUserId(clerkUserId: String): void&lt;/div&gt;&lt;div&gt;+ getDisplayName(): String&lt;/div&gt;&lt;div&gt;+ setDisplayName(displayName: String): void&lt;/div&gt;&lt;div&gt;+ getEmail(): String&lt;/div&gt;&lt;div&gt;+ setEmail(email: String): void&lt;/div&gt;&lt;div&gt;+ getTrips(): List&amp;lt;Trip&amp;gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="180" width="280.0" y="124" as="geometry" />
         </mxCell>
         <mxCell id="QCZV1sKpEK-x_VKdV-2D-10" edge="1" parent="gEJpQPu-KACZBr15JeJe-1" source="rZH5j-Nio2P0RmlZAOwp-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.75;exitDx=0;exitDy=0;" target="QCZV1sKpEK-x_VKdV-2D-7">
           <mxGeometry relative="1" as="geometry" />
@@ -56,18 +56,18 @@
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="QCZV1sKpEK-x_VKdV-2D-7" parent="gEJpQPu-KACZBr15JeJe-1" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="&lt;div&gt;UserService&lt;/div&gt;" vertex="1">
-          <mxGeometry height="124" width="280.0" x="40.0" y="340" as="geometry">
+          <mxGeometry height="160" width="280.0" x="40.0" y="380" as="geometry">
             <mxRectangle height="40" width="110" x="50" y="300" as="alternateBounds" />
           </mxGeometry>
         </mxCell>
         <mxCell id="QCZV1sKpEK-x_VKdV-2D-8" parent="QCZV1sKpEK-x_VKdV-2D-7" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" value="" vertex="1">
           <mxGeometry height="8" width="280.0" y="26" as="geometry" />
         </mxCell>
-        <mxCell id="QCZV1sKpEK-x_VKdV-2D-9" parent="QCZV1sKpEK-x_VKdV-2D-7" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=visible;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontColor=default;" value="&lt;div&gt;+ getUserByClerkId(clerkUserId: String): User&lt;/div&gt;&lt;div&gt;+ findOrCreateUser(clerkUserId: String, displayName: String): User&lt;/div&gt;&lt;div&gt;+ getUserById(id: Long): User&lt;/div&gt;&lt;div&gt;+ updateDisplayName(id: Long, displayName: String): User&lt;/div&gt;&lt;div&gt;+ getUserTrips(userID: Long): List&amp;lt;Trip&amp;gt;&lt;/div&gt;" vertex="1">
-          <mxGeometry height="90" width="280.0" y="34" as="geometry" />
+        <mxCell id="QCZV1sKpEK-x_VKdV-2D-9" parent="QCZV1sKpEK-x_VKdV-2D-7" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=visible;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontColor=default;" value="&lt;div&gt;+ getUserByClerkId(clerkUserId: String): User&lt;/div&gt;&lt;div&gt;+ findOrCreateUser(clerkUserId: String, displayName: String, email: String): User&lt;/div&gt;&lt;div&gt;+ getUserByEmail(email: String): User&lt;/div&gt;&lt;div&gt;+ getUserById(id: Long): User&lt;/div&gt;&lt;div&gt;+ updateDisplayName(id: Long, displayName: String): User&lt;/div&gt;&lt;div&gt;+ getUserTrips(userID: Long): List&amp;lt;Trip&amp;gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="126" width="280.0" y="34" as="geometry" />
         </mxCell>
         <mxCell id="gEJpQPu-KACZBr15JeJe-8" parent="k8dJ5aZOfXiuoBGJ-63Q-3" style="swimlane;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;" value="services" vertex="1">
-          <mxGeometry height="560" width="1560" x="60" y="1155.0" as="geometry" />
+          <mxGeometry height="560" width="1560" x="60" y="2029" as="geometry" />
         </mxCell>
         <mxCell id="gEJpQPu-KACZBr15JeJe-11" parent="gEJpQPu-KACZBr15JeJe-8" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;" value="WeatherAPI (data.gov.sg)" vertex="1">
           <mxGeometry height="120" width="280" x="30" y="50" as="geometry" />
@@ -164,25 +164,25 @@
           <mxGeometry height="52" width="280" y="76" as="geometry" />
         </mxCell>
         <mxCell id="gEJpQPu-KACZBr15JeJe-36" parent="k8dJ5aZOfXiuoBGJ-63Q-3" style="swimlane;whiteSpace=wrap;html=1;" value="trips" vertex="1">
-          <mxGeometry height="1046" width="1110.0" x="860" y="69" as="geometry" />
+          <mxGeometry height="1920" width="1110.0" x="860" y="69" as="geometry" />
         </mxCell>
         <mxCell id="xeXeo1Z9lcH9SvbHD81H-5" parent="gEJpQPu-KACZBr15JeJe-36" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="Trip" vertex="1">
-          <mxGeometry height="286" width="280.0" x="58.0" y="50" as="geometry" />
+          <mxGeometry height="358" width="280.0" x="58.0" y="50" as="geometry" />
         </mxCell>
-        <mxCell id="xeXeo1Z9lcH9SvbHD81H-6" parent="xeXeo1Z9lcH9SvbHD81H-5" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=visible;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;- id: Long&lt;/div&gt;&lt;div&gt;- name: String&lt;/div&gt;&lt;div&gt;- startDate: LocalDate&lt;/div&gt;&lt;div&gt;- endDate: LocalDate&lt;/div&gt;&lt;div&gt;- owner: User&lt;/div&gt;&lt;div&gt;- users: List&amp;lt;User&amp;gt;&lt;/div&gt;&lt;div&gt;- itinerary: List&amp;lt;Activity&amp;gt;&lt;/div&gt;" vertex="1">
-          <mxGeometry height="126" width="280.0" y="26" as="geometry" />
+        <mxCell id="xeXeo1Z9lcH9SvbHD81H-6" parent="xeXeo1Z9lcH9SvbHD81H-5" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=visible;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;- id: Long&lt;/div&gt;&lt;div&gt;- name: String&lt;/div&gt;&lt;div&gt;- startDate: LocalDate&lt;/div&gt;&lt;div&gt;- endDate: LocalDate&lt;/div&gt;&lt;div&gt;- owner: User&lt;/div&gt;&lt;div&gt;- users: List&amp;lt;User&amp;gt;&lt;/div&gt;&lt;div&gt;- itinerary: List&amp;lt;Activity&amp;gt;&lt;/div&gt;&lt;div&gt;- invitations: List&amp;lt;TripInvitation&amp;gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="144" width="280.0" y="26" as="geometry" />
         </mxCell>
         <mxCell id="xeXeo1Z9lcH9SvbHD81H-7" parent="xeXeo1Z9lcH9SvbHD81H-5" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" value="" vertex="1">
-          <mxGeometry height="8" width="280.0" y="152" as="geometry" />
+          <mxGeometry height="8" width="280.0" y="170" as="geometry" />
         </mxCell>
-        <mxCell id="xeXeo1Z9lcH9SvbHD81H-8" parent="xeXeo1Z9lcH9SvbHD81H-5" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=visible;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontColor=default;" value="&lt;div&gt;// Constructors&lt;/div&gt;&lt;div&gt;+ Trip(name: String, startDate: LocalDate, endDate: LocalDate, owner: User)&lt;/div&gt;&lt;div&gt;// Accessors &amp;amp; Mutators&lt;/div&gt;&lt;div&gt;+ addActivity(activity: Activity)&lt;/div&gt;&lt;div&gt;+ removeActivity(activity: Activity)&lt;/div&gt;&lt;div&gt;+ addMember(user: User)&lt;/div&gt;&lt;div&gt;+ removeMember(user: User)&lt;/div&gt;" vertex="1">
-          <mxGeometry height="126" width="280.0" y="160" as="geometry" />
+        <mxCell id="xeXeo1Z9lcH9SvbHD81H-8" parent="xeXeo1Z9lcH9SvbHD81H-5" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=visible;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontColor=default;" value="&lt;div&gt;// Constructors&lt;/div&gt;&lt;div&gt;+ Trip(name: String, startDate: LocalDate, endDate: LocalDate, owner: User)&lt;/div&gt;&lt;div&gt;// Accessors &amp;amp; Mutators&lt;/div&gt;&lt;div&gt;+ addActivity(activity: Activity)&lt;/div&gt;&lt;div&gt;+ removeActivity(activity: Activity)&lt;/div&gt;&lt;div&gt;+ addMember(user: User)&lt;/div&gt;&lt;div&gt;+ removeMember(user: User)&lt;/div&gt;&lt;div&gt;+ invite(sender: User, receiver: User): TripInvitation&lt;/div&gt;" vertex="1">
+          <mxGeometry height="180" width="280.0" y="178" as="geometry" />
         </mxCell>
         <mxCell id="QCZV1sKpEK-x_VKdV-2D-25" edge="1" parent="gEJpQPu-KACZBr15JeJe-36" source="rZH5j-Nio2P0RmlZAOwp-8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;" target="QCZV1sKpEK-x_VKdV-2D-13">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="rZH5j-Nio2P0RmlZAOwp-8" parent="gEJpQPu-KACZBr15JeJe-36" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="TripController" vertex="1">
-          <mxGeometry height="430" width="300.0" x="48.0" y="576" as="geometry">
+          <mxGeometry height="430" width="300.0" x="48.0" y="650" as="geometry">
             <mxRectangle height="40" width="110" x="50" y="300" as="alternateBounds" />
           </mxGeometry>
         </mxCell>
@@ -240,7 +240,7 @@
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="QCZV1sKpEK-x_VKdV-2D-13" parent="gEJpQPu-KACZBr15JeJe-36" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="TripService" vertex="1">
-          <mxGeometry height="160" width="280.0" x="58.0" y="376" as="geometry">
+          <mxGeometry height="196" width="280.0" x="58.0" y="430" as="geometry">
             <mxRectangle height="40" width="110" x="50" y="300" as="alternateBounds" />
           </mxGeometry>
         </mxCell>
@@ -248,7 +248,7 @@
           <mxGeometry height="8" width="280.0" y="26" as="geometry" />
         </mxCell>
         <mxCell id="QCZV1sKpEK-x_VKdV-2D-15" parent="QCZV1sKpEK-x_VKdV-2D-13" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=visible;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;fontColor=default;" value="&lt;div&gt;+ getAllTrips(): List&amp;lt;Trip&amp;gt;&lt;/div&gt;&lt;div&gt;+ getTrip(tripId: Long): Trip&lt;/div&gt;&lt;div&gt;+ createTrip(name: String, startDate: LocalDate, endDate: LocalDate, ownerId: Long): Trip&lt;/div&gt;&lt;div&gt;+ updateTrip(tripId: Long, name: String, startDate: LocalDate, endDate: LocalDate): Trip&lt;/div&gt;&lt;div&gt;+ deleteTrip(tripId: Long): void&lt;/div&gt;&lt;div&gt;+ addMember(tripId: Long, userId: Long): Trip&lt;/div&gt;&lt;div&gt;+ removeMember(tripId: Long, userId: Long): Trip&lt;/div&gt;" vertex="1">
-          <mxGeometry height="126" width="280.0" y="34" as="geometry" />
+          <mxGeometry height="162" width="280.0" y="34" as="geometry" />
         </mxCell>
         <mxCell id="QCZV1sKpEK-x_VKdV-2D-16" parent="gEJpQPu-KACZBr15JeJe-36" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="&amp;lt;&amp;lt;interface&amp;gt;&amp;gt; LocationRepository" vertex="1">
           <mxGeometry height="68" width="280.0" x="790.0" y="486" as="geometry">
@@ -288,6 +288,108 @@
         </mxCell>
         <mxCell id="activityController-repo-edge" edge="1" parent="gEJpQPu-KACZBr15JeJe-36" source="activityController" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;" target="QCZV1sKpEK-x_VKdV-2D-19">
           <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+                <mxCell id="common-pkg" parent="k8dJ5aZOfXiuoBGJ-63Q-3" style="swimlane;whiteSpace=wrap;html=1;" value="common" vertex="1">
+          <mxGeometry height="170" width="400" x="80" y="700" as="geometry" />
+        </mxCell>
+        <mxCell id="shortId" parent="common-pkg" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="ShortId" vertex="1">
+          <mxGeometry height="124" width="360" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="shortId-s0" parent="shortId" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=visible;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;- RANDOM: SecureRandom&lt;/div&gt;&lt;div&gt;- ALPHANUMERIC: char[]&lt;/div&gt;&lt;div&gt;- LENGTH: int = 8&lt;/div&gt;" vertex="1">
+          <mxGeometry height="54" width="360" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="shortId-sep1" parent="shortId" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" value="" vertex="1">
+          <mxGeometry height="8" width="360" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="shortId-s1" parent="shortId" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=visible;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ static generate(): String  // 8-char [0-9A-Za-z] via jnanoid&lt;/div&gt;" vertex="1">
+          <mxGeometry height="36" width="360" y="88" as="geometry" />
+        </mxCell>
+        <mxCell id="inv-pkg" parent="gEJpQPu-KACZBr15JeJe-36" style="swimlane;whiteSpace=wrap;html=1;" value="invitations" vertex="1">
+          <mxGeometry height="790" width="1030" x="40" y="1110" as="geometry" />
+        </mxCell>
+        <mxCell id="tripInvitation" parent="inv-pkg" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="TripInvitation" vertex="1">
+          <mxGeometry height="340" width="300" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="tripInvitation-s0" parent="tripInvitation" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=visible;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;- id: String  // 8-char ShortId&lt;/div&gt;&lt;div&gt;- trip: Trip&lt;/div&gt;&lt;div&gt;- sender: User&lt;/div&gt;&lt;div&gt;- receiver: User&lt;/div&gt;&lt;div&gt;- status: InvitationStatus&lt;/div&gt;&lt;div&gt;- createdAt: Instant&lt;/div&gt;&lt;div&gt;- respondedAt: Instant&lt;/div&gt;" vertex="1">
+          <mxGeometry height="126" width="300" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="tripInvitation-sep1" parent="tripInvitation" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" value="" vertex="1">
+          <mxGeometry height="8" width="300" y="152" as="geometry" />
+        </mxCell>
+        <mxCell id="tripInvitation-s1" parent="tripInvitation" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=visible;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;// Constructors&lt;/div&gt;&lt;div&gt;+ TripInvitation(trip: Trip, sender: User, receiver: User)&lt;/div&gt;&lt;div&gt;// State transitions (PENDING only)&lt;/div&gt;&lt;div&gt;+ accept(): void&lt;/div&gt;&lt;div&gt;+ decline(): void&lt;/div&gt;&lt;div&gt;+ cancel(): void&lt;/div&gt;&lt;div&gt;- transitionTo(next: InvitationStatus): void&lt;/div&gt;&lt;div&gt;// Accessors&lt;/div&gt;&lt;div&gt;+ getters for all fields&lt;/div&gt;" vertex="1">
+          <mxGeometry height="180" width="300" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="invitationStatus" parent="inv-pkg" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="&amp;lt;&amp;lt;enumeration&amp;gt;&amp;gt; InvitationStatus" vertex="1">
+          <mxGeometry height="98" width="260" x="350" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="invitationStatus-s0" parent="invitationStatus" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=visible;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;PENDING&lt;/div&gt;&lt;div&gt;ACCEPTED&lt;/div&gt;&lt;div&gt;DECLINED&lt;/div&gt;&lt;div&gt;CANCELLED&lt;/div&gt;" vertex="1">
+          <mxGeometry height="72" width="260" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="tripInvitationRepo" parent="inv-pkg" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="&amp;lt;&amp;lt;interface&amp;gt;&amp;gt; TripInvitationRepository" vertex="1">
+          <mxGeometry height="226" width="340" x="350" y="150" as="geometry" />
+        </mxCell>
+        <mxCell id="tripInvitationRepo-s0" parent="tripInvitationRepo" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=visible;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;extends JpaRepository&amp;lt;TripInvitation, String&amp;gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;+ findByReceiverIdAndStatusOrderByCreatedAtDesc( receiverId: Long, status: InvitationStatus): List&amp;lt;TripInvitation&amp;gt;&lt;/div&gt;&lt;div&gt;+ findByTripIdAndStatus(tripId: Long, status: InvitationStatus): List&amp;lt;TripInvitation&amp;gt;&lt;/div&gt;&lt;div&gt;+ existsByTripIdAndReceiverIdAndStatus(tripId: Long, receiverId: Long, status: InvitationStatus): boolean&lt;/div&gt;" vertex="1">
+          <mxGeometry height="200" width="340" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="tripInvitationResponse" parent="inv-pkg" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="&amp;lt;&amp;lt;record&amp;gt;&amp;gt; TripInvitationResponse" vertex="1">
+          <mxGeometry height="232" width="300" x="710" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="tripInvitationResponse-s0" parent="tripInvitationResponse" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=visible;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;- id: String&lt;/div&gt;&lt;div&gt;- tripId: Long&lt;/div&gt;&lt;div&gt;- tripName: String&lt;/div&gt;&lt;div&gt;- tripStartDate: LocalDate&lt;/div&gt;&lt;div&gt;- tripEndDate: LocalDate&lt;/div&gt;&lt;div&gt;- senderDisplayName: String&lt;/div&gt;&lt;div&gt;- receiverDisplayName: String&lt;/div&gt;&lt;div&gt;- status: InvitationStatus&lt;/div&gt;&lt;div&gt;- createdAt: Instant&lt;/div&gt;" vertex="1">
+          <mxGeometry height="162" width="300" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="tripInvitationResponse-sep1" parent="tripInvitationResponse" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" value="" vertex="1">
+          <mxGeometry height="8" width="300" y="188" as="geometry" />
+        </mxCell>
+        <mxCell id="tripInvitationResponse-s1" parent="tripInvitationResponse" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=visible;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ static from(invitation: TripInvitation): TripInvitationResponse&lt;/div&gt;" vertex="1">
+          <mxGeometry height="36" width="300" y="196" as="geometry" />
+        </mxCell>
+        <mxCell id="tripInvitationService" parent="inv-pkg" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="TripInvitationService" vertex="1">
+          <mxGeometry height="242" width="480" x="20" y="420" as="geometry" />
+        </mxCell>
+        <mxCell id="tripInvitationService-s0" parent="tripInvitationService" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=visible;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;+ sendInvitation(tripId: Long, senderId: Long, receiverEmail: String): TripInvitationResponse&lt;/div&gt;&lt;div&gt;+ getPendingForUser(userId: Long): List&amp;lt;TripInvitationResponse&amp;gt;&lt;/div&gt;&lt;div&gt;+ getPendingForTrip(tripId: Long, requesterId: Long): List&amp;lt;TripInvitationResponse&amp;gt;&lt;/div&gt;&lt;div&gt;+ respond(invitationId: String, userId: Long, decision: InvitationStatus): TripInvitationResponse&lt;/div&gt;&lt;div&gt;+ cancel(tripId: Long, invitationId: String, requesterId: Long): void&lt;/div&gt;&lt;div&gt;- getInvitation(invitationId: String): TripInvitation&lt;/div&gt;&lt;div&gt;- requireCanManageInvitations(trip: Trip, userId: Long): void&lt;/div&gt;&lt;div&gt;- isMember(trip: Trip, user: User): boolean&lt;/div&gt;&lt;div&gt;- transition(change: Runnable): void&lt;/div&gt;" vertex="1">
+          <mxGeometry height="216" width="480" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="tripInvitationController" parent="inv-pkg" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="TripInvitationController" vertex="1">
+          <mxGeometry height="314" width="480" x="530" y="420" as="geometry" />
+        </mxCell>
+        <mxCell id="tripInvitationController-s0" parent="tripInvitationController" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=visible;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" value="&lt;div&gt;@PostMapping(&quot;/api/trips/{tripId}/invitations&quot;)&lt;/div&gt;&lt;div&gt;+ sendInvitation(tripId: Long, request: SendInvitationRequest): TripInvitationResponse&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;@GetMapping(&quot;/api/trips/{tripId}/invitations&quot;)&lt;/div&gt;&lt;div&gt;+ getTripInvitations(tripId: Long): List&amp;lt;TripInvitationResponse&amp;gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;@DeleteMapping(&quot;/api/trips/{tripId}/invitations/{invitationId}&quot;)&lt;/div&gt;&lt;div&gt;+ cancelInvitation(tripId: Long, invitationId: String): void&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;@GetMapping(&quot;/api/users/me/invitations&quot;)&lt;/div&gt;&lt;div&gt;+ getMyInvitations(): List&amp;lt;TripInvitationResponse&amp;gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;@PatchMapping(&quot;/api/users/me/invitations/{invitationId}&quot;)&lt;/div&gt;&lt;div&gt;+ respondToInvitation(invitationId: String, request: RespondInvitationRequest): TripInvitationResponse&lt;/div&gt;" vertex="1">
+          <mxGeometry height="288" width="480" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="inv-e-ctrl-svc" edge="1" parent="inv-pkg" source="tripInvitationController" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.3;exitDx=0;exitDy=0;entryX=1;entryY=0.3;entryDx=0;entryDy=0;" target="tripInvitationService" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="inv-e-svc-repo" edge="1" parent="inv-pkg" source="tripInvitationService" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.8;exitY=0;exitDx=0;exitDy=0;entryX=0.18;entryY=1;entryDx=0;entryDy=0;" target="tripInvitationRepo" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="inv-e-svc-entity" edge="1" parent="inv-pkg" source="tripInvitationService" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.3;exitY=0;exitDx=0;exitDy=0;entryX=0.48;entryY=1;entryDx=0;entryDy=0;" target="tripInvitation" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="inv-e-entity-status" edge="1" parent="inv-pkg" source="tripInvitation" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.15;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="invitationStatus" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="inv-e-entity-trip" edge="1" parent="gEJpQPu-KACZBr15JeJe-36" source="tripInvitation" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.2;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="xeXeo1Z9lcH9SvbHD81H-5" value="trip (* .. 1)">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="20" y="1218" />
+              <mxPoint x="20" y="229" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="inv-e-entity-user" edge="1" parent="k8dJ5aZOfXiuoBGJ-63Q-3" source="tripInvitation" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.6;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="xeXeo1Z9lcH9SvbHD81H-1" value="sender, receiver (* .. 1)">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="60" y="1423" />
+              <mxPoint x="60" y="262" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="inv-e-entity-shortid" edge="1" parent="k8dJ5aZOfXiuoBGJ-63Q-3" source="tripInvitation" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.05;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;dashed=1;endArrow=open;" target="shortId" value="&amp;lt;&amp;lt;use&amp;gt;&amp;gt;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="700" y="1236" />
+              <mxPoint x="700" y="802" />
+            </Array>
+          </mxGeometry>
         </mxCell>
         </root>
     </mxGraphModel>

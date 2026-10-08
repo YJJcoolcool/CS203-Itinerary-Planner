@@ -23,7 +23,8 @@ public class UserController{
             @RequestBody CreateUserRequest request) {
         return userService.findOrCreateUser(
                 jwt.getSubject(),
-                request.displayName());
+                request.displayName(),
+                jwt.getClaimAsString("email"));
     }
 
     @GetMapping("/api/users/me")

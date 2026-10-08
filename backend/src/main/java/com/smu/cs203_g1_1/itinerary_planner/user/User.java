@@ -24,7 +24,12 @@ public class User {
 
     private String displayName;
 
-    
+    // Synced from the Clerk JWT "email" claim; used to look up invitees.
+    // Nullable so users created before this field (or without the claim) still work.
+    @Column(unique = true)
+    private String email;
+
+
     @ManyToMany(mappedBy = "users")
     private List<Trip> trips = new ArrayList<>();
 
@@ -56,7 +61,15 @@ public class User {
     public void setDisplayName(String displayName) {
         this.displayName = displayName;
     }
-   
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
     public List<Trip> getTrips() {
         return trips;
     }

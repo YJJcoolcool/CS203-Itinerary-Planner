@@ -1,7 +1,8 @@
 import { Link, useParams } from 'react-router'
 import { Navbar } from '../components/Navbar'
 import { TripDetailsCard } from '../components/trips/TripDetailsCard'
-import { useTrip } from '../lib/useTrips'
+import { useCurrentUser, useTrip } from '../lib/useTrips'
+import { TripInvitePanel } from '../components/invitations/TripInvitePanel'
 import { NotFoundPage } from './NotFoundPage'
 import { TripItinerary } from '../components/trips/TripItinerary'
 
@@ -38,6 +39,7 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
 
 function TripDetailsContent({ tripId }: { tripId: number }) {
   const { trip, isLoading, error, errorStatus, refresh } = useTrip(tripId)
+  const { user } = useCurrentUser()
 
   if (errorStatus === 404) return <NotFoundPage />
 
@@ -60,6 +62,8 @@ function TripDetailsContent({ tripId }: { tripId: number }) {
         ) : trip ? (
           <>
             <TripDetailsCard trip={trip} />
+            {/* UI-only gate; the backend rejects non-owners with 403 regardless. */}
+            {user && trip.owner.id === user.id && <TripInvitePanel tripId={trip.id} />}
             <TripItinerary tripId={trip.id} />
           </>
         ) : null}

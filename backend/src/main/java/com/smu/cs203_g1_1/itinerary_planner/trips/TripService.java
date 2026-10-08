@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.smu.cs203_g1_1.itinerary_planner.util.ID;
 import com.smu.cs203_g1_1.itinerary_planner.user.User;
 import com.smu.cs203_g1_1.itinerary_planner.user.UserRepository;
 
@@ -33,7 +34,7 @@ public class TripService {
     }
 
     @Transactional(readOnly = true)
-    public Trip getTrip(Long tripId) {
+    public Trip getTrip(String tripId) {
         return tripRepository
                 .findById(tripId)
                 .orElseThrow(() -> {
@@ -43,13 +44,16 @@ public class TripService {
     }
 
     @Transactional
-    public Trip createTrip( String name, LocalDate startDate, LocalDate endDate, Long ownerId) {
+    public Trip createTrip(String name, LocalDate startDate, LocalDate endDate, String ownerId) {
 
         validateDates(startDate, endDate);
 
         User owner = findUser(ownerId);
 
+        String id = ID.generateUniqueID(tripRepository::existsById);
+
         Trip trip = new Trip(name, startDate, endDate, owner);
+        trip.setId(id);
 
         // The owner is a participant too, so owned trips show up
         // through User.trips (mappedBy = "users").
@@ -61,7 +65,7 @@ public class TripService {
     }
 
     @Transactional
-    public Trip updateTrip( Long tripId, String name, LocalDate startDate, LocalDate endDate) {
+    public Trip updateTrip(String tripId, String name, LocalDate startDate, LocalDate endDate) {
 
         validateDates(startDate, endDate);
 
@@ -77,13 +81,13 @@ public class TripService {
     }
 
     @Transactional
-    public void deleteTrip(Long tripId) {
+    public void deleteTrip(String tripId) {
         tripRepository.delete(getTrip(tripId));
         log.info("Deleted trip id={}", tripId);
     }
 
     @Transactional
-    public Trip addMember(Long tripId, Long userId) {
+    public Trip addMember(String tripId, String userId) {
         Trip trip = getTrip(tripId);
         trip.addMember(findUser(userId));
         Trip saved = tripRepository.save(trip);
@@ -92,7 +96,7 @@ public class TripService {
     }
 
     @Transactional
-    public Trip removeMember(Long tripId, Long userId) {
+    public Trip removeMember(String tripId, String userId) {
         Trip trip = getTrip(tripId);
         User user = findUser(userId);
 
@@ -107,7 +111,7 @@ public class TripService {
         return saved;
     }
 
-    private User findUser(Long userId) {
+    private User findUser(String userId) {
         return userRepository
                 .findById(userId)
                 .orElseThrow(() -> {

@@ -26,7 +26,7 @@ public class LocationController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Location> getLocationById(@PathVariable Long id) {
+    public ResponseEntity<Location> getLocationById(@PathVariable String id) {
         return ResponseEntity.ok(locationService.getLocationById(id));
     }
 
@@ -36,7 +36,7 @@ public class LocationController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteLocation(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteLocation(@PathVariable String id) {
         if (locationService.deleteLocation(id)) {
             return ResponseEntity.noContent().build();
         }

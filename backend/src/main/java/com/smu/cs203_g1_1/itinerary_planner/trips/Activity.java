@@ -6,15 +6,15 @@ import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OrderColumn;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 
 @Entity
@@ -22,8 +22,8 @@ import jakarta.persistence.Table;
 public class Activity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(length = 8, nullable = false)
+    private String id;
 
     private String name;
 
@@ -66,7 +66,6 @@ public class Activity {
 
 
     public Activity( String name, List<Location> locations, ZonedDateTime startDateTime, ZonedDateTime endDateTime, String status) {
-
         this.name = name;
         this.locations = locations;
         this.startDateTime = startDateTime;
@@ -74,66 +73,57 @@ public class Activity {
         this.status = status;
     }
 
-
-    public Long getId() {
+    public String getId() {
         return id;
     }
 
+    public void setId(String id) {
+        this.id = id;
+    }
 
     public String getName() {
         return name;
     }
 
-
     public void setName(String name) {
         this.name = name;
     }
-
 
     public ZonedDateTime getStartDateTime() {
         return startDateTime;
     }
 
-
     public void setStartDateTime(ZonedDateTime startDateTime) {
         this.startDateTime = startDateTime;
     }
-
 
     public ZonedDateTime getEndDateTime() {
         return endDateTime;
     }
 
-
     public void setEndDateTime(ZonedDateTime endDateTime) {
         this.endDateTime = endDateTime;
     }
-
 
     public String getStatus() {
         return status;
     }
 
-
     public void setStatus(String status) {
         this.status = status;
     }
-
 
     public List<Location> getLocations() {
         return locations;
     }
 
-
     public void setLocations(List<Location> locations) {
         this.locations = locations;
     }
 
-
     public Trip getTrip() {
         return trip;
     }
-
 
     public void setTrip(Trip trip) {
         this.trip = trip;

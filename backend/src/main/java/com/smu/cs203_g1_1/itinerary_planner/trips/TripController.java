@@ -24,9 +24,9 @@ public class TripController {
         this.tripService = tripService;
     }
 
-    public record TripRequest( String name, LocalDate startDate, LocalDate endDate, Long ownerId) { }
+    public record TripRequest(String name, LocalDate startDate, LocalDate endDate, String ownerId) { }
 
-    public record TripUpdateRequest( String name, LocalDate startDate, LocalDate endDate) { }
+    public record TripUpdateRequest(String name, LocalDate startDate, LocalDate endDate) { }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -39,30 +39,30 @@ public class TripController {
     }
 
     @GetMapping("/{tripId}")
-    public Trip getTrip(@PathVariable("tripId") Long tripId) {
+    public Trip getTrip(@PathVariable("tripId") String tripId) {
         return tripService.getTrip(tripId);
     }
 
     @PutMapping("/{tripId}")
-    public Trip updateTrip( @PathVariable("tripId") Long tripId, @RequestBody TripUpdateRequest request) {
+    public Trip updateTrip( @PathVariable("tripId") String tripId, @RequestBody TripUpdateRequest request) {
 
         return tripService.updateTrip( tripId, request.name(), request.startDate(), request.endDate());
     }
 
     @DeleteMapping("/{tripId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteTrip(@PathVariable("tripId") Long tripId) {
+    public void deleteTrip(@PathVariable("tripId") String tripId) {
         tripService.deleteTrip(tripId);
     }
 
     @PostMapping("/{tripId}/members/{userId}")
-    public Trip addMember( @PathVariable("tripId") Long tripId, @PathVariable("userId") Long userId) {
+    public Trip addMember( @PathVariable("tripId") String tripId, @PathVariable("userId") String userId) {
 
         return tripService.addMember(tripId, userId);
     }
 
     @DeleteMapping("/{tripId}/members/{userId}")
-    public Trip removeMember( @PathVariable("tripId") Long tripId, @PathVariable("userId") Long userId) {
+    public Trip removeMember( @PathVariable("tripId") String tripId, @PathVariable("userId") String userId) {
 
         return tripService.removeMember(tripId, userId);
     }

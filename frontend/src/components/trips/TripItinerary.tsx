@@ -84,7 +84,7 @@ function ActivityItem({
  * Itinerary for a trip. Loads the activities first, then each activity's
  * locations (see `useTripItinerary`).
  */
-export function TripItinerary({ tripId }: { tripId: number }) {
+export function TripItinerary({ tripId }: { tripId: string }) {
   const { activities, locationsByActivity, isLoading, isLoadingLocations, error, refresh } =
     useTripItinerary(tripId)
 

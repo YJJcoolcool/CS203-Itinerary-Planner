@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.smu.cs203_g1_1.itinerary_planner.util.ID;
 
 @Service
 public class ActivityService {
@@ -36,7 +37,7 @@ public class ActivityService {
      * GET all activities belonging to one trip.
      */
     @Transactional(readOnly = true)
-    public List<Activity> getActivities(Long tripId) {
+    public List<Activity> getActivities(String tripId) {
 
         // Also checks that the trip exists.
         tripService.getTrip(tripId);
@@ -51,8 +52,8 @@ public class ActivityService {
      */
     @Transactional(readOnly = true)
     public Activity getActivity(
-            Long tripId,
-            Long activityId) {
+            String tripId,
+            String activityId) {
 
         return activityRepository
                 .findByIdAndTripId(activityId, tripId)
@@ -71,8 +72,8 @@ public class ActivityService {
      */
     @Transactional(readOnly = true)
     public List<Location> getActivityLocations(
-            Long tripId,
-            Long activityId) {
+            String tripId,
+            String activityId) {
 
         Activity activity = getActivity(tripId, activityId);
 
@@ -85,7 +86,7 @@ public class ActivityService {
      */
     @Transactional
     public Activity createActivity(
-            Long tripId,
+            String tripId,
             Activity activity) {
 
         Trip trip = tripService.getTrip(tripId);
@@ -98,6 +99,9 @@ public class ActivityService {
                 = resolveLocations(activity.getLocations());
 
         activity.setLocations(locations);
+
+        String id = ID.generateUniqueID(activityRepository::existsById);
+        activity.setId(id);
 
         // Maintains both:
         // Trip.itinerary
@@ -115,8 +119,8 @@ public class ActivityService {
      */
     @Transactional
     public Activity updateActivity(
-            Long tripId,
-            Long activityId,
+            String tripId,
+            String activityId,
             Activity updatedActivity) {
 
         Activity activity
@@ -155,8 +159,8 @@ public class ActivityService {
      */
     @Transactional
     public void deleteActivity(
-            Long tripId,
-            Long activityId) {
+            String tripId,
+            String activityId) {
 
         Activity activity
                 = getActivity(tripId, activityId);

@@ -3,6 +3,7 @@ package com.smu.cs203_g1_1.itinerary_planner.user;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import com.smu.cs203_g1_1.itinerary_planner.util.ID;
 
 @Service
 public class UserService {
@@ -26,17 +27,23 @@ public class UserService {
                     return existing;
                 })
                 .orElseGet(() -> {
-                    User created = userRepository.save(new User(clerkUserId, displayName));
-                    log.info("Created user id={} for clerk id {}", created.getId(), clerkUserId);
-                    return created;
+                    String id = ID.generateUniqueID(userRepository::existsById);
+
+                    User created = new User(clerkUserId, displayName);
+                    created.setId(id);
+
+                    User saved = userRepository.save(created);
+
+                    log.info("Created user id={} for clerk id {}", saved.getId(), clerkUserId);
+                    return saved;
                 });
     }
 
-    public User getUserById(long id){
+    public User getUserById(String id) {
         return userRepository.findById(id).orElseThrow(() ->new UserNotFoundException("User not found"));
     }
 
-    public User updateDisplayName(long id, String displayName) {
+    public User updateDisplayName(String id, String displayName) {
         User user = getUserById(id);
         return updateDisplayName(user, displayName);
     }

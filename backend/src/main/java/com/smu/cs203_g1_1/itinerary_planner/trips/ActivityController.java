@@ -32,7 +32,7 @@ public class ActivityController {
      */
     @GetMapping
     public List<Activity> getActivities(
-            @PathVariable("tripId") Long tripId) {
+            @PathVariable("tripId") String tripId) {
 
         return activityService.getActivities(tripId);
     }
@@ -45,8 +45,8 @@ public class ActivityController {
      */
     @GetMapping("/{activityId}")
     public Activity getActivity(
-            @PathVariable("tripId") Long tripId,
-            @PathVariable("activityId") Long activityId) {
+            @PathVariable("tripId") String tripId,
+            @PathVariable("activityId") String activityId) {
 
         return activityService.getActivity(
                 tripId,
@@ -61,8 +61,8 @@ public class ActivityController {
      */
     @GetMapping("/{activityId}/locations")
     public List<Location> getActivityLocations(
-            @PathVariable("tripId") Long tripId,
-            @PathVariable("activityId") Long activityId) {
+            @PathVariable("tripId") String tripId,
+            @PathVariable("activityId") String activityId) {
 
         return activityService.getActivityLocations(
                 tripId,
@@ -78,7 +78,7 @@ public class ActivityController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public Activity createActivity(
-            @PathVariable("tripId") Long tripId,
+            @PathVariable("tripId") String tripId,
             @RequestBody Activity activity) {
 
         return activityService.createActivity(
@@ -94,8 +94,8 @@ public class ActivityController {
      */
     @PutMapping("/{activityId}")
     public Activity updateActivity(
-            @PathVariable("tripId") Long tripId,
-            @PathVariable("activityId") Long activityId,
+            @PathVariable("tripId") String tripId,
+            @PathVariable("activityId") String activityId,
             @RequestBody Activity activity) {
 
         return activityService.updateActivity(
@@ -113,8 +113,8 @@ public class ActivityController {
     @DeleteMapping("/{activityId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteActivity(
-            @PathVariable("tripId") Long tripId,
-            @PathVariable("activityId") Long activityId) {
+            @PathVariable("tripId") String tripId,
+            @PathVariable("activityId") String activityId) {
 
         activityService.deleteActivity(
                 tripId,

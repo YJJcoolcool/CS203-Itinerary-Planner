@@ -12,9 +12,19 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 
 @Entity
+@Table(
+    uniqueConstraints = {
+        @UniqueConstraint(
+            name = "uk_location_osm",
+            columnNames = {"osm_type", "osm_id"}
+        )
+    }
+)
 public class Location {
 
     @Id
@@ -34,10 +44,16 @@ public class Location {
 
     private Boolean isIndoor;
 
+    @Column(name = "osm_type")
+    private String osmType;
+
+    @Column(name = "osm_id")
+    private Long osmId;
+
+
     // Not sure if want to include
     /*
     private String address; this one kinda obv
-    private String osmId; (for overpass - easier to refresh data?)
     private String openingHours (for extra context for AI)
     */
 
@@ -127,6 +143,22 @@ public class Location {
 
     public void setActivities(List<Activity> activities) {
         this.activities = activities;
+    }
+
+    public String getOsmType() {
+        return osmType;
+    }
+
+    public void setOsmType(String osmType) {
+        this.osmType = osmType;
+    }
+
+    public Long getOsmId() {
+        return osmId;
+    }
+
+    public void setOsmId(Long osmId) {
+        this.osmId = osmId;
     }
 
     /*    

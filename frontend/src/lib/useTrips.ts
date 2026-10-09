@@ -1,9 +1,17 @@
 import { useAuth, useUser } from '@clerk/react'
 import { useCallback, useEffect, useState } from 'react'
 import { publishableKey } from '../auth/authConfiguration'
-import type { Activity, CreateTripInput, Location, Trip, User } from '../types/trip'
+import type {
+  Activity,
+  CreateActivityInput,
+  CreateTripInput,
+  Location,
+  Trip,
+  User,
+} from '../types/trip'
 import {
   ApiError,
+  createActivity as createActivityRequest,
   createBackendUser,
   createTrip as createTripRequest,
   getTrip,
@@ -54,6 +62,13 @@ export interface UseTripItineraryResult {
 /** Result of `useCreateTrip()`. */
 export interface UseCreateTripResult {
   createTrip: (input: CreateTripInput) => Promise<Trip>
+  isCreating: boolean
+  error: string | null
+}
+
+/** Result of useCreateActivity(). */
+export interface UseCreateActivityResult {
+  createActivity: (input: CreateActivityInput) => Promise<Activity>
   isCreating: boolean
   error: string | null
 }
@@ -368,6 +383,39 @@ function useConfiguredCreateTrip(): UseCreateTripResult {
   return { createTrip: create, isCreating, error }
 }
 
+function useConfiguredCreateActivity(
+  tripId: string,
+): UseCreateActivityResult {
+  const { getToken } = useAuth()
+
+  const [isCreating, setIsCreating] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const create = useCallback(
+    async (input: CreateActivityInput): Promise<Activity> => {
+      setIsCreating(true)
+      setError(null)
+
+      try {
+        const token = await getToken()
+        if (!token) throw new ApiError(401, NO_SESSION_MESSAGE)
+
+        return await createActivityRequest(token, tripId, input)
+      } catch (cause) {
+        setError(describeError(cause))
+        throw cause instanceof Error
+          ? cause
+          : new Error(describeError(cause))
+      } finally {
+        setIsCreating(false)
+      }
+    },
+    [getToken, tripId],
+  )
+
+  return { createActivity: create, isCreating, error }
+}
+
 function useUnconfiguredCurrentUser(): UseCurrentUserResult {
   return { user: null, isLoading: false, error: NOT_CONFIGURED_MESSAGE }
 }
@@ -424,6 +472,18 @@ function useUnconfiguredCreateTrip(): UseCreateTripResult {
   }
 }
 
+function rejectActivityWithNotConfigured(): Promise<Activity> {
+  return Promise.reject(new ApiError(0, NOT_CONFIGURED_MESSAGE))
+}
+
+function useUnconfiguredCreateActivity(): UseCreateActivityResult {
+  return {
+    createActivity: rejectActivityWithNotConfigured,
+    isCreating: false,
+    error: NOT_CONFIGURED_MESSAGE,
+  }
+}
+
 /**
  * Resolves the current backend user, creating the row on first sign-in.
  *
@@ -462,3 +522,8 @@ export const useTripItinerary: (tripId: string) => UseTripItineraryResult = CLER
 export const useCreateTrip: () => UseCreateTripResult = CLERK_CONFIGURED
   ? useConfiguredCreateTrip
   : useUnconfiguredCreateTrip
+
+/** Creates an activity in the requested trip. */
+export const useCreateActivity: (tripId: string) => UseCreateActivityResult = CLERK_CONFIGURED
+  ? useConfiguredCreateActivity
+  : useUnconfiguredCreateActivity

@@ -12,8 +12,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.smu.cs203_g1_1.itinerary_planner.geo.GeoService;
 import com.smu.cs203_g1_1.itinerary_planner.trips.Activity;
 import com.smu.cs203_g1_1.itinerary_planner.trips.ActivityService;
 import com.smu.cs203_g1_1.itinerary_planner.trips.Location;
@@ -35,6 +37,9 @@ class ActivityMembershipTest {
 
     @Autowired
     private LocationService locationService;
+
+    @MockitoBean
+    private GeoService geoService;
 
     @Autowired
     private UserRepository userRepository;

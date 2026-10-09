@@ -3,6 +3,8 @@ import type {
   Activity,
   CreateActivityInput,
   CreateTripInput,
+  GeoPlace,
+  GeoSearchResponse,
   Location,
   Trip,
   User,
@@ -234,6 +236,34 @@ export function respondToInvitation(
   return request<TripInvitation>(`/api/users/me/invitations/${invitationId}`, {
     method: 'PATCH',
     body: { status },
+    token,
+  })
+}
+
+/**
+ * Searches OpenStreetMap places by free text. `limit` is clamped by the backend
+ * to 1..10. Callers should debounce to respect the Nominatim usage policy.
+ */
+export function searchPlaces(
+  token: string | null,
+  query: string,
+  limit = 5,
+): Promise<GeoSearchResponse> {
+  const params = new URLSearchParams({ q: query, limit: String(limit) })
+  return request<GeoSearchResponse>(`/api/geo/search?${params.toString()}`, { token })
+}
+
+/**
+ * Imports an OpenStreetMap place as a stored {@link Location}. Idempotent per
+ * `(osmType, osmId)`, so importing a place twice returns the same location.
+ */
+export function importLocationFromOsm(
+  token: string | null,
+  input: Pick<GeoPlace, 'osmType' | 'osmId'>,
+): Promise<Location> {
+  return request<Location>('/api/locations/from-osm', {
+    method: 'POST',
+    body: { osmType: input.osmType, osmId: input.osmId },
     token,
   })
 }

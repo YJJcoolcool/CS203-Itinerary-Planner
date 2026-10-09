@@ -2,7 +2,8 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useCreateActivity } from '../../lib/useTrips'
-import type { Location } from '../../types/trip'
+import { LocationSearch } from '../locations/LocationSearch'
+import type { GeoPlace, Location } from '../../types/trip'
 
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface'
@@ -27,12 +28,10 @@ function describeError(cause: unknown): string {
 
 export function CreateActivityModal({
   tripId,
-  availableLocations = [],
   onClose,
   onCreated,
 }: {
   tripId: string
-  availableLocations?: Location[]
   onClose: () => void
   onCreated: () => void
 }) {
@@ -40,6 +39,7 @@ export function CreateActivityModal({
   const [name, setName] = useState('')
   const [startDateTime, setStartDateTime] = useState('')
   const [endDateTime, setEndDateTime] = useState('')
+  const [locations, setLocations] = useState<Location[]>([])
   const [selectedLocationIds, setSelectedLocationIds] = useState<string[]>([])
   const [errors, setErrors] = useState<FieldErrors>({})
   const nameRef = useRef<HTMLInputElement>(null)
@@ -63,6 +63,23 @@ export function CreateActivityModal({
       current.includes(id)
         ? current.filter((selectedId) => selectedId !== id)
         : [...current, id],
+    )
+  }
+
+  /** Adds an imported place to the list and selects it straight away. */
+  function handleLocationAdded(location: Location) {
+    setLocations((current) =>
+      current.some((existing) => existing.id === location.id) ? current : [...current, location],
+    )
+    setSelectedLocationIds((current) =>
+      current.includes(location.id) ? current : [...current, location.id],
+    )
+  }
+
+  /** Whether a search result has already been imported (matched on OSM identity). */
+  function isPlaceAdded(place: GeoPlace) {
+    return locations.some(
+      (location) => location.osmType === place.osmType && location.osmId === place.osmId,
     )
   }
 
@@ -202,14 +219,11 @@ export function CreateActivityModal({
               Locations (at least one required)
             </legend>
 
-            {availableLocations.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-border p-4 text-sm text-muted">
-                Location search has not been connected yet. Once it supplies existing locations,
-                you will be able to select them here.
-              </p>
-            ) : (
-              <ul className="flex max-h-48 flex-col gap-2 overflow-y-auto rounded-xl border border-border p-3">
-                {availableLocations.map((location) => (
+            <LocationSearch onAdded={handleLocationAdded} isAdded={isPlaceAdded} />
+
+            {locations.length > 0 && (
+              <ul className="flex max-h-40 flex-col gap-2 overflow-y-auto rounded-xl border border-border p-3">
+                {locations.map((location) => (
                   <li key={location.id}>
                     <label className="flex cursor-pointer items-start gap-3 rounded-lg p-2 hover:bg-surface-subtle">
                       <input
@@ -220,6 +234,9 @@ export function CreateActivityModal({
                       />
                       <span className="min-w-0">
                         <span className="block text-sm text-foreground">{location.name}</span>
+                        {location.address && (
+                          <span className="block text-xs text-muted">{location.address}</span>
+                        )}
                         {location.category && (
                           <span className="block text-xs text-muted">{location.category}</span>
                         )}
@@ -258,7 +275,7 @@ export function CreateActivityModal({
             <button
               type="submit"
               className={PRIMARY_BUTTON}
-              disabled={isCreating || availableLocations.length === 0}
+              disabled={isCreating || selectedLocationIds.length === 0}
               aria-busy={isCreating}
             >
               {isCreating ? 'Creating…' : 'Add activity'}

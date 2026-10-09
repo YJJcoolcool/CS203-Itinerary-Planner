@@ -5,6 +5,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import com.smu.cs203_g1_1.itinerary_planner.util.ID;
 
 @Service
 public class LocationService {
@@ -20,7 +21,7 @@ public class LocationService {
         return locationRepository.findAll();
     }
 
-    public Location getLocationById(Long id) {
+    public Location getLocationById(String id) {
         return locationRepository.findById(id)
                 .orElseThrow(() -> {
                     log.warn("Location not found: id={}", id);
@@ -29,12 +30,16 @@ public class LocationService {
     }
 
     public Location createLocation(Location location) {
+        String id = ID.generateUniqueID(locationRepository::existsById);
+        location.setId(id);
+        
         Location saved = locationRepository.save(location);
+
         log.info("Created location id={} name={}", saved.getId(), saved.getName());
         return saved;
     }
 
-    public boolean deleteLocation(Long id) {
+    public boolean deleteLocation(String id) {
         if (locationRepository.existsById(id)) {
             locationRepository.deleteById(id);
             log.info("Deleted location id={}", id);

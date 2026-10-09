@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.smu.cs203_g1_1.itinerary_planner.util.ID;
 import com.smu.cs203_g1_1.itinerary_planner.user.User;
 import com.smu.cs203_g1_1.itinerary_planner.user.UserRepository;
 
@@ -33,7 +34,7 @@ public class TripService {
     }
 
     @Transactional(readOnly = true)
-    public Trip getTrip(Long tripId) {
+    public Trip getTrip(String tripId) {
         return tripRepository
                 .findById(tripId)
                 .orElseThrow(() -> {
@@ -42,14 +43,30 @@ public class TripService {
                 });
     }
 
+    // return trip only if userId is owner or member. 404 if doesnt exist, 403 if user not part of trip
+    @Transactional(readOnly = true)
+    public Trip getTripForMember(String tripId, String userId) {
+        Trip trip = getTrip(tripId);
+
+        if (!isMember(trip, userId)) {
+            log.warn("User id={} denied access to trip id={}", userId, tripId);
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not a member of this trip");
+        }
+
+        return trip;
+    }
+
     @Transactional
-    public Trip createTrip( String name, LocalDate startDate, LocalDate endDate, Long ownerId) {
+    public Trip createTrip(String name, LocalDate startDate, LocalDate endDate, String ownerId) {
 
         validateDates(startDate, endDate);
 
         User owner = findUser(ownerId);
 
+        String id = ID.generateUniqueID(tripRepository::existsById);
+
         Trip trip = new Trip(name, startDate, endDate, owner);
+        trip.setId(id);
 
         // The owner is a participant too, so owned trips show up
         // through User.trips (mappedBy = "users").
@@ -61,11 +78,11 @@ public class TripService {
     }
 
     @Transactional
-    public Trip updateTrip( Long tripId, String name, LocalDate startDate, LocalDate endDate) {
+    public Trip updateTrip(String userId, String tripId, String name, LocalDate startDate, LocalDate endDate) {
 
         validateDates(startDate, endDate);
 
-        Trip trip = getTrip(tripId);
+        Trip trip = getTripForMember(tripId, userId);
 
         trip.setName(name);
         trip.setStartDate(startDate);
@@ -77,14 +94,14 @@ public class TripService {
     }
 
     @Transactional
-    public void deleteTrip(Long tripId) {
-        tripRepository.delete(getTrip(tripId));
+    public void deleteTrip(String userId, String tripId) {
+        tripRepository.delete(getTripForMember(tripId, userId));
         log.info("Deleted trip id={}", tripId);
     }
 
     @Transactional
-    public Trip addMember(Long tripId, Long userId) {
-        Trip trip = getTrip(tripId);
+    public Trip addMember(String requesterId, String tripId, String userId) {
+        Trip trip = getTripForMember(tripId, requesterId);
         trip.addMember(findUser(userId));
         Trip saved = tripRepository.save(trip);
         log.info("Added user id={} to trip id={}", userId, tripId);
@@ -92,8 +109,8 @@ public class TripService {
     }
 
     @Transactional
-    public Trip removeMember(Long tripId, Long userId) {
-        Trip trip = getTrip(tripId);
+    public Trip removeMember(String requesterId, String tripId, String userId) {
+        Trip trip = getTripForMember(tripId, requesterId);
         User user = findUser(userId);
 
         if (!trip.getUsers().contains(user)) {
@@ -107,7 +124,14 @@ public class TripService {
         return saved;
     }
 
-    private User findUser(Long userId) {
+    private boolean isMember(Trip trip, String userId) {
+        if (trip.getOwner().getId().equals(userId)) {
+            return true;
+        }
+        return trip.getUsers().stream().anyMatch(member -> member.getId().equals(userId));
+    }
+
+    private User findUser(String userId) {
         return userRepository
                 .findById(userId)
                 .orElseThrow(() -> {

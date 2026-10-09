@@ -123,7 +123,7 @@ export interface UseTripInvitationsResult {
 }
 
 // No polling: the owner's own send/cancel update the list directly.
-function useConfiguredTripInvitations(tripId: number): UseTripInvitationsResult {
+function useConfiguredTripInvitations(tripId: string): UseTripInvitationsResult {
   const { getToken, isLoaded, isSignedIn } = useAuth()
 
   const [invitations, setInvitations] = useState<TripInvitation[]>([])
@@ -194,6 +194,6 @@ function useUnconfiguredTripInvitations(): UseTripInvitationsResult {
   }
 }
 
-export const useTripInvitations: (tripId: number) => UseTripInvitationsResult = CLERK_CONFIGURED
+export const useTripInvitations: (tripId: string) => UseTripInvitationsResult = CLERK_CONFIGURED
   ? useConfiguredTripInvitations
   : useUnconfiguredTripInvitations

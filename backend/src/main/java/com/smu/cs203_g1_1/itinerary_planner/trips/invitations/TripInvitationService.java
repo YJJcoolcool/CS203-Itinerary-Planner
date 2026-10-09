@@ -14,7 +14,6 @@ import com.smu.cs203_g1_1.itinerary_planner.trips.TripService;
 import com.smu.cs203_g1_1.itinerary_planner.user.User;
 import com.smu.cs203_g1_1.itinerary_planner.user.UserService;
 
-// TODO(id-migration): tripId/userId params are Long for now.
 @Service
 public class TripInvitationService {
     private static final Logger log = LoggerFactory.getLogger(TripInvitationService.class);
@@ -32,7 +31,7 @@ public class TripInvitationService {
     }
 
     @Transactional
-    public TripInvitationResponse sendInvitation(Long tripId, Long senderId, String receiverEmail) {
+    public TripInvitationResponse sendInvitation(String tripId, String senderId, String receiverEmail) {
         Trip trip = tripService.getTrip(tripId);
         requireCanManageInvitations(trip, senderId);
         // Looked up (not trip.getOwner()) so it stays correct when non-owners can invite.
@@ -55,7 +54,7 @@ public class TripInvitationService {
     }
 
     @Transactional(readOnly = true)
-    public List<TripInvitationResponse> getPendingForUser(Long userId) {
+    public List<TripInvitationResponse> getPendingForUser(String userId) {
         return invitationRepository
                 .findByReceiverIdAndStatusOrderByCreatedAtDesc(userId, InvitationStatus.PENDING)
                 .stream()
@@ -64,7 +63,7 @@ public class TripInvitationService {
     }
 
     @Transactional(readOnly = true)
-    public List<TripInvitationResponse> getPendingForTrip(Long tripId, Long requesterId) {
+    public List<TripInvitationResponse> getPendingForTrip(String tripId, String requesterId) {
         requireCanManageInvitations(tripService.getTrip(tripId), requesterId);
         return invitationRepository.findByTripIdAndStatus(tripId, InvitationStatus.PENDING)
                 .stream()
@@ -73,7 +72,7 @@ public class TripInvitationService {
     }
 
     @Transactional
-    public TripInvitationResponse respond(String invitationId, Long userId, InvitationStatus decision) {
+    public TripInvitationResponse respond(String invitationId, String userId, InvitationStatus decision) {
         TripInvitation invitation = getInvitation(invitationId);
         if (!invitation.getReceiver().getId().equals(userId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "This invitation is not addressed to you");
@@ -91,7 +90,7 @@ public class TripInvitationService {
     }
 
     @Transactional
-    public void cancel(Long tripId, String invitationId, Long requesterId) {
+    public void cancel(String tripId, String invitationId, String requesterId) {
         TripInvitation invitation = getInvitation(invitationId);
         // Invite must belong to the trip in the URL, so /trips/A/invitations/{inviteOfB} is a 404.
         if (!invitation.getTrip().getId().equals(tripId)) {
@@ -108,7 +107,7 @@ public class TripInvitationService {
     }
 
     // Who may send/view/cancel invites. Currently owner-only; extend here when roles land.
-    private void requireCanManageInvitations(Trip trip, Long userId) {
+    private void requireCanManageInvitations(Trip trip, String userId) {
         if (!trip.getOwner().getId().equals(userId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the trip owner can manage invitations");
         }

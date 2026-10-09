@@ -28,7 +28,7 @@ function formatSentDate(iso: string): string {
  * Owner-only popup opened from the trip card's + button: invite by email and manage
  * pending invites. The page hides it for non-owners; the backend enforces it (403) regardless.
  */
-export function TripInviteModal({ tripId, onClose }: { tripId: number; onClose: () => void }) {
+export function TripInviteModal({ tripId, onClose }: { tripId: string; onClose: () => void }) {
   const { invitations, isLoading, error, send, cancel } = useTripInvitations(tripId)
   const [email, setEmail] = useState('')
   const [isSending, setIsSending] = useState(false)

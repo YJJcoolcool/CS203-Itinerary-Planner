@@ -1,37 +1,82 @@
 name: Telegram_Notifier
 
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+    types: [opened, closed]
 
 jobs:
   notifyTelegram:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Prepare Commit Messages
+      - name: Prepare Telegram Message
         id: prepare_msg
         env:
-          # Pass the JSON and context as env vars to avoid shell injection/syntax issues
-          COMMITS_JSON: ${{ toJson(github.event.commits) }}
+          EVENT_NAME: ${{ github.event_name }}
+          ACTION: ${{ github.event.action }}
           ACTOR: ${{ github.actor }}
           REPO: ${{ github.repository }}
-          BEFORE: ${{ github.event.before }}
-          AFTER: ${{ github.event.after }}
-        run: |
-          # Use jq directly on the environment variable
-          # We format the messages into a clean list inside jq itself
-          MSG_BODY=$(echo "$COMMITS_JSON" | jq -r '.[] | "• " + .message' || echo "No commit messages found")
-          
-          # Build the full message
-          FULL_MSG="$ACTOR pushed to $REPO:"$'\n\n'"$MSG_BODY"$'\n\n'
-          FULL_MSG="${FULL_MSG}View Changes: https://github.com/$REPO/compare/$BEFORE...$AFTER"
 
-          # Use the multiline GITHUB_OUTPUT syntax
-          echo "commit_msg<<EOF" >> $GITHUB_OUTPUT
-          echo "$FULL_MSG" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          # Push information
+          BRANCH: ${{ github.ref_name }}
+          COMMITS_JSON: ${{ toJson(github.event.commits) }}
+          AFTER: ${{ github.event.after }}
+
+          # Pull request information
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_BASE: ${{ github.event.pull_request.base.ref }}
+          PR_MERGED: ${{ github.event.pull_request.merged }}
+
+        run: |
+          if [ "$EVENT_NAME" = "push" ]; then
+
+            # Get commit messages
+            MSG_BODY=$(echo "$COMMITS_JSON" | jq -r '.[] | "• " + .message' 2>/dev/null)
+
+            if [ -z "$MSG_BODY" ]; then
+              MSG_BODY="No commit messages found"
+            fi
+
+            # Build push notification
+            FULL_MSG="$ACTOR pushed to $REPO (<code>$BRANCH</code>):"$'\n\n'"$MSG_BODY"$'\n\n'
+            FULL_MSG="${FULL_MSG}<a href=\"https://github.com/$REPO/commit/$AFTER\">View Changes</a>"
+
+          elif [ "$EVENT_NAME" = "pull_request" ]; then
+
+            if [ "$ACTION" = "closed" ] && [ "$PR_MERGED" = "true" ]; then
+
+              # Pull request was merged
+              FULL_MSG="$ACTOR merged Pull Request into <code>$PR_BASE</code>: <b>$PR_TITLE</b>"$'\n\n'
+              FULL_MSG="${FULL_MSG}<a href=\"$PR_URL\">View Pull Request</a>"
+
+            elif [ "$ACTION" = "opened" ]; then
+
+              # New pull request
+              FULL_MSG="$ACTOR created a new Pull Request: <b>$PR_TITLE</b>"$'\n\n'
+              FULL_MSG="${FULL_MSG}<a href=\"$PR_URL\">View Pull Request</a>"
+
+            else
+              # Closed without merging -- don't notify
+              exit 0
+            fi
+
+          else
+            exit 0
+          fi
+
+          # Write multiline output
+          {
+            echo "commit_msg<<EOF"
+            echo "$FULL_MSG"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Send Notification to Telegram
         uses: appleboy/telegram-action@master
         with:
           to: ${{ secrets.TELEGRAM_TO }}
           token: ${{ secrets.TELEGRAM_TOKEN }}
+          format: html
           message: ${{ steps.prepare_msg.outputs.commit_msg }}

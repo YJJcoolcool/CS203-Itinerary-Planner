@@ -8,16 +8,12 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface TripInvitationRepository extends JpaRepository<TripInvitation, String> {
 
-    // NOTE: tripId/userId are Long for now. When User/Trip migrate to 8-char String IDs
-    // (groupmate's ID task), change these params (and service/controller signatures) to String.
-    // TODO(id-migration)
-
     // Invitee inbox, newest first.
-    List<TripInvitation> findByReceiverIdAndStatusOrderByCreatedAtDesc(Long receiverId, InvitationStatus status);
+    List<TripInvitation> findByReceiverIdAndStatusOrderByCreatedAtDesc(String receiverId, InvitationStatus status);
 
     // Owner's view of a trip's pending invites.
-    List<TripInvitation> findByTripIdAndStatus(Long tripId, InvitationStatus status);
+    List<TripInvitation> findByTripIdAndStatus(String tripId, InvitationStatus status);
 
     // Blocks duplicate pending invites for the same person on the same trip.
-    boolean existsByTripIdAndReceiverIdAndStatus(Long tripId, Long receiverId, InvitationStatus status);
+    boolean existsByTripIdAndReceiverIdAndStatus(String tripId, String receiverId, InvitationStatus status);
 }

@@ -1,23 +1,22 @@
 package com.smu.cs203_g1_1.itinerary_planner.user;
+
 import com.smu.cs203_g1_1.itinerary_planner.trips.Trip;
-import jakarta.persistence.ManyToMany;
+
 import java.util.ArrayList;
 import java.util.List;
 
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "users")
 public class User {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(length = 8, nullable = false)
+    private String id;
 
     @Column(unique = true, nullable = false)
     private String clerkUserId;
@@ -42,8 +41,12 @@ public class User {
         this.displayName = displayName;
     }
 
-    public Long getId() {
+    public String getId() {
         return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
     }
 
     public String getClerkUserId() {

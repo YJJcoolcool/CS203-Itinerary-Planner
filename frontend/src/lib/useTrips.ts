@@ -44,7 +44,7 @@ export interface UseTripItineraryResult {
    * Locations keyed by activity id. A missing key means that activity's
    * locations failed to load; an empty array means it has none.
    */
-  locationsByActivity: Record<number, Location[]>
+  locationsByActivity: Record<string, Location[]>
   isLoading: boolean
   isLoadingLocations: boolean
   error: string | null
@@ -189,7 +189,7 @@ function useConfiguredTrips(): UseTripsResult {
   return { trips, isLoading, error, refresh }
 }
 
-function useConfiguredTrip(tripId: number): UseTripResult {
+function useConfiguredTrip(tripId: string): UseTripResult {
   const { getToken, isLoaded, isSignedIn } = useAuth()
 
   const [trip, setTrip] = useState<Trip | null>(null)
@@ -243,12 +243,12 @@ function useConfiguredTrip(tripId: number): UseTripResult {
 }
 
 interface ItineraryState {
-  tripId: number
+  tripId: string
   activities: Activity[]
-  locationsByActivity: Record<number, Location[]>
+  locationsByActivity: Record<string, Location[]>
 }
 
-function useConfiguredTripItinerary(tripId: number): UseTripItineraryResult {
+function useConfiguredTripItinerary(tripId: string): UseTripItineraryResult {
   const { getToken, isLoaded, isSignedIn } = useAuth()
 
   const [state, setState] = useState<ItineraryState | null>(null)
@@ -289,7 +289,7 @@ function useConfiguredTripItinerary(tripId: number): UseTripItineraryResult {
         )
         if (cancelled) return
 
-        const locationsByActivity: Record<number, Location[]> = {}
+        const locationsByActivity: Record<string, Location[]> = {}
         results.forEach((result, index) => {
           if (result.status === 'fulfilled') {
             locationsByActivity[activities[index].id] = result.value
@@ -374,7 +374,7 @@ function useUnconfiguredCurrentUser(): UseCurrentUserResult {
 
 const EMPTY_TRIPS: Trip[] = []
 const EMPTY_ACTIVITIES: Activity[] = []
-const EMPTY_LOCATIONS: Record<number, Location[]> = {}
+const EMPTY_LOCATIONS: Record<string, Location[]> = {}
 
 function useUnconfiguredTrips(): UseTripsResult {
   const refresh = useCallback(() => {
@@ -444,7 +444,7 @@ export const useTrips: () => UseTripsResult = CLERK_CONFIGURED
   : useUnconfiguredTrips
 
 /** Loads a single trip by id for the trip details page. */
-export const useTrip: (tripId: number) => UseTripResult = CLERK_CONFIGURED
+export const useTrip: (tripId: string) => UseTripResult = CLERK_CONFIGURED
   ? useConfiguredTrip
   : useUnconfiguredTrip
 
@@ -452,7 +452,7 @@ export const useTrip: (tripId: number) => UseTripResult = CLERK_CONFIGURED
  * Loads a trip's activities, then each activity's locations, for the
  * itinerary section of the trip details page.
  */
-export const useTripItinerary: (tripId: number) => UseTripItineraryResult = CLERK_CONFIGURED
+export const useTripItinerary: (tripId: string) => UseTripItineraryResult = CLERK_CONFIGURED
   ? useConfiguredTripItinerary
   : useUnconfiguredTripItinerary
   

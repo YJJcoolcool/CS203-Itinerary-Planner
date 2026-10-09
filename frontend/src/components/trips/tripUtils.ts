@@ -82,14 +82,20 @@ const AVATAR_TONES = [
   'bg-blue/25',
 ] as const
 
-export function avatarTone(id: number): string {
-  const index = Math.abs(Math.trunc(id)) % AVATAR_TONES.length
+export function avatarTone(id: string): string {
+  let hash = 0
+
+  for (let i = 0; i < id.length; i++) {
+    hash = (hash * 31 + id.charCodeAt(i)) | 0
+  }
+
+  const index = Math.abs(hash) % AVATAR_TONES.length
   return AVATAR_TONES[index]
 }
 
 /** Owner first, then members, de-duplicated by id. */
 export function uniqueMembers(trip: Trip): User[] {
-  const byId = new Map<number, User>()
+  const byId = new Map<string, User>()
   byId.set(trip.owner.id, trip.owner)
   for (const member of trip.users ?? []) {
     byId.set(member.id, member)

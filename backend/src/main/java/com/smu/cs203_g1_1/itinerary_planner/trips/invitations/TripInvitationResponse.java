@@ -6,10 +6,9 @@ import java.time.LocalDate;
 import com.smu.cs203_g1_1.itinerary_planner.trips.Trip;
 
 // Flat view of an invite for the frontend; avoids serializing full User/Trip graphs (no emails).
-// TODO(id-migration): tripId is Long for now.
 public record TripInvitationResponse(
         String id,
-        Long tripId,
+        String tripId,
         String tripName,
         LocalDate tripStartDate,
         LocalDate tripEndDate,

@@ -26,6 +26,7 @@ import com.smu.cs203_g1_1.itinerary_planner.user.User;
 import com.smu.cs203_g1_1.itinerary_planner.user.UserNotFoundException;
 import com.smu.cs203_g1_1.itinerary_planner.user.UserRepository;
 import com.smu.cs203_g1_1.itinerary_planner.user.UserService;
+import com.smu.cs203_g1_1.itinerary_planner.util.ID;
 
 import jakarta.persistence.EntityManager;
 
@@ -65,6 +66,7 @@ class TripInvitationServiceTest {
         stranger = saveUser("clerk-stranger", "Stranger", "stranger@test.com");
 
         trip = new Trip("Japan Autumn", LocalDate.of(2026, 11, 2), LocalDate.of(2026, 11, 10), owner);
+        trip.setId(ID.generateID());
         trip.addMember(owner);
         trip = tripRepository.save(trip);
     }
@@ -199,7 +201,8 @@ class TripInvitationServiceTest {
     void cancel_viaWrongTripId_is404() {
         String id = invite().id();
         Trip otherTrip = new Trip("Other", LocalDate.of(2026, 12, 1), LocalDate.of(2026, 12, 3), owner);
-        Long otherTripId = tripRepository.save(otherTrip).getId();
+        otherTrip.setId(ID.generateID());
+        String otherTripId = tripRepository.save(otherTrip).getId();
 
         assertStatus(HttpStatus.NOT_FOUND,
                 () -> invitationService.cancel(otherTripId, id, owner.getId()));
@@ -214,7 +217,7 @@ class TripInvitationServiceTest {
         entityManager.flush();
         entityManager.clear();
 
-        tripService.deleteTrip(trip.getId());
+        tripService.deleteTrip(owner.getId(), trip.getId());
         // Flush forces the DELETEs to hit H2, so an FK violation would surface here.
         entityManager.flush();
 
@@ -229,6 +232,7 @@ class TripInvitationServiceTest {
 
     private User saveUser(String clerkId, String displayName, String email) {
         User user = new User(clerkId, displayName);
+        user.setId(ID.generateID());
         user.setEmail(email);
         return userRepository.save(user);
     }

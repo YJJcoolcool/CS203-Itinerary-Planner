@@ -17,7 +17,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.smu.cs203_g1_1.itinerary_planner.user.UserService;
 
-// TODO(id-migration): tripId path variables are Long for now.
 @RestController
 public class TripInvitationController {
 
@@ -39,35 +38,35 @@ public class TripInvitationController {
     @ResponseStatus(HttpStatus.CREATED)
     public TripInvitationResponse sendInvitation(
             @AuthenticationPrincipal Jwt jwt,
-            @PathVariable("tripId") Long tripId,
+            @PathVariable("tripId") String tripId,
             @RequestBody SendInvitationRequest request) {
         if (request.email() == null || request.email().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is required");
         }
-        return invitationService.sendInvitation(tripId, currentUserId(jwt), request.email());
+        return invitationService.sendInvitation(tripId, userService.getCurrentUserId(jwt), request.email());
     }
 
     @GetMapping("/api/trips/{tripId}/invitations")
     public List<TripInvitationResponse> getTripInvitations(
             @AuthenticationPrincipal Jwt jwt,
-            @PathVariable("tripId") Long tripId) {
-        return invitationService.getPendingForTrip(tripId, currentUserId(jwt));
+            @PathVariable("tripId") String tripId) {
+        return invitationService.getPendingForTrip(tripId, userService.getCurrentUserId(jwt));
     }
 
     @DeleteMapping("/api/trips/{tripId}/invitations/{invitationId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void cancelInvitation(
             @AuthenticationPrincipal Jwt jwt,
-            @PathVariable("tripId") Long tripId,
+            @PathVariable("tripId") String tripId,
             @PathVariable("invitationId") String invitationId) {
-        invitationService.cancel(tripId, invitationId, currentUserId(jwt));
+        invitationService.cancel(tripId, invitationId, userService.getCurrentUserId(jwt));
     }
 
     // ----- Invitee side: /api/users/me/invitations -----
 
     @GetMapping("/api/users/me/invitations")
     public List<TripInvitationResponse> getMyInvitations(@AuthenticationPrincipal Jwt jwt) {
-        return invitationService.getPendingForUser(currentUserId(jwt));
+        return invitationService.getPendingForUser(userService.getCurrentUserId(jwt));
     }
 
     @PatchMapping("/api/users/me/invitations/{invitationId}")
@@ -78,11 +77,6 @@ public class TripInvitationController {
         if (request.status() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status is required");
         }
-        return invitationService.respond(invitationId, currentUserId(jwt), request.status());
-    }
-
-    // Resolve the Clerk JWT to our internal user id once, per docs/authenticated-endpoints.md.
-    private Long currentUserId(Jwt jwt) {
-        return userService.getUserByClerkId(jwt.getSubject()).getId();
+        return invitationService.respond(invitationId, userService.getCurrentUserId(jwt), request.status());
     }
 }

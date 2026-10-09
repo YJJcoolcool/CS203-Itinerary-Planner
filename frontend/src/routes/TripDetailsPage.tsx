@@ -38,7 +38,7 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
   )
 }
 
-function TripDetailsContent({ tripId }: { tripId: number }) {
+function TripDetailsContent({ tripId }: { tripId: string }) {
   const { trip, isLoading, error, errorStatus, refresh } = useTrip(tripId)
   const { user } = useCurrentUser()
   const [isInviteOpen, setIsInviteOpen] = useState(false)
@@ -82,10 +82,8 @@ function TripDetailsContent({ tripId }: { tripId: number }) {
 /** `/trips/:tripId` — header card with the itinerary below it. */
 export function TripDetailsPage() {
   const { tripId } = useParams()
-  const id = Number(tripId)
 
-  // Route params are strings; anything that isn't a positive integer can't be a trip.
-  if (!Number.isInteger(id) || id <= 0) return <NotFoundPage />
+  if (!tripId) return <NotFoundPage />
 
-  return <TripDetailsContent tripId={id} />
+  return <TripDetailsContent tripId={tripId} />
 }

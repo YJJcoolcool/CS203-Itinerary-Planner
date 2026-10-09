@@ -2,7 +2,7 @@ import { useAuth } from '@clerk/react'
 import { useCallback } from 'react'
 
 type BackendProfile = {
-  id: number
+  id: string
   clerkUserId: string
   displayName: string | null
 }

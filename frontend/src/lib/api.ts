@@ -127,7 +127,7 @@ export function getTrips(token: string | null): Promise<Trip[]> {
 /** Creates a trip owned by `ownerId`. */
 export function createTrip(
   token: string | null,
-  input: CreateTripInput & { ownerId: number },
+  input: CreateTripInput & { ownerId: string },
 ): Promise<Trip> {
   return request<Trip>('/api/trips', {
     method: 'POST',
@@ -137,7 +137,7 @@ export function createTrip(
 }
 
 /** True when `userId` owns the trip or appears in its member list. */
-export function isUserMemberOfTrip(trip: Trip, userId: number | undefined): boolean {
+export function isUserMemberOfTrip(trip: Trip, userId: string | undefined): boolean {
   if (userId === undefined) return false
   if (trip.owner.id === userId) return true
   return trip.users.some((member) => member.id === userId)
@@ -147,33 +147,33 @@ export function isUserMemberOfTrip(trip: Trip, userId: number | undefined): bool
  * Client-side filter for the current user. Required because `GET /api/trips`
  * returns all trips regardless of membership.
  */
-export function tripsForUser(trips: Trip[], userId: number | undefined): Trip[] {
+export function tripsForUser(trips: Trip[], userId: string | undefined): Trip[] {
   if (userId === undefined) return []
   return trips.filter((trip) => isUserMemberOfTrip(trip, userId))
 }
 
 /** Fetches a single trip. Throws `ApiError` with status 404 when it does not exist. */
-export function getTrip(token: string | null, tripId: number): Promise<Trip> {
+export function getTrip(token: string | null, tripId: string): Promise<Trip> {
   return request<Trip>(`/api/trips/${tripId}`, { token })
 }
 
 /** Fetches a trip's activities, ordered by start time. */
-export function getActivities(token: string | null, tripId: number): Promise<Activity[]> {
+export function getActivities(token: string | null, tripId: string): Promise<Activity[]> {
   return request<Activity[]>(`/api/trips/${tripId}/activities`, { token })
 }
 
 /** Fetches the locations attached to one activity of a trip. */
 export function getActivityLocations(
   token: string | null,
-  tripId: number,
-  activityId: number,
+  tripId: string,
+  activityId: string,
 ): Promise<Location[]> {
   return request<Location[]>(`/api/trips/${tripId}/activities/${activityId}/locations`, { token })
 }
 /** Owner invites an existing user (by email) to a trip. */
 export function sendInvitation(
   token: string | null,
-  tripId: number,
+  tripId: string,
   email: string,
 ): Promise<TripInvitation> {
   return request<TripInvitation>(`/api/trips/${tripId}/invitations`, {
@@ -184,14 +184,14 @@ export function sendInvitation(
 }
 
 /** Owner-only: pending invitations for a trip. */
-export function getTripInvitations(token: string | null, tripId: number): Promise<TripInvitation[]> {
+export function getTripInvitations(token: string | null, tripId: string): Promise<TripInvitation[]> {
   return request<TripInvitation[]>(`/api/trips/${tripId}/invitations`, { token })
 }
 
 /** Owner-only: withdraws a pending invitation. */
 export function cancelInvitation(
   token: string | null,
-  tripId: number,
+  tripId: string,
   invitationId: string,
 ): Promise<void> {
   return request<void>(`/api/trips/${tripId}/invitations/${invitationId}`, {

@@ -5,8 +5,7 @@ export type InvitationStatus = 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'CANCELLED'
 export interface TripInvitation {
   /** 8-char alphanumeric id. */
   id: string
-  // TODO(id-migration): tripId is a number for now.
-  tripId: number
+  tripId: string
   tripName: string
   /** ISO date string, e.g. `2026-11-02`. */
   tripStartDate: string

@@ -28,7 +28,7 @@ export function InvitationModal({
   invitation: TripInvitation
   respond: UseMyInvitationsResult['respond']
   onClose: () => void
-  onAccepted: (tripId: number) => void
+  onAccepted: (tripId: string) => void
   onStale: () => void
 }) {
   const [pending, setPending] = useState<Decision | null>(null)

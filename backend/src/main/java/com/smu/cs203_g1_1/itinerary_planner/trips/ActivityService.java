@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.smu.cs203_g1_1.itinerary_planner.util.ID;
 
 @Service
 public class ActivityService {
@@ -36,10 +37,10 @@ public class ActivityService {
      * GET all activities belonging to one trip.
      */
     @Transactional(readOnly = true)
-    public List<Activity> getActivities(Long tripId) {
+    public List<Activity> getActivities(String userId, String tripId) {
 
-        // Also checks that the trip exists.
-        tripService.getTrip(tripId);
+        // 404 if the trip does not exist, 403 if the user is not on it
+        tripService.getTripForMember(tripId, userId);
 
         return activityRepository
                 .findByTripIdOrderByStartDateTimeAsc(tripId);
@@ -47,12 +48,26 @@ public class ActivityService {
 
 
     /*
-     * GET one activity belonging to one specific trip.
+     * Checks membership
      */
     @Transactional(readOnly = true)
     public Activity getActivity(
-            Long tripId,
-            Long activityId) {
+            String userId,
+            String tripId,
+            String activityId) {
+
+        tripService.getTripForMember(tripId, userId);
+        return findActivity(tripId, activityId);
+    }
+
+    /*
+     * Looks up an activity within a trip without membership check
+     * Callers must check membership first
+     */
+    @Transactional(readOnly = true)
+    private Activity findActivity(
+            String tripId,
+            String activityId) {
 
         return activityRepository
                 .findByIdAndTripId(activityId, tripId)
@@ -71,10 +86,11 @@ public class ActivityService {
      */
     @Transactional(readOnly = true)
     public List<Location> getActivityLocations(
-            Long tripId,
-            Long activityId) {
+            String userId,
+            String tripId,
+            String activityId) {
 
-        Activity activity = getActivity(tripId, activityId);
+        Activity activity = getActivity(userId, tripId, activityId);
 
         return new ArrayList<>(activity.getLocations());
     }
@@ -85,10 +101,11 @@ public class ActivityService {
      */
     @Transactional
     public Activity createActivity(
-            Long tripId,
+            String userId,
+            String tripId,
             Activity activity) {
 
-        Trip trip = tripService.getTrip(tripId);
+        Trip trip = tripService.getTripForMember(tripId, userId);
 
         validateTimes(
                 activity.getStartDateTime(),
@@ -99,12 +116,18 @@ public class ActivityService {
 
         activity.setLocations(locations);
 
-        // Maintains both:
-        // Trip.itinerary
-        // Activity.trip
-        trip.addActivity(activity);
+        String id = ID.generateUniqueID(activityRepository::existsById);
+        activity.setId(id);
 
+        // Save first, then add the saved (managed) instance to the trip.
+        // The id is pre-assigned, so save() merges and returns a copy;
+        // adding the original to Trip.itinerary would make Hibernate try
+        // to persist a second object with the same id on flush.
+        activity.setTrip(trip);
         Activity saved = activityRepository.save(activity);
+
+        // Maintains both Trip.itinerary and Activity.trip.
+        trip.addActivity(saved);
         log.info("Created activity id={} in trip id={}", saved.getId(), tripId);
         return saved;
     }
@@ -115,12 +138,13 @@ public class ActivityService {
      */
     @Transactional
     public Activity updateActivity(
-            Long tripId,
-            Long activityId,
+            String userId,
+            String tripId,
+            String activityId,
             Activity updatedActivity) {
 
         Activity activity
-                = getActivity(tripId, activityId);
+                = getActivity(userId, tripId, activityId);
 
         validateTimes(
                 updatedActivity.getStartDateTime(),
@@ -155,11 +179,12 @@ public class ActivityService {
      */
     @Transactional
     public void deleteActivity(
-            Long tripId,
-            Long activityId) {
+            String userId,
+            String tripId,
+            String activityId) {
 
         Activity activity
-                = getActivity(tripId, activityId);
+                = getActivity(userId, tripId, activityId);
 
         /*
          * Keep the in-memory Trip itinerary consistent too.

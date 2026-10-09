@@ -2,9 +2,9 @@ package com.smu.cs203_g1_1.itinerary_planner.trips.invitations;
 
 import java.time.Instant;
 
-import com.smu.cs203_g1_1.itinerary_planner.common.ShortId;
 import com.smu.cs203_g1_1.itinerary_planner.trips.Trip;
 import com.smu.cs203_g1_1.itinerary_planner.user.User;
+import com.smu.cs203_g1_1.itinerary_planner.util.ID;
 
 import jakarta.persistence.*;
 
@@ -12,8 +12,8 @@ import jakarta.persistence.*;
 @Table(name = "trip_invitations")
 public class TripInvitation {
 
-    // 8-char alphanumeric ID from ShortId (jnanoid).
-    // TODO(id-migration): switch to groupmate's shared ID generator once it lands.
+    // 8-char ID set in @PrePersist, not the service: an assigned id makes save() merge, duplicating the cascaded invite.
+    // See ../decisions.md (TripInvitation ID generation).
     @Id
     @Column(length = 8)
     private String id;
@@ -53,7 +53,7 @@ public class TripInvitation {
     @PrePersist
     void onCreate() {
         if (id == null) {
-            id = ShortId.generate();
+            id = ID.generateID();
         }
         createdAt = Instant.now();
     }

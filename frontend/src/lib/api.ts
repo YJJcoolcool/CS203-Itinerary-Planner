@@ -1,5 +1,14 @@
 import type { TripInvitation } from '../types/invitation'
-import type { Activity, CreateTripInput, Location, Trip, User } from '../types/trip'
+import type {
+  Activity,
+  CreateActivityInput,
+  CreateTripInput,
+  GeoPlace,
+  GeoSearchResponse,
+  Location,
+  Trip,
+  User,
+} from '../types/trip'
 
 /**
  * Base URL for the Spring backend. Falls back to local development so the
@@ -162,6 +171,19 @@ export function getActivities(token: string | null, tripId: string): Promise<Act
   return request<Activity[]>(`/api/trips/${tripId}/activities`, { token })
 }
 
+/** Creates an activity within a trip. Locations must reference existing IDs. */
+export function createActivity(
+  token: string | null,
+  tripId: string,
+  input: CreateActivityInput,
+): Promise<Activity> {
+  return request<Activity>(`/api/trips/${tripId}/activities`, {
+    method: 'POST',
+    body: input,
+    token,
+  })
+}
+
 /** Fetches the locations attached to one activity of a trip. */
 export function getActivityLocations(
   token: string | null,
@@ -214,6 +236,34 @@ export function respondToInvitation(
   return request<TripInvitation>(`/api/users/me/invitations/${invitationId}`, {
     method: 'PATCH',
     body: { status },
+    token,
+  })
+}
+
+/**
+ * Searches OpenStreetMap places by free text. `limit` is clamped by the backend
+ * to 1..10. Callers should debounce to respect the Nominatim usage policy.
+ */
+export function searchPlaces(
+  token: string | null,
+  query: string,
+  limit = 5,
+): Promise<GeoSearchResponse> {
+  const params = new URLSearchParams({ q: query, limit: String(limit) })
+  return request<GeoSearchResponse>(`/api/geo/search?${params.toString()}`, { token })
+}
+
+/**
+ * Imports an OpenStreetMap place as a stored {@link Location}. Idempotent per
+ * `(osmType, osmId)`, so importing a place twice returns the same location.
+ */
+export function importLocationFromOsm(
+  token: string | null,
+  input: Pick<GeoPlace, 'osmType' | 'osmId'>,
+): Promise<Location> {
+  return request<Location>('/api/locations/from-osm', {
+    method: 'POST',
+    body: { osmType: input.osmType, osmId: input.osmId },
     token,
   })
 }

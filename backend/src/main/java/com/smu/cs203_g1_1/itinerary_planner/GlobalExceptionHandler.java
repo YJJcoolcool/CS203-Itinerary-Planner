@@ -10,6 +10,10 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.smu.cs203_g1_1.itinerary_planner.geo.ApiError;
+import com.smu.cs203_g1_1.itinerary_planner.geo.GeoBadRequestException;
+import com.smu.cs203_g1_1.itinerary_planner.geo.GeoNotFoundException;
+import com.smu.cs203_g1_1.itinerary_planner.geo.GeoUnavailableException;
 import com.smu.cs203_g1_1.itinerary_planner.trips.LocationNotFoundException;
 import com.smu.cs203_g1_1.itinerary_planner.user.UserNotFoundException;
 
@@ -34,5 +38,27 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(UserNotFoundException.class)
     public ResponseEntity<Map<String, String>> handleUserNotFound(UserNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", e.getMessage()));
+    }
+
+    /** Maps invalid geo/POI input to 400 with a {@code BAD_REQUEST} envelope. */
+    @ExceptionHandler(GeoBadRequestException.class)
+    public ResponseEntity<ApiError> handleGeoBadRequest(GeoBadRequestException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ApiError("BAD_REQUEST", e.getMessage()));
+    }
+
+    /** Maps a missing geo result to 404 with a {@code NOT_FOUND} envelope. */
+    @ExceptionHandler(GeoNotFoundException.class)
+    public ResponseEntity<ApiError> handleGeoNotFound(GeoNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ApiError("NOT_FOUND", e.getMessage()));
+    }
+
+    /** Maps an OSM upstream failure to 503 with an {@code UPSTREAM_UNAVAILABLE} envelope. */
+    @ExceptionHandler(GeoUnavailableException.class)
+    public ResponseEntity<ApiError> handleGeoUnavailable(GeoUnavailableException e) {
+        log.warn("Geocoding service unavailable: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(new ApiError("UPSTREAM_UNAVAILABLE", e.getMessage()));
     }
 }

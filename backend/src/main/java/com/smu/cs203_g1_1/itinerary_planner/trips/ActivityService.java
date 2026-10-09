@@ -37,10 +37,10 @@ public class ActivityService {
      * GET all activities belonging to one trip.
      */
     @Transactional(readOnly = true)
-    public List<Activity> getActivities(String tripId) {
+    public List<Activity> getActivities(String userId, String tripId) {
 
-        // Also checks that the trip exists.
-        tripService.getTrip(tripId);
+        // 404 if the trip does not exist, 403 if the user is not on it
+        tripService.getTripForMember(tripId, userId);
 
         return activityRepository
                 .findByTripIdOrderByStartDateTimeAsc(tripId);
@@ -48,10 +48,24 @@ public class ActivityService {
 
 
     /*
-     * GET one activity belonging to one specific trip.
+     * Checks membership
      */
     @Transactional(readOnly = true)
     public Activity getActivity(
+            String userId,
+            String tripId,
+            String activityId) {
+
+        tripService.getTripForMember(tripId, userId);
+        return findActivity(tripId, activityId);
+    }
+
+    /*
+     * Looks up an activity within a trip without membership check
+     * Callers must check membership first
+     */
+    @Transactional(readOnly = true)
+    private Activity findActivity(
             String tripId,
             String activityId) {
 
@@ -72,10 +86,11 @@ public class ActivityService {
      */
     @Transactional(readOnly = true)
     public List<Location> getActivityLocations(
+            String userId,
             String tripId,
             String activityId) {
 
-        Activity activity = getActivity(tripId, activityId);
+        Activity activity = getActivity(userId, tripId, activityId);
 
         return new ArrayList<>(activity.getLocations());
     }
@@ -86,10 +101,11 @@ public class ActivityService {
      */
     @Transactional
     public Activity createActivity(
+            String userId,
             String tripId,
             Activity activity) {
 
-        Trip trip = tripService.getTrip(tripId);
+        Trip trip = tripService.getTripForMember(tripId, userId);
 
         validateTimes(
                 activity.getStartDateTime(),
@@ -119,12 +135,13 @@ public class ActivityService {
      */
     @Transactional
     public Activity updateActivity(
+            String userId,
             String tripId,
             String activityId,
             Activity updatedActivity) {
 
         Activity activity
-                = getActivity(tripId, activityId);
+                = getActivity(userId, tripId, activityId);
 
         validateTimes(
                 updatedActivity.getStartDateTime(),
@@ -159,11 +176,12 @@ public class ActivityService {
      */
     @Transactional
     public void deleteActivity(
+            String userId,
             String tripId,
             String activityId) {
 
         Activity activity
-                = getActivity(tripId, activityId);
+                = getActivity(userId, tripId, activityId);
 
         /*
          * Keep the in-memory Trip itinerary consistent too.

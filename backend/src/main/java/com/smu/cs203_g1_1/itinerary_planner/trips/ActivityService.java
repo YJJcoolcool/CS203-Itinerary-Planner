@@ -119,12 +119,15 @@ public class ActivityService {
         String id = ID.generateUniqueID(activityRepository::existsById);
         activity.setId(id);
 
-        // Maintains both:
-        // Trip.itinerary
-        // Activity.trip
-        trip.addActivity(activity);
-
+        // Save first, then add the saved (managed) instance to the trip.
+        // The id is pre-assigned, so save() merges and returns a copy;
+        // adding the original to Trip.itinerary would make Hibernate try
+        // to persist a second object with the same id on flush.
+        activity.setTrip(trip);
         Activity saved = activityRepository.save(activity);
+
+        // Maintains both Trip.itinerary and Activity.trip.
+        trip.addActivity(saved);
         log.info("Created activity id={} in trip id={}", saved.getId(), tripId);
         return saved;
     }

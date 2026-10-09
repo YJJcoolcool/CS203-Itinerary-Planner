@@ -2,6 +2,9 @@ package com.smu.cs203_g1_1.itinerary_planner.user;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.stereotype.Service;
 import com.smu.cs203_g1_1.itinerary_planner.util.ID;
 
@@ -18,6 +21,13 @@ public class UserService {
     public User getUserByClerkId(String clerkUserId) {
         return userRepository.findByClerkUserId(clerkUserId)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
+    }
+
+    public String getCurrentUserId(Jwt jwt) {
+        if (jwt == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
+        }
+        return getUserByClerkId(jwt.getSubject()).getId();
     }
 
     public User findOrCreateUser(String clerkUserId, String displayName) {

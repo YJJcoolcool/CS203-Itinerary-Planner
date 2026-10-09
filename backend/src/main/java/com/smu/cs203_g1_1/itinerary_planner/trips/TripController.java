@@ -15,7 +15,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
 import com.smu.cs203_g1_1.itinerary_planner.user.UserService;
 
@@ -47,35 +46,27 @@ public class TripController {
 
     @GetMapping("/{tripId}")
     public Trip getTrip(@AuthenticationPrincipal Jwt jwt, @PathVariable("tripId") String tripId) {
-        return tripService.getTripForMember(tripId, currentUserId(jwt));
+        return tripService.getTripForMember(tripId, userService.getCurrentUserId(jwt));
     }
 
     @PutMapping("/{tripId}")
     public Trip updateTrip(@AuthenticationPrincipal Jwt jwt, @PathVariable("tripId") String tripId, @RequestBody TripUpdateRequest request) {
-        return tripService.updateTrip(currentUserId(jwt), tripId, request.name(), request.startDate(), request.endDate());
+        return tripService.updateTrip(userService.getCurrentUserId(jwt), tripId, request.name(), request.startDate(), request.endDate());
     }
 
     @DeleteMapping("/{tripId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteTrip(@AuthenticationPrincipal Jwt jwt, @PathVariable("tripId") String tripId) {
-        tripService.deleteTrip(currentUserId(jwt), tripId);
+        tripService.deleteTrip(userService.getCurrentUserId(jwt), tripId);
     }
 
     @PostMapping("/{tripId}/members/{userId}")
     public Trip addMember(@AuthenticationPrincipal Jwt jwt, @PathVariable("tripId") String tripId, @PathVariable("userId") String userId) {
-        return tripService.addMember(currentUserId(jwt), tripId, userId);
+        return tripService.addMember(userService.getCurrentUserId(jwt), tripId, userId);
     }
 
     @DeleteMapping("/{tripId}/members/{userId}")
     public Trip removeMember(@AuthenticationPrincipal Jwt jwt, @PathVariable("tripId") String tripId, @PathVariable("userId") String userId) {
-        return tripService.removeMember(currentUserId(jwt), tripId, userId);
-    }
-
-    // resolves logged in clerk user to internal user id. token is null when backend runs without clerk configured
-    private String currentUserId(Jwt jwt) {
-        if (jwt == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
-        }
-        return userService.getUserByClerkId(jwt.getSubject()).getId();
+        return tripService.removeMember(userService.getCurrentUserId(jwt), tripId, userId);
     }
 }

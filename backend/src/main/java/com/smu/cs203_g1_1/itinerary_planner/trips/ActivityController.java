@@ -25,7 +25,7 @@ public class ActivityController {
     private final UserService userService;
 
 
-    public ActivityController(ActivityService activityService, UserService userService)) {
+    public ActivityController(ActivityService activityService, UserService userService) {
         this.activityService = activityService;
         this.userService = userService;
     }

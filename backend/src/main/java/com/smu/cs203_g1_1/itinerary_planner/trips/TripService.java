@@ -43,6 +43,19 @@ public class TripService {
                 });
     }
 
+    // return trip only if userId is owner or member. 404 if doesnt exist, 403 if user not part of trip
+    @Transactional(readOnly = true)
+    public Trip getTripForMember(String tripId, String userId) {
+        Trip trip = getTrip(tripId);
+
+        if (!isMember(trip, userId)) {
+            log.warn("User id={} denied access to trip id={}", userId, tripId);
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not a member of this trip");
+        }
+
+        return trip;
+    }
+
     @Transactional
     public Trip createTrip(String name, LocalDate startDate, LocalDate endDate, String ownerId) {
 
@@ -65,11 +78,11 @@ public class TripService {
     }
 
     @Transactional
-    public Trip updateTrip(String tripId, String name, LocalDate startDate, LocalDate endDate) {
+    public Trip updateTrip(String userId, String tripId, String name, LocalDate startDate, LocalDate endDate) {
 
         validateDates(startDate, endDate);
 
-        Trip trip = getTrip(tripId);
+        Trip trip = getTripForMember(tripId, userId);
 
         trip.setName(name);
         trip.setStartDate(startDate);
@@ -81,14 +94,14 @@ public class TripService {
     }
 
     @Transactional
-    public void deleteTrip(String tripId) {
-        tripRepository.delete(getTrip(tripId));
+    public void deleteTrip(String userId, String tripId) {
+        tripRepository.delete(getTripForMember(tripId, userId));
         log.info("Deleted trip id={}", tripId);
     }
 
     @Transactional
-    public Trip addMember(String tripId, String userId) {
-        Trip trip = getTrip(tripId);
+    public Trip addMember(String requesterId, String tripId, String userId) {
+        Trip trip = getTripForMember(tripId, requesterId);
         trip.addMember(findUser(userId));
         Trip saved = tripRepository.save(trip);
         log.info("Added user id={} to trip id={}", userId, tripId);
@@ -96,8 +109,8 @@ public class TripService {
     }
 
     @Transactional
-    public Trip removeMember(String tripId, String userId) {
-        Trip trip = getTrip(tripId);
+    public Trip removeMember(String requesterId, String tripId, String userId) {
+        Trip trip = getTripForMember(tripId, requesterId);
         User user = findUser(userId);
 
         if (!trip.getUsers().contains(user)) {
@@ -109,6 +122,13 @@ public class TripService {
         Trip saved = tripRepository.save(trip);
         log.info("Removed user id={} from trip id={}", userId, tripId);
         return saved;
+    }
+
+    private boolean isMember(Trip trip, String userId) {
+        if (trip.getOwner().getId().equals(userId)) {
+            return true;
+        }
+        return trip.getUsers().stream().anyMatch(member -> member.getId().equals(userId));
     }
 
     private User findUser(String userId) {

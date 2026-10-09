@@ -51,3 +51,11 @@ export interface CreateTripInput {
   startDate: string
   endDate: string
 }
+
+/** Client-supplied fields for creating an activity. */
+export interface CreateActivityInput {
+  name: string
+  startDateTime: string | null
+  endDateTime: string | null
+  locations: Pick<Location, 'id'>[]
+}

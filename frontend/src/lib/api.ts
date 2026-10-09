@@ -1,5 +1,12 @@
 import type { TripInvitation } from '../types/invitation'
-import type { Activity, CreateTripInput, Location, Trip, User } from '../types/trip'
+import type {
+  Activity,
+  CreateActivityInput,
+  CreateTripInput,
+  Location,
+  Trip,
+  User,
+} from '../types/trip'
 
 /**
  * Base URL for the Spring backend. Falls back to local development so the
@@ -160,6 +167,19 @@ export function getTrip(token: string | null, tripId: string): Promise<Trip> {
 /** Fetches a trip's activities, ordered by start time. */
 export function getActivities(token: string | null, tripId: string): Promise<Activity[]> {
   return request<Activity[]>(`/api/trips/${tripId}/activities`, { token })
+}
+
+/** Creates an activity within a trip. Locations must reference existing IDs. */
+export function createActivity(
+  token: string | null,
+  tripId: string,
+  input: CreateActivityInput,
+): Promise<Activity> {
+  return request<Activity>(`/api/trips/${tripId}/activities`, {
+    method: 'POST',
+    body: input,
+    token,
+  })
 }
 
 /** Fetches the locations attached to one activity of a trip. */

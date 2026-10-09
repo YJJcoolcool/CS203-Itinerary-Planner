@@ -214,7 +214,7 @@ export function CreateActivityModal({
             </div>
           </div>
 
-          <fieldset className="flex flex-col gap-2">
+          <fieldset className="flex min-w-0 flex-col gap-2">
             <legend className="text-xs font-medium text-muted">
               Locations (at least one required)
             </legend>

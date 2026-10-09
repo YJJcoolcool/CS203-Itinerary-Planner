@@ -1,7 +1,9 @@
+import { useCallback, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { Navbar } from '../components/Navbar'
 import { TripDetailsCard } from '../components/trips/TripDetailsCard'
-import { useTrip } from '../lib/useTrips'
+import { useCurrentUser, useTrip } from '../lib/useTrips'
+import { TripInviteModal } from '../components/invitations/TripInviteModal'
 import { NotFoundPage } from './NotFoundPage'
 import { TripItinerary } from '../components/trips/TripItinerary'
 
@@ -38,6 +40,11 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
 
 function TripDetailsContent({ tripId }: { tripId: string }) {
   const { trip, isLoading, error, errorStatus, refresh } = useTrip(tripId)
+  const { user } = useCurrentUser()
+  const [isInviteOpen, setIsInviteOpen] = useState(false)
+  // Stable reference: the modal's Escape listener re-binds whenever onClose changes.
+  const closeInvite = useCallback(() => setIsInviteOpen(false), [])
+  const isOwner = Boolean(user && trip && trip.owner.id === user.id)
 
   if (errorStatus === 404) return <NotFoundPage />
 
@@ -59,7 +66,11 @@ function TripDetailsContent({ tripId }: { tripId: string }) {
           <ErrorState message={error} onRetry={refresh} />
         ) : trip ? (
           <>
-            <TripDetailsCard trip={trip} />
+            {/* UI-only gate; the backend rejects non-owners with 403 regardless. */}
+            <TripDetailsCard trip={trip} onInvite={isOwner ? () => setIsInviteOpen(true) : undefined} />
+            {isOwner && isInviteOpen && (
+              <TripInviteModal tripId={trip.id} onClose={closeInvite} />
+            )}
             <TripItinerary tripId={trip.id} />
           </>
         ) : null}

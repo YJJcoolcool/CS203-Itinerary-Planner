@@ -125,3 +125,16 @@ contains the internal `id` used by the rest of the application.
 
 When the Trip entity is merged, restore the pending `User` ↔ `Trip`
 relationship and keep all trip ownership queries based on `User.id`.
+
+## Email claim (required for trip invitations)
+
+Clerk's default session token has no email. In the Clerk dashboard go to
+Sessions → Customize session token and add:
+
+```json
+{ "email": "{{user.primary_email_address}}" }
+```
+
+`POST /api/users/me` reads this claim and stores it on `User.email`, which is
+how owners look up invitees. Without it, `email` stays null and the user cannot
+be invited.

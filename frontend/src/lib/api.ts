@@ -1,3 +1,4 @@
+import type { TripInvitation } from '../types/invitation'
 import type { Activity, CreateTripInput, Location, Trip, User } from '../types/trip'
 
 /**
@@ -168,4 +169,51 @@ export function getActivityLocations(
   activityId: string,
 ): Promise<Location[]> {
   return request<Location[]>(`/api/trips/${tripId}/activities/${activityId}/locations`, { token })
+}
+/** Owner invites an existing user (by email) to a trip. */
+export function sendInvitation(
+  token: string | null,
+  tripId: string,
+  email: string,
+): Promise<TripInvitation> {
+  return request<TripInvitation>(`/api/trips/${tripId}/invitations`, {
+    method: 'POST',
+    body: { email },
+    token,
+  })
+}
+
+/** Owner-only: pending invitations for a trip. */
+export function getTripInvitations(token: string | null, tripId: string): Promise<TripInvitation[]> {
+  return request<TripInvitation[]>(`/api/trips/${tripId}/invitations`, { token })
+}
+
+/** Owner-only: withdraws a pending invitation. */
+export function cancelInvitation(
+  token: string | null,
+  tripId: string,
+  invitationId: string,
+): Promise<void> {
+  return request<void>(`/api/trips/${tripId}/invitations/${invitationId}`, {
+    method: 'DELETE',
+    token,
+  })
+}
+
+/** Current user's pending invitations (drives the navbar red dot). */
+export function getMyInvitations(token: string | null): Promise<TripInvitation[]> {
+  return request<TripInvitation[]>('/api/users/me/invitations', { token })
+}
+
+/** Accept or decline an invitation addressed to the current user. */
+export function respondToInvitation(
+  token: string | null,
+  invitationId: string,
+  status: 'ACCEPTED' | 'DECLINED',
+): Promise<TripInvitation> {
+  return request<TripInvitation>(`/api/users/me/invitations/${invitationId}`, {
+    method: 'PATCH',
+    body: { status },
+    token,
+  })
 }

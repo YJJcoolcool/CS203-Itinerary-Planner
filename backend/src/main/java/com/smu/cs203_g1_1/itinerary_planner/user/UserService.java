@@ -30,10 +30,16 @@ public class UserService {
         return getUserByClerkId(jwt.getSubject()).getId();
     }
 
-    public User findOrCreateUser(String clerkUserId, String displayName) {
+    public User findOrCreateUser(String clerkUserId, String displayName, String email) {
+        String normalizedEmail = email == null ? null : email.trim().toLowerCase();
         return userRepository.findByClerkUserId(clerkUserId)
                 .map(existing -> {
                     log.debug("Found existing user for clerk id {}", clerkUserId);
+                    // Keep email in sync in case the user changed it in Clerk.
+                    if (normalizedEmail != null && !normalizedEmail.equals(existing.getEmail())) {
+                        existing.setEmail(normalizedEmail);
+                        return userRepository.save(existing);
+                    }
                     return existing;
                 })
                 .orElseGet(() -> {
@@ -41,12 +47,18 @@ public class UserService {
 
                     User created = new User(clerkUserId, displayName);
                     created.setId(id);
+                    created.setEmail(normalizedEmail);
 
                     User saved = userRepository.save(created);
 
                     log.info("Created user id={} for clerk id {}", saved.getId(), clerkUserId);
                     return saved;
                 });
+    }
+
+    public User getUserByEmail(String email) {
+        return userRepository.findByEmailIgnoreCase(email.trim())
+                .orElseThrow(() -> new UserNotFoundException("No user with that email"));
     }
 
     public User getUserById(String id) {

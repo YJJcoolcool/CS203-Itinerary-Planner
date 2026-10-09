@@ -2,18 +2,18 @@ package com.smu.cs203_g1_1.itinerary_planner.trips.invitations;
 
 import java.time.Instant;
 
+import org.springframework.data.domain.Persistable;
+
 import com.smu.cs203_g1_1.itinerary_planner.trips.Trip;
 import com.smu.cs203_g1_1.itinerary_planner.user.User;
-import com.smu.cs203_g1_1.itinerary_planner.util.ID;
 
 import jakarta.persistence.*;
 
 @Entity
 @Table(name = "trip_invitations")
-public class TripInvitation {
+public class TripInvitation implements Persistable<String> {
 
-    // 8-char ID set in @PrePersist, not the service: an assigned id makes save() merge, duplicating the cascaded invite.
-    // See ../decisions.md (TripInvitation ID generation).
+    // 8-char ID assigned by TripInvitationService via util.ID, like other entities.
     @Id
     @Column(length = 8)
     private String id;
@@ -52,9 +52,6 @@ public class TripInvitation {
 
     @PrePersist
     void onCreate() {
-        if (id == null) {
-            id = ID.generateID();
-        }
         createdAt = Instant.now();
     }
 
@@ -79,8 +76,20 @@ public class TripInvitation {
         respondedAt = Instant.now();
     }
 
+    @Override
     public String getId() {
         return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    // ID is assigned before save(), so Spring can't use id == null; without this, save() merges a copy.
+    // See ../decisions.md §16.
+    @Override
+    public boolean isNew() {
+        return createdAt == null;
     }
 
     public Trip getTrip() {

@@ -13,6 +13,7 @@ import com.smu.cs203_g1_1.itinerary_planner.trips.Trip;
 import com.smu.cs203_g1_1.itinerary_planner.trips.TripService;
 import com.smu.cs203_g1_1.itinerary_planner.user.User;
 import com.smu.cs203_g1_1.itinerary_planner.user.UserService;
+import com.smu.cs203_g1_1.itinerary_planner.util.ID;
 
 @Service
 public class TripInvitationService {
@@ -48,7 +49,11 @@ public class TripInvitationService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "User already has a pending invite to this trip");
         }
 
-        TripInvitation saved = invitationRepository.save(trip.invite(sender, receiver));
+        // Before trip.invite(): existsById auto-flushes, which would cascade-persist an id-less invite.
+        String id = ID.generateUniqueID(invitationRepository::existsById);
+        TripInvitation invitation = trip.invite(sender, receiver);
+        invitation.setId(id);
+        TripInvitation saved = invitationRepository.save(invitation);
         log.info("User id={} invited user id={} to trip id={} (invite {})", senderId, receiver.getId(), tripId, saved.getId());
         return TripInvitationResponse.from(saved);
     }

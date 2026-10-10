@@ -128,37 +128,18 @@ export function createBackendUser(token: string | null, displayName: string): Pr
   })
 }
 
-/** Fetches every trip. The endpoint is not user-scoped — filter with `tripsForUser`. */
+/** Fetches the logged-in user's trips (the ones they own or are a member of). */
 export function getTrips(token: string | null): Promise<Trip[]> {
   return request<Trip[]>('/api/trips', { token })
 }
 
-/** Creates a trip owned by `ownerId`. */
-export function createTrip(
-  token: string | null,
-  input: CreateTripInput & { ownerId: string },
-): Promise<Trip> {
+/** Creates a trip. The backend makes the logged-in user (from the token) its owner. */
+export function createTrip(token: string | null, input: CreateTripInput): Promise<Trip> {
   return request<Trip>('/api/trips', {
     method: 'POST',
     body: input,
     token,
   })
-}
-
-/** True when `userId` owns the trip or appears in its member list. */
-export function isUserMemberOfTrip(trip: Trip, userId: string | undefined): boolean {
-  if (userId === undefined) return false
-  if (trip.owner.id === userId) return true
-  return trip.users.some((member) => member.id === userId)
-}
-
-/**
- * Client-side filter for the current user. Required because `GET /api/trips`
- * returns all trips regardless of membership.
- */
-export function tripsForUser(trips: Trip[], userId: string | undefined): Trip[] {
-  if (userId === undefined) return []
-  return trips.filter((trip) => isUserMemberOfTrip(trip, userId))
 }
 
 /** Fetches a single trip. Throws `ApiError` with status 404 when it does not exist. */

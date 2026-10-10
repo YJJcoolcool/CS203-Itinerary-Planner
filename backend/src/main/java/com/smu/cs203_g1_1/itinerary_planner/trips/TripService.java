@@ -43,17 +43,29 @@ public class TripService {
                 });
     }
 
-    // return trip only if userId is owner or member. 404 if doesnt exist, 403 if user not part of trip
+    /*
+     * Loads the trip and verifies the user holds at least the required role on it.
+     * 404 if the trip doesn't exist, 403 if the user is not on it or their role is too low.
+     * Used by ActivityService too.
+     */
     @Transactional(readOnly = true)
-    public Trip getTripForMember(String tripId, String userId) {
+    public Trip requireTripRole(String tripId, String userId, TripRole required) {
         Trip trip = getTrip(tripId);
 
-        if (!isMember(trip, userId)) {
-            log.warn("User id={} denied access to trip id={}", userId, tripId);
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not a member of this trip");
+        TripRole actual = trip.findRole(userId).orElse(null);
+        if (actual == null || !actual.atLeast(required)) {
+            log.warn("Forbidden: user id={} (role={}) needs {} on trip id={}", userId, actual, required, tripId);
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "You do not have permission to perform this action on this trip");
         }
 
         return trip;
+    }
+
+    // return trip only if the user is on it (any role). 404 if doesnt exist, 403 if user not part of trip
+    @Transactional(readOnly = true)
+    public Trip getTripForMember(String tripId, String userId) {
+        return requireTripRole(tripId, userId, TripRole.VIEWER);
     }
 
     @Transactional
@@ -68,8 +80,8 @@ public class TripService {
         Trip trip = new Trip(name, startDate, endDate, owner);
         trip.setId(id);
 
-        // The owner is a participant too, so owned trips show up
-        // through User.trips (mappedBy = "users").
+        // The owner is a participant too (with the OWNER role), so owned trips
+        // show up through User.trips (mappedBy = "users").
         trip.addMember(owner);
 
         Trip saved = tripRepository.save(trip);
@@ -77,12 +89,13 @@ public class TripService {
         return saved;
     }
 
+    // OWNER only
     @Transactional
     public Trip updateTrip(String userId, String tripId, String name, LocalDate startDate, LocalDate endDate) {
 
         validateDates(startDate, endDate);
 
-        Trip trip = getTripForMember(tripId, userId);
+        Trip trip = requireTripRole(tripId, userId, TripRole.OWNER);
 
         trip.setName(name);
         trip.setStartDate(startDate);
@@ -93,27 +106,78 @@ public class TripService {
         return saved;
     }
 
+    // OWNER only
     @Transactional
     public void deleteTrip(String userId, String tripId) {
-        tripRepository.delete(getTripForMember(tripId, userId));
+        tripRepository.delete(requireTripRole(tripId, userId, TripRole.OWNER));
         log.info("Deleted trip id={}", tripId);
     }
 
+    // ---------------------------------------------------------------
+    // Members (OWNER only)
+    // ---------------------------------------------------------------
+
+    // Original signature kept for existing callers; new members default to VIEWER.
     @Transactional
     public Trip addMember(String requesterId, String tripId, String userId) {
-        Trip trip = getTripForMember(tripId, requesterId);
-        trip.addMember(findUser(userId));
+        return addMember(requesterId, tripId, userId, null);
+    }
+
+    @Transactional
+    public Trip addMember(String requesterId, String tripId, String userId, TripRole role) {
+        Trip trip = requireTripRole(tripId, requesterId, TripRole.OWNER);
+        TripRole assigned = (role == null) ? TripRole.VIEWER : role;
+
+        if (assigned == TripRole.OWNER) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A trip can only have one owner");
+        }
+
+        User target = findUser(userId);
+        if (trip.hasMember(target)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "User is already a member of this trip; change their role instead");
+        }
+
+        trip.addMember(target, assigned);
         Trip saved = tripRepository.save(trip);
-        log.info("Added user id={} to trip id={}", userId, tripId);
+        log.info("Added user id={} to trip id={} as {}", userId, tripId, assigned);
+        return saved;
+    }
+
+    @Transactional
+    public Trip changeMemberRole(String requesterId, String tripId, String userId, TripRole role) {
+        Trip trip = requireTripRole(tripId, requesterId, TripRole.OWNER);
+
+        if (role == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Role is required");
+        }
+        if (role == TripRole.OWNER) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A trip can only have one owner");
+        }
+
+        User target = findUser(userId);
+        if (trip.isOwner(target)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The owner's role cannot be changed");
+        }
+        if (!trip.hasMember(target)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User is not a member of this trip");
+        }
+
+        trip.setMemberRole(target, role);
+        Trip saved = tripRepository.save(trip);
+        log.info("Changed user id={} to {} on trip id={}", userId, role, tripId);
         return saved;
     }
 
     @Transactional
     public Trip removeMember(String requesterId, String tripId, String userId) {
-        Trip trip = getTripForMember(tripId, requesterId);
+        Trip trip = requireTripRole(tripId, requesterId, TripRole.OWNER);
         User user = findUser(userId);
 
-        if (!trip.getUsers().contains(user)) {
+        if (trip.isOwner(user)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The trip owner cannot be removed");
+        }
+        if (!trip.hasMember(user)) {
             log.warn("User id={} is not a member of trip id={}", userId, tripId);
             throw new ResponseStatusException( HttpStatus.NOT_FOUND, "User is not a member of this trip");
         }
@@ -122,13 +186,6 @@ public class TripService {
         Trip saved = tripRepository.save(trip);
         log.info("Removed user id={} from trip id={}", userId, tripId);
         return saved;
-    }
-
-    private boolean isMember(Trip trip, String userId) {
-        if (trip.getOwner().getId().equals(userId)) {
-            return true;
-        }
-        return trip.getUsers().stream().anyMatch(member -> member.getId().equals(userId));
     }
 
     private User findUser(String userId) {

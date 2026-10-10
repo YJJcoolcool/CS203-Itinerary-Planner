@@ -34,6 +34,9 @@ public class TripController {
 
     public record TripUpdateRequest(String name, LocalDate startDate, LocalDate endDate) { }
 
+    // role is optional when adding a member (defaults to VIEWER)
+    public record MemberRequest(TripRole role) { }
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public Trip createTrip(@RequestBody TripRequest request) {
@@ -61,8 +64,13 @@ public class TripController {
     }
 
     @PostMapping("/{tripId}/members/{userId}")
-    public Trip addMember(@AuthenticationPrincipal Jwt jwt, @PathVariable("tripId") String tripId, @PathVariable("userId") String userId) {
-        return tripService.addMember(userService.getCurrentUserId(jwt), tripId, userId);
+    public Trip addMember(@AuthenticationPrincipal Jwt jwt, @PathVariable("tripId") String tripId, @PathVariable("userId") String userId, @RequestBody(required = false) MemberRequest request) {
+        return tripService.addMember(userService.getCurrentUserId(jwt), tripId, userId, request == null ? null : request.role());
+    }
+
+    @PutMapping("/{tripId}/members/{userId}")
+    public Trip changeMemberRole(@AuthenticationPrincipal Jwt jwt, @PathVariable("tripId") String tripId, @PathVariable("userId") String userId, @RequestBody MemberRequest request) {
+        return tripService.changeMemberRole(userService.getCurrentUserId(jwt), tripId, userId, request.role());
     }
 
     @DeleteMapping("/{tripId}/members/{userId}")

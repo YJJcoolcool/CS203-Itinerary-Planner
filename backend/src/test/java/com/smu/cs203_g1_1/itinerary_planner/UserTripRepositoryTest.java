@@ -12,6 +12,7 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 
 import com.smu.cs203_g1_1.itinerary_planner.trips.Trip;
 import com.smu.cs203_g1_1.itinerary_planner.trips.TripRepository;
+import com.smu.cs203_g1_1.itinerary_planner.trips.TripRole;
 import com.smu.cs203_g1_1.itinerary_planner.user.User;
 import com.smu.cs203_g1_1.itinerary_planner.user.UserRepository;
 

@@ -2,7 +2,11 @@ package com.smu.cs203_g1_1.itinerary_planner.trips;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -10,13 +14,19 @@ import com.smu.cs203_g1_1.itinerary_planner.trips.invitations.TripInvitation;
 import com.smu.cs203_g1_1.itinerary_planner.user.User;
 
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.MapKeyColumn;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 
@@ -35,6 +45,9 @@ public class Trip {
     /*
      * Many trips belong to one User (the owner).
      * Database: trips.owner_id -> users.id
+     *
+     * There is exactly one owner per trip (single non-null FK), so the
+     * OWNER role can never belong to anyone else.
      */
     @ManyToOne
     @JoinColumn(name = "owner_id", nullable = false)
@@ -55,6 +68,20 @@ public class Trip {
             inverseJoinColumns = @JoinColumn(name = "user_id"))
     @JsonIgnoreProperties("trips")
     private List<User> users = new ArrayList<>();
+
+    /*
+     * Role of each member, keyed by user id (OWNER / EDITOR / VIEWER).
+     * Stored in its own table (trip_member_roles) so the existing
+     * trip_members join table and User.trips stay exactly as they were.
+     * A member with no entry here (e.g. rows created before roles existed)
+     * is treated as VIEWER, see findRole().
+     */
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "trip_member_roles", joinColumns = @JoinColumn(name = "trip_id"))
+    @MapKeyColumn(name = "user_id", length = 8)
+    @Column(name = "role", nullable = false)
+    @Enumerated(EnumType.STRING)
+    private Map<String, TripRole> roles = new HashMap<>();
 
     /*
      * One trip has many activities. Activity owns the foreign key
@@ -124,18 +151,82 @@ public class Trip {
         return users;
     }
 
+    // userId -> role, so the frontend can show who can do what.
+    public Map<String, TripRole> getRoles() {
+        return Collections.unmodifiableMap(roles);
+    }
+
     public List<Activity> getItinerary() {
         return itinerary;
     }
 
+    // ------------------------------------------------------------------
+    // Membership and roles
+    // ------------------------------------------------------------------
+
+    public boolean isOwner(User user) {
+        return owner != null && user != null
+                && owner.getId() != null && owner.getId().equals(user.getId());
+    }
+
+    public boolean hasMember(User user) {
+        return user != null && users.stream()
+                .anyMatch(u -> u.getId() != null && u.getId().equals(user.getId()));
+    }
+
+    /** The user's role on this trip, or empty if they are not part of it. */
+    public Optional<TripRole> findRole(String userId) {
+        if (userId == null) {
+            return Optional.empty();
+        }
+        if (owner != null && userId.equals(owner.getId())) {
+            return Optional.of(TripRole.OWNER);
+        }
+        boolean member = users.stream().anyMatch(u -> userId.equals(u.getId()));
+        return member
+                ? Optional.of(roles.getOrDefault(userId, TripRole.VIEWER))
+                : Optional.empty();
+    }
+
+    /*
+     * Original signature, kept so existing callers (e.g. invitation acceptance)
+     * keep compiling. No-op if already a member. The owner gets OWNER,
+     * everyone else VIEWER.
+     */
     public void addMember(User user) {
-        if (!users.contains(user)) {
-            users.add(user);
+        if (!hasMember(user)) {
+            addMember(user, isOwner(user) ? TripRole.OWNER : TripRole.VIEWER);
         }
     }
 
+    /** Adds the user with the given role. OWNER is only valid for the trip's owner. */
+    public void addMember(User user, TripRole role) {
+        if (role == TripRole.OWNER && !isOwner(user)) {
+            throw new IllegalArgumentException("A trip can only have one owner");
+        }
+        if (role != TripRole.OWNER && isOwner(user)) {
+            throw new IllegalArgumentException("The trip owner must keep the OWNER role");
+        }
+        if (!hasMember(user)) {
+            users.add(user);
+        }
+        roles.put(user.getId(), role);
+    }
+
+    /** Changes an existing member's role (never to or from OWNER). */
+    public void setMemberRole(User user, TripRole role) {
+        if (role == TripRole.OWNER || isOwner(user)) {
+            throw new IllegalArgumentException("The owner role cannot be assigned or changed");
+        }
+        if (!hasMember(user)) {
+            throw new IllegalArgumentException("User is not a member of this trip");
+        }
+        roles.put(user.getId(), role);
+    }
+
     public void removeMember(User user) {
-        users.remove(user);
+        users.removeIf(u -> u.getId() != null && u.getId().equals(user.getId()));
+        roles.remove(user.getId());
     }
 
     public void addActivity(Activity activity) {

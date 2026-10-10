@@ -34,7 +34,7 @@ public class ActivityService {
 
 
     /*
-     * GET all activities belonging to one trip.
+     * GET all activities belonging to one trip. (VIEWER or above)
      */
     @Transactional(readOnly = true)
     public List<Activity> getActivities(String userId, String tripId) {
@@ -48,7 +48,7 @@ public class ActivityService {
 
 
     /*
-     * Checks membership
+     * Checks membership (VIEWER or above)
      */
     @Transactional(readOnly = true)
     public Activity getActivity(
@@ -82,7 +82,7 @@ public class ActivityService {
 
 
     /*
-     * GET all locations belonging to one activity in one specific trip.
+     * GET all locations belonging to one activity in one specific trip. (VIEWER or above)
      */
     @Transactional(readOnly = true)
     public List<Location> getActivityLocations(
@@ -97,7 +97,7 @@ public class ActivityService {
 
 
     /*
-     * CREATE a new activity inside a trip.
+     * CREATE a new activity inside a trip. (EDITOR or above)
      */
     @Transactional
     public Activity createActivity(
@@ -105,7 +105,7 @@ public class ActivityService {
             String tripId,
             Activity activity) {
 
-        Trip trip = tripService.getTripForMember(tripId, userId);
+        Trip trip = tripService.requireTripRole(tripId, userId, TripRole.EDITOR);
 
         validateTimes(
                 activity.getStartDateTime(),
@@ -134,7 +134,7 @@ public class ActivityService {
 
 
     /*
-     * UPDATE an existing activity.
+     * UPDATE an existing activity. (EDITOR or above)
      */
     @Transactional
     public Activity updateActivity(
@@ -143,8 +143,10 @@ public class ActivityService {
             String activityId,
             Activity updatedActivity) {
 
+        tripService.requireTripRole(tripId, userId, TripRole.EDITOR);
+
         Activity activity
-                = getActivity(userId, tripId, activityId);
+                = findActivity(tripId, activityId);
 
         validateTimes(
                 updatedActivity.getStartDateTime(),
@@ -175,7 +177,7 @@ public class ActivityService {
 
 
     /*
-     * DELETE an activity.
+     * DELETE an activity. (EDITOR or above)
      */
     @Transactional
     public void deleteActivity(
@@ -183,8 +185,10 @@ public class ActivityService {
             String tripId,
             String activityId) {
 
+        tripService.requireTripRole(tripId, userId, TripRole.EDITOR);
+
         Activity activity
-                = getActivity(userId, tripId, activityId);
+                = findActivity(tripId, activityId);
 
         /*
          * Keep the in-memory Trip itinerary consistent too.

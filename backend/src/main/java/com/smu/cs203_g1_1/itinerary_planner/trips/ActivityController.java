@@ -34,7 +34,7 @@ public class ActivityController {
     /*
      * GET /api/trips/5/activities
      *
-     * Get all activities belonging to Trip 5. (VIEWER or above)
+     * Get all activities belonging to Trip 5.
      */
     @GetMapping
     public List<Activity> getActivities(
@@ -50,7 +50,7 @@ public class ActivityController {
     /*
      * GET /api/trips/5/activities/10
      *
-     * Get Activity 10 belonging to Trip 5. (VIEWER or above)
+     * Get Activity 10 belonging to Trip 5.
      */
     @GetMapping("/{activityId}")
     public Activity getActivity(
@@ -61,15 +61,14 @@ public class ActivityController {
         return activityService.getActivity(
                 userService.getCurrentUserId(jwt),
                 tripId,
-                activityId,
-                jwt.getSubject());
+                activityId);
     }
 
 
     /*
      * GET /api/trips/5/activities/10/locations
      *
-     * Get all locations belonging to Activity 10 in Trip 5. (VIEWER or above)
+     * Get all locations belonging to Activity 10 in Trip 5.
      */
     @GetMapping("/{activityId}/locations")
     public List<Location> getActivityLocations(
@@ -80,15 +79,14 @@ public class ActivityController {
         return activityService.getActivityLocations(
                 userService.getCurrentUserId(jwt),
                 tripId,
-                activityId,
-                jwt.getSubject());
+                activityId);
     }
 
 
     /*
      * POST /api/trips/5/activities
      *
-     * Create a NEW activity inside Trip 5. (EDITOR or above)
+     * Create a NEW activity inside Trip 5.
      */
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -100,15 +98,14 @@ public class ActivityController {
         return activityService.createActivity(
                 userService.getCurrentUserId(jwt),
                 tripId,
-                activity,
-                jwt.getSubject());
+                activity);
     }
 
 
     /*
      * PUT /api/trips/5/activities/10
      *
-     * Update existing Activity 10. (EDITOR or above)
+     * Update existing Activity 10.
      */
     @PutMapping("/{activityId}")
     public Activity updateActivity(
@@ -121,15 +118,14 @@ public class ActivityController {
                 userService.getCurrentUserId(jwt),
                 tripId,
                 activityId,
-                activity,
-                jwt.getSubject());
+                activity);
     }
 
 
     /*
      * DELETE /api/trips/5/activities/10
      *
-     * Delete Activity 10 from Trip 5. (EDITOR or above)
+     * Delete Activity 10 from Trip 5.
      */
     @DeleteMapping("/{activityId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
@@ -141,7 +137,6 @@ public class ActivityController {
         activityService.deleteActivity(
                 userService.getCurrentUserId(jwt),
                 tripId,
-                activityId,
-                jwt.getSubject());
+                activityId);
     }
 }

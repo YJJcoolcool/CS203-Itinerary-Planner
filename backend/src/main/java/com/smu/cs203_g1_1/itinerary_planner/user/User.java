@@ -10,7 +10,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
- 
+
 @Entity
 @Table(name = "users")
 public class User {
@@ -74,6 +74,6 @@ public class User {
     }
 
     public List<Trip> getTrips() {
-        return memberships.stream().map(TripMember::getTrip).toList();
+        return trips;
     }
 }

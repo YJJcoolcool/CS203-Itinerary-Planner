@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.smu.cs203_g1_1.itinerary_planner.util.ID;
 
 @Service
 public class ActivityService {
@@ -36,12 +37,10 @@ public class ActivityService {
      * GET all activities belonging to one trip. (VIEWER or above)
      */
     @Transactional(readOnly = true)
-    public List<Activity> getActivities(
-            Long tripId,
-            String clerkUserId) {
+    public List<Activity> getActivities(String userId, String tripId) {
 
-        // Checks that the trip exists AND the caller is a member (403 otherwise).
-        tripService.getTrip(tripId, clerkUserId);
+        // 404 if the trip does not exist, 403 if the user is not on it
+        tripService.getTripForMember(tripId, userId);
 
         return activityRepository
                 .findByTripIdOrderByStartDateTimeAsc(tripId);
@@ -49,17 +48,36 @@ public class ActivityService {
 
 
     /*
-     * GET one activity belonging to one specific trip. (VIEWER or above)
+     * Checks membership (VIEWER or above)
      */
     @Transactional(readOnly = true)
     public Activity getActivity(
-            Long tripId,
-            Long activityId,
-            String clerkUserId) {
+            String userId,
+            String tripId,
+            String activityId) {
 
-        tripService.getTrip(tripId, clerkUserId);
-
+        tripService.getTripForMember(tripId, userId);
         return findActivity(tripId, activityId);
+    }
+
+    /*
+     * Looks up an activity within a trip without membership check
+     * Callers must check membership first
+     */
+    @Transactional(readOnly = true)
+    private Activity findActivity(
+            String tripId,
+            String activityId) {
+
+        return activityRepository
+                .findByIdAndTripId(activityId, tripId)
+                .orElseThrow(()
+                        -> {
+                    log.warn("Activity not found: id={} tripId={}", activityId, tripId);
+                    return new ResponseStatusException(
+                            HttpStatus.NOT_FOUND,
+                            "Activity not found");
+                });
     }
 
 
@@ -68,13 +86,11 @@ public class ActivityService {
      */
     @Transactional(readOnly = true)
     public List<Location> getActivityLocations(
-            Long tripId,
-            Long activityId,
-            String clerkUserId) {
+            String userId,
+            String tripId,
+            String activityId) {
 
-        tripService.getTrip(tripId, clerkUserId);
-
-        Activity activity = findActivity(tripId, activityId);
+        Activity activity = getActivity(userId, tripId, activityId);
 
         return new ArrayList<>(activity.getLocations());
     }
@@ -85,11 +101,11 @@ public class ActivityService {
      */
     @Transactional
     public Activity createActivity(
-            Long tripId,
-            Activity activity,
-            String clerkUserId) {
+            String userId,
+            String tripId,
+            Activity activity) {
 
-        Trip trip = tripService.requireTripRole(tripId, clerkUserId, TripRole.EDITOR);
+        Trip trip = tripService.requireTripRole(tripId, userId, TripRole.EDITOR);
 
         validateTimes(
                 activity.getStartDateTime(),
@@ -100,12 +116,18 @@ public class ActivityService {
 
         activity.setLocations(locations);
 
-        // Maintains both:
-        // Trip.itinerary
-        // Activity.trip
-        trip.addActivity(activity);
+        String id = ID.generateUniqueID(activityRepository::existsById);
+        activity.setId(id);
 
+        // Save first, then add the saved (managed) instance to the trip.
+        // The id is pre-assigned, so save() merges and returns a copy;
+        // adding the original to Trip.itinerary would make Hibernate try
+        // to persist a second object with the same id on flush.
+        activity.setTrip(trip);
         Activity saved = activityRepository.save(activity);
+
+        // Maintains both Trip.itinerary and Activity.trip.
+        trip.addActivity(saved);
         log.info("Created activity id={} in trip id={}", saved.getId(), tripId);
         return saved;
     }
@@ -116,12 +138,12 @@ public class ActivityService {
      */
     @Transactional
     public Activity updateActivity(
-            Long tripId,
-            Long activityId,
-            Activity updatedActivity,
-            String clerkUserId) {
+            String userId,
+            String tripId,
+            String activityId,
+            Activity updatedActivity) {
 
-        tripService.requireTripRole(tripId, clerkUserId, TripRole.EDITOR);
+        tripService.requireTripRole(tripId, userId, TripRole.EDITOR);
 
         Activity activity
                 = findActivity(tripId, activityId);
@@ -159,11 +181,11 @@ public class ActivityService {
      */
     @Transactional
     public void deleteActivity(
-            Long tripId,
-            Long activityId,
-            String clerkUserId) {
+            String userId,
+            String tripId,
+            String activityId) {
 
-        tripService.requireTripRole(tripId, clerkUserId, TripRole.EDITOR);
+        tripService.requireTripRole(tripId, userId, TripRole.EDITOR);
 
         Activity activity
                 = findActivity(tripId, activityId);
@@ -176,28 +198,6 @@ public class ActivityService {
         activityRepository.delete(activity);
 
         log.info("Deleted activity id={} from trip id={}", activityId, tripId);
-    }
-
-
-    /*
-     * Internal lookup with NO permission check. Public methods must call
-     * tripService.getTrip / requireTripRole first.
-     * (This is the old public getActivity(tripId, activityId), made private so
-     * write operations don't accidentally run a VIEWER-level check.)
-     */
-    private Activity findActivity(
-            Long tripId,
-            Long activityId) {
-
-        return activityRepository
-                .findByIdAndTripId(activityId, tripId)
-                .orElseThrow(()
-                        -> {
-                    log.warn("Activity not found: id={} tripId={}", activityId, tripId);
-                    return new ResponseStatusException(
-                            HttpStatus.NOT_FOUND,
-                            "Activity not found");
-                });
     }
 
 

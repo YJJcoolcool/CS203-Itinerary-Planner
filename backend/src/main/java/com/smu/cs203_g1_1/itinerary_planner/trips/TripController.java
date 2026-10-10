@@ -16,82 +16,65 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.smu.cs203_g1_1.itinerary_planner.user.UserService;
+
 @RestController
 @RequestMapping("/api/trips")
 public class TripController {
 
     private final TripService tripService;
+    private final UserService userService;
 
-    public TripController(TripService tripService) {
+    public TripController(TripService tripService, UserService userService) {
         this.tripService = tripService;
+        this.userService = userService;
     }
 
-    // ownerId removed: the owner is always the authenticated user.
-    public record TripRequest(String name, LocalDate startDate, LocalDate endDate) { }
+    public record TripRequest(String name, LocalDate startDate, LocalDate endDate, String ownerId) { }
 
     public record TripUpdateRequest(String name, LocalDate startDate, LocalDate endDate) { }
 
+    // role is optional when adding a member (defaults to VIEWER)
     public record MemberRequest(TripRole role) { }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public Trip createTrip(@AuthenticationPrincipal Jwt jwt, @RequestBody TripRequest request) {
-        return tripService.createTrip(request.name(), request.startDate(), request.endDate(), jwt.getSubject());
-    }
+    public Trip createTrip(@RequestBody TripRequest request) {
+        return tripService.createTrip( request.name(), request.startDate(), request.endDate(), request.ownerId()); }
 
-    // Returns only the trips the caller is a member of.
     @GetMapping
-    public List<Trip> getMyTrips(@AuthenticationPrincipal Jwt jwt) {
-        return tripService.getTripsForUser(jwt.getSubject());
+    public List<Trip> getAllTrips() {
+        return tripService.getAllTrips();
     }
 
     @GetMapping("/{tripId}")
-    public Trip getTrip(@AuthenticationPrincipal Jwt jwt, @PathVariable("tripId") Long tripId) {
-        return tripService.getTrip(tripId, jwt.getSubject());
+    public Trip getTrip(@AuthenticationPrincipal Jwt jwt, @PathVariable("tripId") String tripId) {
+        return tripService.getTripForMember(tripId, userService.getCurrentUserId(jwt));
     }
 
     @PutMapping("/{tripId}")
-    public Trip updateTrip(
-            @AuthenticationPrincipal Jwt jwt,
-            @PathVariable("tripId") Long tripId,
-            @RequestBody TripUpdateRequest request) {
-
-        return tripService.updateTrip(tripId, jwt.getSubject(), request.name(), request.startDate(), request.endDate());
+    public Trip updateTrip(@AuthenticationPrincipal Jwt jwt, @PathVariable("tripId") String tripId, @RequestBody TripUpdateRequest request) {
+        return tripService.updateTrip(userService.getCurrentUserId(jwt), tripId, request.name(), request.startDate(), request.endDate());
     }
 
     @DeleteMapping("/{tripId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteTrip(@AuthenticationPrincipal Jwt jwt, @PathVariable("tripId") Long tripId) {
-        tripService.deleteTrip(tripId, jwt.getSubject());
+    public void deleteTrip(@AuthenticationPrincipal Jwt jwt, @PathVariable("tripId") String tripId) {
+        tripService.deleteTrip(userService.getCurrentUserId(jwt), tripId);
     }
 
-    // Body is optional; the role defaults to VIEWER.
     @PostMapping("/{tripId}/members/{userId}")
-    public Trip addMember(
-            @AuthenticationPrincipal Jwt jwt,
-            @PathVariable("tripId") Long tripId,
-            @PathVariable("userId") Long userId,
-            @RequestBody(required = false) MemberRequest request) {
-
-        return tripService.addMember(tripId, jwt.getSubject(), userId, request == null ? null : request.role());
+    public Trip addMember(@AuthenticationPrincipal Jwt jwt, @PathVariable("tripId") String tripId, @PathVariable("userId") String userId, @RequestBody(required = false) MemberRequest request) {
+        return tripService.addMember(userService.getCurrentUserId(jwt), tripId, userId, request == null ? null : request.role());
     }
 
     @PutMapping("/{tripId}/members/{userId}")
-    public Trip changeMemberRole(
-            @AuthenticationPrincipal Jwt jwt,
-            @PathVariable("tripId") Long tripId,
-            @PathVariable("userId") Long userId,
-            @RequestBody MemberRequest request) {
-
-        return tripService.changeMemberRole(tripId, jwt.getSubject(), userId, request.role());
+    public Trip changeMemberRole(@AuthenticationPrincipal Jwt jwt, @PathVariable("tripId") String tripId, @PathVariable("userId") String userId, @RequestBody MemberRequest request) {
+        return tripService.changeMemberRole(userService.getCurrentUserId(jwt), tripId, userId, request.role());
     }
 
     @DeleteMapping("/{tripId}/members/{userId}")
-    public Trip removeMember(
-            @AuthenticationPrincipal Jwt jwt,
-            @PathVariable("tripId") Long tripId,
-            @PathVariable("userId") Long userId) {
-
-        return tripService.removeMember(tripId, jwt.getSubject(), userId);
+    public Trip removeMember(@AuthenticationPrincipal Jwt jwt, @PathVariable("tripId") String tripId, @PathVariable("userId") String userId) {
+        return tripService.removeMember(userService.getCurrentUserId(jwt), tripId, userId);
     }
 }

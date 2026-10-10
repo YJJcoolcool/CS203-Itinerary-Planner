@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.smu.cs203_g1_1.itinerary_planner.util.ID;
 import com.smu.cs203_g1_1.itinerary_planner.user.User;
 import com.smu.cs203_g1_1.itinerary_planner.user.UserRepository;
 
@@ -21,65 +22,80 @@ public class TripService {
     private final TripRepository tripRepository;
     private final UserRepository userRepository;
 
-    public TripService(TripRepository tripRepository, UserRepository userRepository) {
+    // constructor
+    public TripService( TripRepository tripRepository, UserRepository userRepository) {
         this.tripRepository = tripRepository;
         this.userRepository = userRepository;
     }
 
-    // ---------------------------------------------------------------
-    // Authorization
-    // ---------------------------------------------------------------
+    @Transactional(readOnly = true)
+    public List<Trip> getAllTrips() {
+        return tripRepository.findAll();
+    }
 
-    /**
-     * Loads the trip and verifies the authenticated user holds at least the
-     * required role on it. Throws 403 otherwise. Reused by ActivityService.
+    @Transactional(readOnly = true)
+    public Trip getTrip(String tripId) {
+        return tripRepository
+                .findById(tripId)
+                .orElseThrow(() -> {
+                    log.warn("Trip not found: id={}", tripId);
+                    return new ResponseStatusException( HttpStatus.NOT_FOUND, "Trip not found");
+                });
+    }
+
+    /*
+     * Loads the trip and verifies the user holds at least the required role on it.
+     * 404 if the trip doesn't exist, 403 if the user is not on it or their role is too low.
+     * Used by ActivityService too.
      */
     @Transactional(readOnly = true)
-    public Trip requireTripRole(Long tripId, String clerkUserId, TripRole required) {
-        User actor = currentUser(clerkUserId);
-        Trip trip = loadTrip(tripId);
+    public Trip requireTripRole(String tripId, String userId, TripRole required) {
+        Trip trip = getTrip(tripId);
 
-        TripRole actual = trip.findMember(actor).map(TripMember::getRole).orElse(null);
+        TripRole actual = trip.findRole(userId).orElse(null);
         if (actual == null || !actual.atLeast(required)) {
-            log.warn("Forbidden: user id={} (role={}) needs {} on trip id={}",
-                    actor.getId(), actual, required, tripId);
+            log.warn("Forbidden: user id={} (role={}) needs {} on trip id={}", userId, actual, required, tripId);
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                     "You do not have permission to perform this action on this trip");
         }
+
         return trip;
     }
 
-    // ---------------------------------------------------------------
-    // Trips
-    // ---------------------------------------------------------------
-
+    // return trip only if the user is on it (any role). 404 if doesnt exist, 403 if user not part of trip
     @Transactional(readOnly = true)
-    public List<Trip> getTripsForUser(String clerkUserId) {
-        return tripRepository.findByMembers_User_Id(currentUser(clerkUserId).getId());
-    }
-
-    @Transactional(readOnly = true)
-    public Trip getTrip(Long tripId, String clerkUserId) {
-        return requireTripRole(tripId, clerkUserId, TripRole.VIEWER);
+    public Trip getTripForMember(String tripId, String userId) {
+        return requireTripRole(tripId, userId, TripRole.VIEWER);
     }
 
     @Transactional
-    public Trip createTrip(String name, LocalDate startDate, LocalDate endDate, String clerkUserId) {
+    public Trip createTrip(String name, LocalDate startDate, LocalDate endDate, String ownerId) {
+
         validateDates(startDate, endDate);
-        User owner = currentUser(clerkUserId);
+
+        User owner = findUser(ownerId);
+
+        String id = ID.generateUniqueID(tripRepository::existsById);
 
         Trip trip = new Trip(name, startDate, endDate, owner);
-        trip.addMember(owner, TripRole.OWNER);
+        trip.setId(id);
+
+        // The owner is a participant too (with the OWNER role), so owned trips
+        // show up through User.trips (mappedBy = "users").
+        trip.addMember(owner);
 
         Trip saved = tripRepository.save(trip);
-        log.info("Created trip id={} (ownerId={})", saved.getId(), owner.getId());
+        log.info("Created trip id={} (ownerId={})", saved.getId(), ownerId);
         return saved;
     }
 
+    // OWNER only
     @Transactional
-    public Trip updateTrip(Long tripId, String clerkUserId, String name, LocalDate startDate, LocalDate endDate) {
+    public Trip updateTrip(String userId, String tripId, String name, LocalDate startDate, LocalDate endDate) {
+
         validateDates(startDate, endDate);
-        Trip trip = requireTripRole(tripId, clerkUserId, TripRole.OWNER);
+
+        Trip trip = requireTripRole(tripId, userId, TripRole.OWNER);
 
         trip.setName(name);
         trip.setStartDate(startDate);
@@ -90,20 +106,26 @@ public class TripService {
         return saved;
     }
 
+    // OWNER only
     @Transactional
-    public void deleteTrip(Long tripId, String clerkUserId) {
-        Trip trip = requireTripRole(tripId, clerkUserId, TripRole.OWNER);
-        tripRepository.delete(trip);
+    public void deleteTrip(String userId, String tripId) {
+        tripRepository.delete(requireTripRole(tripId, userId, TripRole.OWNER));
         log.info("Deleted trip id={}", tripId);
     }
 
     // ---------------------------------------------------------------
-    // Members (owner only)
+    // Members (OWNER only)
     // ---------------------------------------------------------------
 
+    // Original signature kept for existing callers; new members default to VIEWER.
     @Transactional
-    public Trip addMember(Long tripId, String clerkUserId, Long userId, TripRole role) {
-        Trip trip = requireTripRole(tripId, clerkUserId, TripRole.OWNER);
+    public Trip addMember(String requesterId, String tripId, String userId) {
+        return addMember(requesterId, tripId, userId, null);
+    }
+
+    @Transactional
+    public Trip addMember(String requesterId, String tripId, String userId, TripRole role) {
+        Trip trip = requireTripRole(tripId, requesterId, TripRole.OWNER);
         TripRole assigned = (role == null) ? TripRole.VIEWER : role;
 
         if (assigned == TripRole.OWNER) {
@@ -111,7 +133,7 @@ public class TripService {
         }
 
         User target = findUser(userId);
-        if (trip.findMember(target).isPresent()) {
+        if (trip.hasMember(target)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "User is already a member of this trip; change their role instead");
         }
@@ -123,8 +145,8 @@ public class TripService {
     }
 
     @Transactional
-    public Trip changeMemberRole(Long tripId, String clerkUserId, Long userId, TripRole role) {
-        Trip trip = requireTripRole(tripId, clerkUserId, TripRole.OWNER);
+    public Trip changeMemberRole(String requesterId, String tripId, String userId, TripRole role) {
+        Trip trip = requireTripRole(tripId, requesterId, TripRole.OWNER);
 
         if (role == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Role is required");
@@ -137,64 +159,49 @@ public class TripService {
         if (trip.isOwner(target)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The owner's role cannot be changed");
         }
+        if (!trip.hasMember(target)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User is not a member of this trip");
+        }
 
-        TripMember member = trip.findMember(target).orElseThrow(() ->
-                new ResponseStatusException(HttpStatus.NOT_FOUND, "User is not a member of this trip"));
-        member.setRole(role);
-
+        trip.setMemberRole(target, role);
         Trip saved = tripRepository.save(trip);
         log.info("Changed user id={} to {} on trip id={}", userId, role, tripId);
         return saved;
     }
 
     @Transactional
-    public Trip removeMember(Long tripId, String clerkUserId, Long userId) {
-        Trip trip = requireTripRole(tripId, clerkUserId, TripRole.OWNER);
-        User target = findUser(userId);
+    public Trip removeMember(String requesterId, String tripId, String userId) {
+        Trip trip = requireTripRole(tripId, requesterId, TripRole.OWNER);
+        User user = findUser(userId);
 
-        if (trip.isOwner(target)) {
+        if (trip.isOwner(user)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The trip owner cannot be removed");
         }
-        if (trip.findMember(target).isEmpty()) {
+        if (!trip.hasMember(user)) {
             log.warn("User id={} is not a member of trip id={}", userId, tripId);
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User is not a member of this trip");
+            throw new ResponseStatusException( HttpStatus.NOT_FOUND, "User is not a member of this trip");
         }
 
-        trip.removeMember(target);
+        trip.removeMember(user);
         Trip saved = tripRepository.save(trip);
         log.info("Removed user id={} from trip id={}", userId, tripId);
         return saved;
     }
 
-    // ---------------------------------------------------------------
-    // Helpers
-    // ---------------------------------------------------------------
-
-    private Trip loadTrip(Long tripId) {
-        return tripRepository.findById(tripId).orElseThrow(() -> {
-            log.warn("Trip not found: id={}", tripId);
-            return new ResponseStatusException(HttpStatus.NOT_FOUND, "Trip not found");
-        });
-    }
-
-    private User currentUser(String clerkUserId) {
-        return userRepository.findByClerkUserId(clerkUserId).orElseThrow(() -> {
-            log.warn("Authenticated user has no profile: clerkUserId={}", clerkUserId);
-            return new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
-        });
-    }
-
-    private User findUser(Long userId) {
-        return userRepository.findById(userId).orElseThrow(() -> {
-            log.warn("User not found: id={}", userId);
-            return new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
-        });
+    private User findUser(String userId) {
+        return userRepository
+                .findById(userId)
+                .orElseThrow(() -> {
+                    log.warn("User not found: id={}", userId);
+                    return new ResponseStatusException( HttpStatus.NOT_FOUND, "User not found");
+                });
     }
 
     private void validateDates(LocalDate startDate, LocalDate endDate) {
         if (startDate != null && endDate != null && endDate.isBefore(startDate)) {
+
             log.warn("Rejected trip: endDate {} is before startDate {}", endDate, startDate);
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Trip end date cannot be before start date");
+            throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "Trip end date cannot be before start date");
         }
     }
 }

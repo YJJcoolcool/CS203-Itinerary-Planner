@@ -15,15 +15,19 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.smu.cs203_g1_1.itinerary_planner.user.UserService;
+
 @RestController
 @RequestMapping("/api/trips/{tripId}/activities")
 public class ActivityController {
 
     private final ActivityService activityService;
+    private final UserService userService;
 
 
-    public ActivityController(ActivityService activityService) {
+    public ActivityController(ActivityService activityService, UserService userService) {
         this.activityService = activityService;
+        this.userService = userService;
     }
 
 
@@ -35,11 +39,11 @@ public class ActivityController {
     @GetMapping
     public List<Activity> getActivities(
             @AuthenticationPrincipal Jwt jwt,
-            @PathVariable("tripId") Long tripId) {
+            @PathVariable("tripId") String tripId) {
 
         return activityService.getActivities(
-                tripId,
-                jwt.getSubject());
+                userService.getCurrentUserId(jwt),
+                tripId);
     }
 
 
@@ -51,10 +55,11 @@ public class ActivityController {
     @GetMapping("/{activityId}")
     public Activity getActivity(
             @AuthenticationPrincipal Jwt jwt,
-            @PathVariable("tripId") Long tripId,
-            @PathVariable("activityId") Long activityId) {
+            @PathVariable("tripId") String tripId,
+            @PathVariable("activityId") String activityId) {
 
         return activityService.getActivity(
+                userService.getCurrentUserId(jwt),
                 tripId,
                 activityId,
                 jwt.getSubject());
@@ -69,10 +74,11 @@ public class ActivityController {
     @GetMapping("/{activityId}/locations")
     public List<Location> getActivityLocations(
             @AuthenticationPrincipal Jwt jwt,
-            @PathVariable("tripId") Long tripId,
-            @PathVariable("activityId") Long activityId) {
+            @PathVariable("tripId") String tripId,
+            @PathVariable("activityId") String activityId) {
 
         return activityService.getActivityLocations(
+                userService.getCurrentUserId(jwt),
                 tripId,
                 activityId,
                 jwt.getSubject());
@@ -88,10 +94,11 @@ public class ActivityController {
     @ResponseStatus(HttpStatus.CREATED)
     public Activity createActivity(
             @AuthenticationPrincipal Jwt jwt,
-            @PathVariable("tripId") Long tripId,
+            @PathVariable("tripId") String tripId,
             @RequestBody Activity activity) {
 
         return activityService.createActivity(
+                userService.getCurrentUserId(jwt),
                 tripId,
                 activity,
                 jwt.getSubject());
@@ -106,11 +113,12 @@ public class ActivityController {
     @PutMapping("/{activityId}")
     public Activity updateActivity(
             @AuthenticationPrincipal Jwt jwt,
-            @PathVariable("tripId") Long tripId,
-            @PathVariable("activityId") Long activityId,
+            @PathVariable("tripId") String tripId,
+            @PathVariable("activityId") String activityId,
             @RequestBody Activity activity) {
 
         return activityService.updateActivity(
+                userService.getCurrentUserId(jwt),
                 tripId,
                 activityId,
                 activity,
@@ -127,10 +135,11 @@ public class ActivityController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteActivity(
             @AuthenticationPrincipal Jwt jwt,
-            @PathVariable("tripId") Long tripId,
-            @PathVariable("activityId") Long activityId) {
+            @PathVariable("tripId") String tripId,
+            @PathVariable("activityId") String activityId) {
 
         activityService.deleteActivity(
+                userService.getCurrentUserId(jwt),
                 tripId,
                 activityId,
                 jwt.getSubject());

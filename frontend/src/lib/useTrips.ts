@@ -1,15 +1,26 @@
 import { useAuth, useUser } from '@clerk/react'
 import { useCallback, useEffect, useState } from 'react'
 import { publishableKey } from '../auth/authConfiguration'
-import type { Activity, CreateTripInput, Location, Trip, User } from '../types/trip'
+import type {
+  Activity,
+  CreateActivityInput,
+  CreateTripInput,
+  GeoPlace,
+  Location,
+  Trip,
+  User,
+} from '../types/trip'
 import {
   ApiError,
+  createActivity as createActivityRequest,
   createBackendUser,
   createTrip as createTripRequest,
   getTrip,
   getTrips,
   getActivities,
   getActivityLocations,
+  importLocationFromOsm as importLocationFromOsmRequest,
+  searchPlaces,
 } from './api'
 
 /** Result of `useCurrentUser()`. */
@@ -44,7 +55,7 @@ export interface UseTripItineraryResult {
    * Locations keyed by activity id. A missing key means that activity's
    * locations failed to load; an empty array means it has none.
    */
-  locationsByActivity: Record<number, Location[]>
+  locationsByActivity: Record<string, Location[]>
   isLoading: boolean
   isLoadingLocations: boolean
   error: string | null
@@ -55,6 +66,35 @@ export interface UseTripItineraryResult {
 export interface UseCreateTripResult {
   createTrip: (input: CreateTripInput) => Promise<Trip>
   isCreating: boolean
+  error: string | null
+}
+
+/** Result of useCreateActivity(). */
+export interface UseCreateActivityResult {
+  createActivity: (input: CreateActivityInput) => Promise<Activity>
+  isCreating: boolean
+  error: string | null
+}
+
+/** Result of `useLocationSearch()`. */
+export interface UseLocationSearchResult {
+  /** Current search text; bind this to the input's value. */
+  query: string
+  setQuery: (value: string) => void
+  results: GeoPlace[]
+  /** OSM attribution text from the backend, available after a search returns. */
+  attribution: string | null
+  isSearching: boolean
+  error: string | null
+  /** True once a search for the current query has finished. */
+  hasSearched: boolean
+}
+
+/** Result of `useImportLocationFromOsm()`. */
+export interface UseImportLocationResult {
+  importLocation: (place: Pick<GeoPlace, 'osmType' | 'osmId'>) => Promise<Location>
+  /** The `osmType:osmId` currently importing, or null. */
+  importingKey: string | null
   error: string | null
 }
 
@@ -189,7 +229,7 @@ function useConfiguredTrips(): UseTripsResult {
   return { trips, isLoading, error, refresh }
 }
 
-function useConfiguredTrip(tripId: number): UseTripResult {
+function useConfiguredTrip(tripId: string): UseTripResult {
   const { getToken, isLoaded, isSignedIn } = useAuth()
 
   const [trip, setTrip] = useState<Trip | null>(null)
@@ -243,12 +283,12 @@ function useConfiguredTrip(tripId: number): UseTripResult {
 }
 
 interface ItineraryState {
-  tripId: number
+  tripId: string
   activities: Activity[]
-  locationsByActivity: Record<number, Location[]>
+  locationsByActivity: Record<string, Location[]>
 }
 
-function useConfiguredTripItinerary(tripId: number): UseTripItineraryResult {
+function useConfiguredTripItinerary(tripId: string): UseTripItineraryResult {
   const { getToken, isLoaded, isSignedIn } = useAuth()
 
   const [state, setState] = useState<ItineraryState | null>(null)
@@ -289,7 +329,7 @@ function useConfiguredTripItinerary(tripId: number): UseTripItineraryResult {
         )
         if (cancelled) return
 
-        const locationsByActivity: Record<number, Location[]> = {}
+        const locationsByActivity: Record<string, Location[]> = {}
         results.forEach((result, index) => {
           if (result.status === 'fulfilled') {
             locationsByActivity[activities[index].id] = result.value
@@ -368,13 +408,46 @@ function useConfiguredCreateTrip(): UseCreateTripResult {
   return { createTrip: create, isCreating, error }
 }
 
+function useConfiguredCreateActivity(
+  tripId: string,
+): UseCreateActivityResult {
+  const { getToken } = useAuth()
+
+  const [isCreating, setIsCreating] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const create = useCallback(
+    async (input: CreateActivityInput): Promise<Activity> => {
+      setIsCreating(true)
+      setError(null)
+
+      try {
+        const token = await getToken()
+        if (!token) throw new ApiError(401, NO_SESSION_MESSAGE)
+
+        return await createActivityRequest(token, tripId, input)
+      } catch (cause) {
+        setError(describeError(cause))
+        throw cause instanceof Error
+          ? cause
+          : new Error(describeError(cause))
+      } finally {
+        setIsCreating(false)
+      }
+    },
+    [getToken, tripId],
+  )
+
+  return { createActivity: create, isCreating, error }
+}
+
 function useUnconfiguredCurrentUser(): UseCurrentUserResult {
   return { user: null, isLoading: false, error: NOT_CONFIGURED_MESSAGE }
 }
 
 const EMPTY_TRIPS: Trip[] = []
 const EMPTY_ACTIVITIES: Activity[] = []
-const EMPTY_LOCATIONS: Record<number, Location[]> = {}
+const EMPTY_LOCATIONS: Record<string, Location[]> = {}
 
 function useUnconfiguredTrips(): UseTripsResult {
   const refresh = useCallback(() => {
@@ -424,6 +497,170 @@ function useUnconfiguredCreateTrip(): UseCreateTripResult {
   }
 }
 
+function rejectActivityWithNotConfigured(): Promise<Activity> {
+  return Promise.reject(new ApiError(0, NOT_CONFIGURED_MESSAGE))
+}
+
+function useUnconfiguredCreateActivity(): UseCreateActivityResult {
+  return {
+    createActivity: rejectActivityWithNotConfigured,
+    isCreating: false,
+    error: NOT_CONFIGURED_MESSAGE,
+  }
+}
+
+/**
+ * Minimum pause between keystrokes and a search request. The Nominatim usage
+ * policy forbids firing a request per keystroke, so this is intentionally
+ * generous (>= 750ms).
+ */
+const SEARCH_DEBOUNCE_MS = 750
+
+const EMPTY_PLACES: GeoPlace[] = []
+
+/** Identity used to dedupe an OSM place against already-imported locations. */
+function osmKey(osmType: string, osmId: number): string {
+  return `${osmType}:${osmId}`
+}
+
+/** State of one resolved search, tagged with the query it belongs to. */
+interface LocationSearchState {
+  query: string
+  results: GeoPlace[]
+  attribution: string | null
+  error: string | null
+}
+
+function useConfiguredLocationSearch(): UseLocationSearchResult {
+  const { getToken, isLoaded, isSignedIn } = useAuth()
+
+  const [query, setQuery] = useState('')
+  const [state, setState] = useState<LocationSearchState | null>(null)
+  const [isFetching, setIsFetching] = useState(false)
+
+  const trimmed = query.trim()
+  const isActive = isLoaded && Boolean(isSignedIn) && trimmed.length > 0
+
+  useEffect(() => {
+    if (!isActive) return
+
+    let cancelled = false
+
+    // Debounce: only the last keystroke inside the window triggers a request.
+    const timer = window.setTimeout(() => {
+      const requestQuery = trimmed
+
+      async function run() {
+        setIsFetching(true)
+
+        try {
+          const token = await getToken()
+          if (cancelled) return
+          if (!token) throw new ApiError(401, NO_SESSION_MESSAGE)
+
+          const response = await searchPlaces(token, requestQuery)
+          if (cancelled) return
+          setState({
+            query: requestQuery,
+            results: response.results,
+            attribution: response.attribution,
+            error: null,
+          })
+        } catch (cause) {
+          if (!cancelled) {
+            setState({
+              query: requestQuery,
+              results: [],
+              attribution: null,
+              error: describeError(cause),
+            })
+          }
+        } finally {
+          if (!cancelled) setIsFetching(false)
+        }
+      }
+
+      void run()
+    }, SEARCH_DEBOUNCE_MS)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [getToken, isActive, trimmed])
+
+  // Results are only exposed once they match the current query, so a stale
+  // response from a previous query can never be shown for new text.
+  const current = state?.query === trimmed ? state : null
+
+  return {
+    query,
+    setQuery,
+    results: current?.results ?? EMPTY_PLACES,
+    attribution: current?.attribution ?? null,
+    isSearching: isActive && (isFetching || current === null),
+    error: current?.error ?? null,
+    hasSearched: isActive && current !== null && !isFetching,
+  }
+}
+
+function useConfiguredImportLocation(): UseImportLocationResult {
+  const { getToken } = useAuth()
+
+  const [importingKey, setImportingKey] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const importLocation = useCallback(
+    async (place: Pick<GeoPlace, 'osmType' | 'osmId'>): Promise<Location> => {
+      const key = osmKey(place.osmType, place.osmId)
+      setImportingKey(key)
+      setError(null)
+
+      try {
+        const token = await getToken()
+        if (!token) throw new ApiError(401, NO_SESSION_MESSAGE)
+
+        return await importLocationFromOsmRequest(token, place)
+      } catch (cause) {
+        setError(describeError(cause))
+        throw cause instanceof Error ? cause : new Error(describeError(cause))
+      } finally {
+        // Only clear if this import still owns the indicator, so a slower
+        // concurrent import is not un-marked by a faster one finishing.
+        setImportingKey((current) => (current === key ? null : current))
+      }
+    },
+    [getToken],
+  )
+
+  return { importLocation, importingKey, error }
+}
+
+function useUnconfiguredLocationSearch(): UseLocationSearchResult {
+  const [query, setQuery] = useState('')
+  return {
+    query,
+    setQuery,
+    results: EMPTY_PLACES,
+    attribution: null,
+    isSearching: false,
+    error: NOT_CONFIGURED_MESSAGE,
+    hasSearched: false,
+  }
+}
+
+function rejectImportWithNotConfigured(): Promise<Location> {
+  return Promise.reject(new ApiError(0, NOT_CONFIGURED_MESSAGE))
+}
+
+function useUnconfiguredImportLocation(): UseImportLocationResult {
+  return {
+    importLocation: rejectImportWithNotConfigured,
+    importingKey: null,
+    error: NOT_CONFIGURED_MESSAGE,
+  }
+}
+
 /**
  * Resolves the current backend user, creating the row on first sign-in.
  *
@@ -444,7 +681,7 @@ export const useTrips: () => UseTripsResult = CLERK_CONFIGURED
   : useUnconfiguredTrips
 
 /** Loads a single trip by id for the trip details page. */
-export const useTrip: (tripId: number) => UseTripResult = CLERK_CONFIGURED
+export const useTrip: (tripId: string) => UseTripResult = CLERK_CONFIGURED
   ? useConfiguredTrip
   : useUnconfiguredTrip
 
@@ -452,7 +689,7 @@ export const useTrip: (tripId: number) => UseTripResult = CLERK_CONFIGURED
  * Loads a trip's activities, then each activity's locations, for the
  * itinerary section of the trip details page.
  */
-export const useTripItinerary: (tripId: number) => UseTripItineraryResult = CLERK_CONFIGURED
+export const useTripItinerary: (tripId: string) => UseTripItineraryResult = CLERK_CONFIGURED
   ? useConfiguredTripItinerary
   : useUnconfiguredTripItinerary
   
@@ -462,3 +699,24 @@ export const useTripItinerary: (tripId: number) => UseTripItineraryResult = CLER
 export const useCreateTrip: () => UseCreateTripResult = CLERK_CONFIGURED
   ? useConfiguredCreateTrip
   : useUnconfiguredCreateTrip
+
+/** Creates an activity in the requested trip. */
+export const useCreateActivity: (tripId: string) => UseCreateActivityResult = CLERK_CONFIGURED
+  ? useConfiguredCreateActivity
+  : useUnconfiguredCreateActivity
+
+/**
+ * Debounced OpenStreetMap place search for the activity location picker. Fires
+ * at most one request per 750ms pause to respect the Nominatim usage policy.
+ */
+export const useLocationSearch: () => UseLocationSearchResult = CLERK_CONFIGURED
+  ? useConfiguredLocationSearch
+  : useUnconfiguredLocationSearch
+
+/**
+ * Imports an OpenStreetMap place as a stored location, tracking the in-flight
+ * `osmType:osmId` so the UI can show a per-item importing state.
+ */
+export const useImportLocationFromOsm: () => UseImportLocationResult = CLERK_CONFIGURED
+  ? useConfiguredImportLocation
+  : useUnconfiguredImportLocation

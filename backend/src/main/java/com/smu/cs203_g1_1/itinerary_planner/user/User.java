@@ -1,39 +1,36 @@
 package com.smu.cs203_g1_1.itinerary_planner.user;
- 
+
+import com.smu.cs203_g1_1.itinerary_planner.trips.Trip;
+
 import java.util.ArrayList;
 import java.util.List;
- 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.smu.cs203_g1_1.itinerary_planner.trips.Trip;
-import com.smu.cs203_g1_1.itinerary_planner.trips.TripMember;
- 
-import jakarta.persistence.CascadeType;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.OneToMany;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
  
 @Entity
 @Table(name = "users")
 public class User {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(length = 8, nullable = false)
+    private String id;
 
     @Column(unique = true, nullable = false)
     private String clerkUserId;
 
     private String displayName;
 
-    
-    @OneToMany(mappedBy = "user", cascade = CascadeType.REMOVE, orphanRemoval = true)
-    @JsonIgnore
-    private List<TripMember> memberships = new ArrayList<>();
+    // Synced from the Clerk JWT "email" claim; used to look up invitees.
+    // Nullable so users created before this field (or without the claim) still work.
+    @Column(unique = true)
+    private String email;
+
+
+    @ManyToMany(mappedBy = "users")
+    private List<Trip> trips = new ArrayList<>();
 
     protected User() {
         // Required by JPA.
@@ -44,8 +41,12 @@ public class User {
         this.displayName = displayName;
     }
 
-    public Long getId() {
+    public String getId() {
         return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
     }
 
     public String getClerkUserId() {
@@ -63,8 +64,15 @@ public class User {
     public void setDisplayName(String displayName) {
         this.displayName = displayName;
     }
-   
-    @JsonIgnore
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
     public List<Trip> getTrips() {
         return memberships.stream().map(TripMember::getTrip).toList();
     }

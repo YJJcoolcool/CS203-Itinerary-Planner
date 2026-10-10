@@ -10,11 +10,14 @@ import {
 const PILL =
   'inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-subtle px-3 py-1 font-mono text-xs text-muted'
 
+const FOCUS_RING =
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface'
+
 /**
  * Header card for the trip details page: name, dates, length, budget and the
  * travelers on the trip. Purely presentational — the page loads the trip.
  */
-export function TripDetailsCard({ trip }: { trip: Trip }) {
+export function TripDetailsCard({ trip, onInvite }: { trip: Trip; onInvite?: () => void }) {
   const days = daysInclusive(trip.startDate, trip.endDate)
   const members = uniqueMembers(trip)
 
@@ -52,16 +55,18 @@ export function TripDetailsCard({ trip }: { trip: Trip }) {
               </li>
             ))}
           </ul>
-          {/* Invites need a backend user lookup first (FRONTEND_PAGES.md §5.10). */}
-          <button
-            type="button"
-            disabled
-            title="Inviting travelers is coming soon"
-            aria-label="Invite traveler (coming soon)"
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-lg text-accent-contrast disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            +
-          </button>
+          {/* Only passed for the owner, so non-owners never see the + button. */}
+          {onInvite && (
+            <button
+              type="button"
+              onClick={onInvite}
+              title="Invite travelers"
+              aria-label="Invite travelers"
+              className={`flex h-10 w-10 items-center justify-center rounded-full bg-accent text-lg text-accent-contrast transition-colors hover:bg-accent-strong ${FOCUS_RING}`}
+            >
+              +
+            </button>
+          )}
         </div>
       </div>
     </section>

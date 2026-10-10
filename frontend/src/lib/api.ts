@@ -1,4 +1,14 @@
-import type { Activity, CreateTripInput, Location, Trip, User } from '../types/trip'
+import type { TripInvitation } from '../types/invitation'
+import type {
+  Activity,
+  CreateActivityInput,
+  CreateTripInput,
+  GeoPlace,
+  GeoSearchResponse,
+  Location,
+  Trip,
+  User,
+} from '../types/trip'
 
 /**
  * Base URL for the Spring backend. Falls back to local development so the
@@ -126,7 +136,7 @@ export function getTrips(token: string | null): Promise<Trip[]> {
 /** Creates a trip owned by `ownerId`. */
 export function createTrip(
   token: string | null,
-  input: CreateTripInput & { ownerId: number },
+  input: CreateTripInput & { ownerId: string },
 ): Promise<Trip> {
   return request<Trip>('/api/trips', {
     method: 'POST',
@@ -136,7 +146,7 @@ export function createTrip(
 }
 
 /** True when `userId` owns the trip or appears in its member list. */
-export function isUserMemberOfTrip(trip: Trip, userId: number | undefined): boolean {
+export function isUserMemberOfTrip(trip: Trip, userId: string | undefined): boolean {
   if (userId === undefined) return false
   if (trip.owner.id === userId) return true
   return trip.users.some((member) => member.id === userId)
@@ -146,26 +156,114 @@ export function isUserMemberOfTrip(trip: Trip, userId: number | undefined): bool
  * Client-side filter for the current user. Required because `GET /api/trips`
  * returns all trips regardless of membership.
  */
-export function tripsForUser(trips: Trip[], userId: number | undefined): Trip[] {
+export function tripsForUser(trips: Trip[], userId: string | undefined): Trip[] {
   if (userId === undefined) return []
   return trips.filter((trip) => isUserMemberOfTrip(trip, userId))
 }
 
 /** Fetches a single trip. Throws `ApiError` with status 404 when it does not exist. */
-export function getTrip(token: string | null, tripId: number): Promise<Trip> {
+export function getTrip(token: string | null, tripId: string): Promise<Trip> {
   return request<Trip>(`/api/trips/${tripId}`, { token })
 }
 
 /** Fetches a trip's activities, ordered by start time. */
-export function getActivities(token: string | null, tripId: number): Promise<Activity[]> {
+export function getActivities(token: string | null, tripId: string): Promise<Activity[]> {
   return request<Activity[]>(`/api/trips/${tripId}/activities`, { token })
+}
+
+/** Creates an activity within a trip. Locations must reference existing IDs. */
+export function createActivity(
+  token: string | null,
+  tripId: string,
+  input: CreateActivityInput,
+): Promise<Activity> {
+  return request<Activity>(`/api/trips/${tripId}/activities`, {
+    method: 'POST',
+    body: input,
+    token,
+  })
 }
 
 /** Fetches the locations attached to one activity of a trip. */
 export function getActivityLocations(
   token: string | null,
-  tripId: number,
-  activityId: number,
+  tripId: string,
+  activityId: string,
 ): Promise<Location[]> {
   return request<Location[]>(`/api/trips/${tripId}/activities/${activityId}/locations`, { token })
+}
+/** Owner invites an existing user (by email) to a trip. */
+export function sendInvitation(
+  token: string | null,
+  tripId: string,
+  email: string,
+): Promise<TripInvitation> {
+  return request<TripInvitation>(`/api/trips/${tripId}/invitations`, {
+    method: 'POST',
+    body: { email },
+    token,
+  })
+}
+
+/** Owner-only: pending invitations for a trip. */
+export function getTripInvitations(token: string | null, tripId: string): Promise<TripInvitation[]> {
+  return request<TripInvitation[]>(`/api/trips/${tripId}/invitations`, { token })
+}
+
+/** Owner-only: withdraws a pending invitation. */
+export function cancelInvitation(
+  token: string | null,
+  tripId: string,
+  invitationId: string,
+): Promise<void> {
+  return request<void>(`/api/trips/${tripId}/invitations/${invitationId}`, {
+    method: 'DELETE',
+    token,
+  })
+}
+
+/** Current user's pending invitations (drives the navbar red dot). */
+export function getMyInvitations(token: string | null): Promise<TripInvitation[]> {
+  return request<TripInvitation[]>('/api/users/me/invitations', { token })
+}
+
+/** Accept or decline an invitation addressed to the current user. */
+export function respondToInvitation(
+  token: string | null,
+  invitationId: string,
+  status: 'ACCEPTED' | 'DECLINED',
+): Promise<TripInvitation> {
+  return request<TripInvitation>(`/api/users/me/invitations/${invitationId}`, {
+    method: 'PATCH',
+    body: { status },
+    token,
+  })
+}
+
+/**
+ * Searches OpenStreetMap places by free text. `limit` is clamped by the backend
+ * to 1..10. Callers should debounce to respect the Nominatim usage policy.
+ */
+export function searchPlaces(
+  token: string | null,
+  query: string,
+  limit = 5,
+): Promise<GeoSearchResponse> {
+  const params = new URLSearchParams({ q: query, limit: String(limit) })
+  return request<GeoSearchResponse>(`/api/geo/search?${params.toString()}`, { token })
+}
+
+/**
+ * Imports an OpenStreetMap place as a stored {@link Location}. Idempotent per
+ * `(osmType, osmId)`, so importing a place twice returns the same location.
+ */
+export function importLocationFromOsm(
+  token: string | null,
+  input: Pick<GeoPlace, 'osmType' | 'osmId'>,
+): Promise<Location> {
+  return request<Location>('/api/locations/from-osm', {
+    method: 'POST',
+    body: { osmType: input.osmType, osmId: input.osmId },
+    token,
+  })
 }

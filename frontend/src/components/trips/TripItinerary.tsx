@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { useTripItinerary } from '../../lib/useTrips'
+import { CreateActivityModal } from './CreateActivityModal'
 import type { Activity, Location } from '../../types/trip'
 
 const FOCUS_RING =
@@ -84,18 +86,30 @@ function ActivityItem({
  * Itinerary for a trip. Loads the activities first, then each activity's
  * locations (see `useTripItinerary`).
  */
-export function TripItinerary({ tripId }: { tripId: number }) {
+export function TripItinerary({ tripId }: { tripId: string }) {
   const { activities, locationsByActivity, isLoading, isLoadingLocations, error, refresh } =
     useTripItinerary(tripId)
+  
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
 
   return (
     <section className="mt-10" aria-labelledby="itinerary-heading">
-      <h2
-        id="itinerary-heading"
-        className="font-display text-2xl font-medium tracking-tight text-foreground"
-      >
-        Itinerary
-      </h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2
+          id="itinerary-heading"
+          className="font-display text-2xl font-medium tracking-tight text-foreground"
+        >
+          Itinerary
+        </h2>
+
+        <button
+          type="button"
+          onClick={() => setIsCreateModalOpen(true)}
+          className={`rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-contrast transition-colors hover:bg-accent-strong ${FOCUS_RING}`}
+        >
+          + Add activity
+        </button>
+      </div>
 
       <div className="mt-4">
         {isLoading ? (
@@ -134,6 +148,14 @@ export function TripItinerary({ tripId }: { tripId: number }) {
           </ol>
         )}
       </div>
+
+      {isCreateModalOpen && (
+        <CreateActivityModal
+          tripId={tripId}
+          onClose={() => setIsCreateModalOpen(false)}
+          onCreated={refresh}
+        />
+      )}
     </section>
   )
 }

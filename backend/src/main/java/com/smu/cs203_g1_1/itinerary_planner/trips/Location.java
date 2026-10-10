@@ -7,20 +7,22 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+
 
 @Entity
+@Table(uniqueConstraints = @UniqueConstraint(name = "uq_location_osm_identity", columnNames = {"osm_type", "osm_id"}))
 public class Location {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(length = 8, nullable = false)
+    private String id;
 
     @Column(nullable = false)
     private String name;
@@ -35,12 +37,21 @@ public class Location {
 
     private Boolean isIndoor;
 
-    // Not sure if want to include
-    /*
-    private String address; this one kinda obv
-    private String osmId; (for overpass - easier to refresh data?)
-    private String openingHours (for extra context for AI)
-    */
+    /** OSM element type ("node"/"way"/"relation"); part of the OSM identity. */
+    @Column(name = "osm_type")
+    private String osmType;
+
+    /** OSM element id; together with {@link #osmType} uniquely identifies the place. */
+    @Column(name = "osm_id")
+    private Long osmId;
+
+    /** Human-readable address / display name from OSM. */
+    @Column(name = "address")
+    private String address;
+
+    /** Free-form OSM opening_hours value, when known. */
+    @Column(name = "opening_hours")
+    private String openingHours;
 
     @ManyToOne
     @JoinColumn(name = "parent_location_id")
@@ -74,11 +85,11 @@ public class Location {
 
     // Getters/Setters
 
-    public Long getId() {
+    public String getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(String id) {
         this.id = id;
     }
 
@@ -130,7 +141,22 @@ public class Location {
         this.activities = activities;
     }
 
-    /*    
+    public String getOsmType() {
+        return osmType;
+    }
+
+    public void setOsmType(String osmType) {
+        this.osmType = osmType;
+    }
+
+    public Long getOsmId() {
+        return osmId;
+    }
+
+    public void setOsmId(Long osmId) {
+        this.osmId = osmId;
+    }
+
     public String getAddress() {
         return address;
     }
@@ -138,15 +164,7 @@ public class Location {
     public void setAddress(String address) {
         this.address = address;
     }
-    
-    public String getOsmId() {
-        return osmId;
-    }
 
-    public void setosmId(String osmId) {
-        this.osmId = osmId;
-    }
-    
     public String getOpeningHours() {
         return openingHours;
     }
@@ -154,7 +172,6 @@ public class Location {
     public void setOpeningHours(String openingHours) {
         this.openingHours = openingHours;
     }
-    */
 
     // Utility methods
     @Override

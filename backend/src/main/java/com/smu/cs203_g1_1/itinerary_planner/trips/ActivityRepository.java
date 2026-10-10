@@ -6,13 +6,13 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ActivityRepository
-        extends JpaRepository<Activity, Long> {
+        extends JpaRepository<Activity, String> {
 
     /*
      * Get every activity belonging to a particular trip,
      * ordered by starting time.
      */
-    List<Activity> findByTripIdOrderByStartDateTimeAsc(Long tripId);
+    List<Activity> findByTripIdOrderByStartDateTimeAsc(String tripId);
 
 
     /*
@@ -20,6 +20,6 @@ public interface ActivityRepository
      * to the specified trip.
      */
     Optional<Activity> findByIdAndTripId(
-            Long activityId,
-            Long tripId);
+            String activityId,
+            String tripId);
 }

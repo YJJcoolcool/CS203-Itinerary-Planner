@@ -44,6 +44,8 @@ class LocationActivityRepositoryTest {
             "Location Test User"
         );
 
+        user.setId("TestUsr1");
+
         user = userRepository.save(user);
 
         // Create and save Trip
@@ -54,7 +56,10 @@ class LocationActivityRepositoryTest {
             user
         );
 
-        trip.addMember(user, TripRole.OWNER);
+        trip.setId("TestTrp1");
+
+        trip.addMember(user);
+
         trip = tripRepository.save(trip);
 
         // Create and save Location
@@ -65,6 +70,8 @@ class LocationActivityRepositoryTest {
             103.8607,
             true
         );
+
+        location.setId("TestLoc1");
 
         location = locationRepository.save(location);
 
@@ -79,6 +86,8 @@ class LocationActivityRepositoryTest {
             end,
             "PLANNED"
         );
+
+        activity.setId("TestAct1");
 
         activity.setTrip(trip);
         activity = activityRepository.save(activity);

@@ -16,6 +16,7 @@ import com.smu.cs203_g1_1.itinerary_planner.trips.Location;
 import com.smu.cs203_g1_1.itinerary_planner.trips.LocationRepository;
 import com.smu.cs203_g1_1.itinerary_planner.trips.Trip;
 import com.smu.cs203_g1_1.itinerary_planner.trips.TripRepository;
+import com.smu.cs203_g1_1.itinerary_planner.trips.TripRole;
 import com.smu.cs203_g1_1.itinerary_planner.user.User;
 import com.smu.cs203_g1_1.itinerary_planner.user.UserRepository;
 
@@ -53,7 +54,7 @@ class LocationActivityRepositoryTest {
             user
         );
 
-        trip.addMember(user);
+        trip.addMember(user, TripRole.OWNER);
         trip = tripRepository.save(trip);
 
         // Create and save Location

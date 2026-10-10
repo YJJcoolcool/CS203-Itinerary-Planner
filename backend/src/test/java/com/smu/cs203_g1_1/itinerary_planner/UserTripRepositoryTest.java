@@ -11,6 +11,7 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 
 import com.smu.cs203_g1_1.itinerary_planner.trips.Trip;
 import com.smu.cs203_g1_1.itinerary_planner.trips.TripRepository;
+import com.smu.cs203_g1_1.itinerary_planner.trips.TripRole;
 import com.smu.cs203_g1_1.itinerary_planner.user.User;
 import com.smu.cs203_g1_1.itinerary_planner.user.UserRepository;
 
@@ -42,8 +43,8 @@ class UserTripRepositoryTest {
             user
         );
 
-        // Add User as a member
-        trip.addMember(user);
+        // Add User as a member (the owner always holds the OWNER role)
+        trip.addMember(user, TripRole.OWNER);
 
         // Save Trip
         trip = tripRepository.save(trip);
@@ -62,6 +63,7 @@ class UserTripRepositoryTest {
         assertEquals(user.getId(), trip.getOwner().getId());
 
         // Verify membership relationship
-        assertTrue(trip.getUsers().contains(user));
+        assertTrue(trip.findMember(user).isPresent());
+        assertEquals(TripRole.OWNER, trip.findMember(user).get().getRole());
     }
 }

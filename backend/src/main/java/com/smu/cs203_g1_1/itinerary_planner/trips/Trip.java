@@ -3,6 +3,7 @@ package com.smu.cs203_g1_1.itinerary_planner.trips;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.smu.cs203_g1_1.itinerary_planner.user.User;
@@ -21,38 +22,21 @@ public class Trip {
     private LocalDate startDate;
     private LocalDate endDate;
 
-    /*
-     * Many trips belong to one User (the owner).
-     * Database: trips.owner_id -> users.id
-     */
     @ManyToOne
     @JoinColumn(name = "owner_id", nullable = false)
-    @JsonIgnoreProperties("trips")
+    @JsonIgnoreProperties({"trips", "role"})
     private User owner;
 
     /*
-     * Many-to-many membership.
-     *
-     * Trip is the owning side. User.java declares
-     *     @ManyToMany(mappedBy = "users")
-     * so this field MUST stay named "users".
+     * Membership with a role (OWNER / EDITOR / VIEWER). The owner also has
+     * a row here with role OWNER so every access check is one lookup.
      */
-    @ManyToMany
-    @JoinTable(
-            name = "trip_members",
-            joinColumns = @JoinColumn(name = "trip_id"),
-            inverseJoinColumns = @JoinColumn(name = "user_id"))
-    @JsonIgnoreProperties("trips")
-    private List<User> users = new ArrayList<>();
+    @OneToMany(mappedBy = "trip", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<TripMember> members = new ArrayList<>();
 
-    /*
-     * One trip has many activities. Activity owns the foreign key
-     * (activities.trip_id), so this side is mappedBy = "trip".
-     */
     @OneToMany(mappedBy = "trip", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Activity> itinerary = new ArrayList<>();
 
-    // Required by JPA.
     protected Trip() {
     }
 
@@ -63,58 +47,42 @@ public class Trip {
         this.owner = owner;
     }
 
-    public Long getId() {
-        return id;
+    public Long getId() { return id; }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+    public LocalDate getStartDate() { return startDate; }
+    public void setStartDate(LocalDate startDate) { this.startDate = startDate; }
+    public LocalDate getEndDate() { return endDate; }
+    public void setEndDate(LocalDate endDate) { this.endDate = endDate; }
+    public User getOwner() { return owner; }
+    public List<TripMember> getMembers() { return members; }
+    public List<Activity> getItinerary() { return itinerary; }
+
+    public boolean isOwner(User user) {
+        return owner != null && user != null && owner.getId().equals(user.getId());
     }
 
-    public String getName() {
-        return name;
+    public Optional<TripMember> findMember(User user) {
+        return members.stream()
+                .filter(m -> m.getUser().getId().equals(user.getId()))
+                .findFirst();
     }
 
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public LocalDate getStartDate() {
-        return startDate;
-    }
-
-    public void setStartDate(LocalDate startDate) {
-        this.startDate = startDate;
-    }
-
-    public LocalDate getEndDate() {
-        return endDate;
-    }
-
-    public void setEndDate(LocalDate endDate) {
-        this.endDate = endDate;
-    }
-
-    public User getOwner() {
-        return owner;
-    }
-
-    public void setOwner(User owner) {
-        this.owner = owner;
-    }
-
-    public List<User> getUsers() {
-        return users;
-    }
-
-    public List<Activity> getItinerary() {
-        return itinerary;
-    }
-
-    public void addMember(User user) {
-        if (!users.contains(user)) {
-            users.add(user);
+    /** Adds the user with the given role. OWNER is only valid for the trip's owner. */
+    public TripMember addMember(User user, TripRole role) {
+        if (role == TripRole.OWNER && !isOwner(user)) {
+            throw new IllegalArgumentException("A trip can only have one owner");
         }
+        if (role != TripRole.OWNER && isOwner(user)) {
+            throw new IllegalArgumentException("The trip owner must keep the OWNER role");
+        }
+        TripMember member = new TripMember(this, user, role);
+        members.add(member);
+        return member;
     }
 
     public void removeMember(User user) {
-        users.remove(user);
+        members.removeIf(m -> m.getUser().getId().equals(user.getId()));
     }
 
     public void addActivity(Activity activity) {
@@ -123,7 +91,6 @@ public class Trip {
     }
 
     public void removeActivity(Activity activity) {
-        itinerary.remove(activity);
-        // activities.trip_id is NOT NULL, so the back-reference is left intact.
+        itinerary.remove(activity); // orphanRemoval deletes the row
     }
 }

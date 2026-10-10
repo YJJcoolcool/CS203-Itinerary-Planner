@@ -33,13 +33,15 @@ public class ActivityService {
 
 
     /*
-     * GET all activities belonging to one trip.
+     * GET all activities belonging to one trip. (VIEWER or above)
      */
     @Transactional(readOnly = true)
-    public List<Activity> getActivities(Long tripId) {
+    public List<Activity> getActivities(
+            Long tripId,
+            String clerkUserId) {
 
-        // Also checks that the trip exists.
-        tripService.getTrip(tripId);
+        // Checks that the trip exists AND the caller is a member (403 otherwise).
+        tripService.getTrip(tripId, clerkUserId);
 
         return activityRepository
                 .findByTripIdOrderByStartDateTimeAsc(tripId);
@@ -47,48 +49,47 @@ public class ActivityService {
 
 
     /*
-     * GET one activity belonging to one specific trip.
+     * GET one activity belonging to one specific trip. (VIEWER or above)
      */
     @Transactional(readOnly = true)
     public Activity getActivity(
             Long tripId,
-            Long activityId) {
+            Long activityId,
+            String clerkUserId) {
 
-        return activityRepository
-                .findByIdAndTripId(activityId, tripId)
-                .orElseThrow(()
-                        -> {
-                    log.warn("Activity not found: id={} tripId={}", activityId, tripId);
-                    return new ResponseStatusException(
-                            HttpStatus.NOT_FOUND,
-                            "Activity not found");
-                });
+        tripService.getTrip(tripId, clerkUserId);
+
+        return findActivity(tripId, activityId);
     }
 
 
     /*
-     * GET all locations belonging to one activity in one specific trip.
+     * GET all locations belonging to one activity in one specific trip. (VIEWER or above)
      */
     @Transactional(readOnly = true)
     public List<Location> getActivityLocations(
             Long tripId,
-            Long activityId) {
+            Long activityId,
+            String clerkUserId) {
 
-        Activity activity = getActivity(tripId, activityId);
+        tripService.getTrip(tripId, clerkUserId);
+
+        Activity activity = findActivity(tripId, activityId);
 
         return new ArrayList<>(activity.getLocations());
     }
 
 
     /*
-     * CREATE a new activity inside a trip.
+     * CREATE a new activity inside a trip. (EDITOR or above)
      */
     @Transactional
     public Activity createActivity(
             Long tripId,
-            Activity activity) {
+            Activity activity,
+            String clerkUserId) {
 
-        Trip trip = tripService.getTrip(tripId);
+        Trip trip = tripService.requireTripRole(tripId, clerkUserId, TripRole.EDITOR);
 
         validateTimes(
                 activity.getStartDateTime(),
@@ -111,16 +112,19 @@ public class ActivityService {
 
 
     /*
-     * UPDATE an existing activity.
+     * UPDATE an existing activity. (EDITOR or above)
      */
     @Transactional
     public Activity updateActivity(
             Long tripId,
             Long activityId,
-            Activity updatedActivity) {
+            Activity updatedActivity,
+            String clerkUserId) {
+
+        tripService.requireTripRole(tripId, clerkUserId, TripRole.EDITOR);
 
         Activity activity
-                = getActivity(tripId, activityId);
+                = findActivity(tripId, activityId);
 
         validateTimes(
                 updatedActivity.getStartDateTime(),
@@ -151,15 +155,18 @@ public class ActivityService {
 
 
     /*
-     * DELETE an activity.
+     * DELETE an activity. (EDITOR or above)
      */
     @Transactional
     public void deleteActivity(
             Long tripId,
-            Long activityId) {
+            Long activityId,
+            String clerkUserId) {
+
+        tripService.requireTripRole(tripId, clerkUserId, TripRole.EDITOR);
 
         Activity activity
-                = getActivity(tripId, activityId);
+                = findActivity(tripId, activityId);
 
         /*
          * Keep the in-memory Trip itinerary consistent too.
@@ -169,6 +176,28 @@ public class ActivityService {
         activityRepository.delete(activity);
 
         log.info("Deleted activity id={} from trip id={}", activityId, tripId);
+    }
+
+
+    /*
+     * Internal lookup with NO permission check. Public methods must call
+     * tripService.getTrip / requireTripRole first.
+     * (This is the old public getActivity(tripId, activityId), made private so
+     * write operations don't accidentally run a VIEWER-level check.)
+     */
+    private Activity findActivity(
+            Long tripId,
+            Long activityId) {
+
+        return activityRepository
+                .findByIdAndTripId(activityId, tripId)
+                .orElseThrow(()
+                        -> {
+                    log.warn("Activity not found: id={} tripId={}", activityId, tripId);
+                    return new ResponseStatusException(
+                            HttpStatus.NOT_FOUND,
+                            "Activity not found");
+                });
     }
 
 

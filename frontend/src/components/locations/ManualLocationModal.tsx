@@ -203,7 +203,7 @@ export default function ManualLocationModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="manual-location-title"
-        className="w-full max-w-xl overflow-hidden rounded-xl border border-border bg-white text-slate-900 shadow-xl"
+        className="w-full max-w-xl overflow-hidden rounded-xl border border-border bg-surface-raised text-foreground shadow-xl"
       >
         <form onSubmit={handleSubmit}>
           <header className="flex items-center justify-between border-b border-border px-5 py-4">
@@ -214,7 +214,7 @@ export default function ManualLocationModal({
               >
                 Add location manually
               </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="mt-1 text-sm text-muted">
                 Enter a name and coordinates, or choose a point on the map.
               </p>
             </div>
@@ -224,7 +224,7 @@ export default function ManualLocationModal({
               onClick={onClose}
               disabled={isCreating}
               aria-label="Close"
-              className="rounded-md p-2 text-muted-foreground hover:bg-muted disabled:opacity-50"
+              className="rounded-md p-2 text-muted transition-colors hover:bg-surface-subtle hover:text-foreground disabled:opacity-50"
             >
               ✕
             </button>
@@ -247,7 +247,7 @@ export default function ManualLocationModal({
                 maxLength={255}
                 required
                 autoFocus
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                className="w-full rounded-md border border-border bg-surface-subtle px-3 py-2 text-sm text-foreground outline-none placeholder:text-faint focus:border-accent focus:ring-2 focus:ring-accent/20"
               />
             </div>
 
@@ -271,9 +271,9 @@ export default function ManualLocationModal({
                   }
                   placeholder="1.3521"
                   required
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  className="w-full rounded-md border border-border bg-surface-subtle px-3 py-2 text-sm text-foreground outline-none placeholder:text-faint focus:border-accent focus:ring-2 focus:ring-accent/20"
                 />
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted">
                   From -90 to 90
                 </p>
               </div>
@@ -297,9 +297,9 @@ export default function ManualLocationModal({
                   }
                   placeholder="103.8198"
                   required
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  className="w-full rounded-md border border-border bg-surface-subtle px-3 py-2 text-sm text-foreground outline-none placeholder:text-faint focus:border-accent focus:ring-2 focus:ring-accent/20"
                 />
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted">
                   From -180 to 180
                 </p>
               </div>
@@ -310,7 +310,7 @@ export default function ManualLocationModal({
                 <h3 className="text-sm font-medium text-foreground">
                   Choose on map
                 </h3>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted">
                   Click anywhere on the map or drag the marker to set the
                   coordinates.
                 </p>
@@ -355,7 +355,7 @@ export default function ManualLocationModal({
                 </MapContainer>
               </div>
 
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted">
                 Selected: {coordinates.latitude.toFixed(6)},{' '}
                 {coordinates.longitude.toFixed(6)}
               </p>
@@ -364,7 +364,7 @@ export default function ManualLocationModal({
             {(validationError || error) && (
               <div
                 role="alert"
-                className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+                className="rounded-md border border-terracotta/40 bg-terracotta/10 px-3 py-2 text-sm text-terracotta"
               >
                 {validationError || error}
               </div>
@@ -376,7 +376,7 @@ export default function ManualLocationModal({
               type="button"
               onClick={onClose}
               disabled={isCreating}
-              className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-border-strong hover:bg-surface-subtle disabled:cursor-not-allowed disabled:opacity-50"
             >
               Cancel
             </button>
@@ -384,7 +384,7 @@ export default function ManualLocationModal({
             <button
               type="submit"
               disabled={isCreating}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-contrast transition-colors hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isCreating ? 'Saving...' : 'Save location'}
             </button>

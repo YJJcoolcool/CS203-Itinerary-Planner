@@ -166,6 +166,34 @@ export function getTrip(token: string | null, tripId: string): Promise<Trip> {
   return request<Trip>(`/api/trips/${tripId}`, { token })
 }
 
+/** Updates a trip's name and dates. Owner-only. */
+export function updateTrip(
+  token: string | null,
+  tripId: string,
+  input: {
+    name: string
+    startDate: string
+    endDate: string
+  },
+): Promise<Trip> {
+  return request<Trip>(`/api/trips/${tripId}`, {
+    method: 'PUT',
+    body: input,
+    token,
+  })
+}
+
+/** Deletes a trip. Owner-only. */
+export function deleteTrip(
+  token: string | null,
+  tripId: string,
+): Promise<void> {
+  return request<void>(`/api/trips/${tripId}`, {
+    method: 'DELETE',
+    token,
+  })
+}
+
 /** Fetches a trip's activities, ordered by start time. */
 export function getActivities(token: string | null, tripId: string): Promise<Activity[]> {
   return request<Activity[]>(`/api/trips/${tripId}/activities`, { token })

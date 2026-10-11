@@ -52,7 +52,7 @@ export interface Trip {
   itinerary: Activity[]
 }
 
-/** Client-supplied fields for creating a trip. `ownerId` is added by the data layer. */
+/** Client-supplied fields for creating a trip. The backend sets the owner from the login token. */
 export interface CreateTripInput {
   name: string
   startDate: string

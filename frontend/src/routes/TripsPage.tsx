@@ -1,8 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Navbar } from '../components/Navbar'
 import { CreateTripModal } from '../components/trips/CreateTripModal'
 import { TripCard, TripCardSkeleton } from '../components/trips/TripCard'
-import { tripsForUser } from '../lib/api'
 import { useCurrentUser, useTrips } from '../lib/useTrips'
 import { Link } from 'react-router'
 
@@ -120,12 +119,10 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
 }
 
 export function TripsPage() {
-  const { user, isLoading: isUserLoading } = useCurrentUser()
-  const { trips, isLoading: isTripsLoading, error, refresh } = useTrips()
+  // Creates the backend profile on first sign-in; the result itself is not needed here.
+  const { isLoading: isUserLoading } = useCurrentUser()
+  const { trips: myTrips, isLoading: isTripsLoading, error, refresh } = useTrips()
   const [isCreateOpen, setIsCreateOpen] = useState(false)
-
-  // `GET /api/trips` returns every trip, so scope the list to the current user.
-  const myTrips = useMemo(() => tripsForUser(trips, user?.id), [trips, user?.id])
 
   const isLoading = isTripsLoading || isUserLoading
   const hasTrips = !isLoading && !error && myTrips.length > 0

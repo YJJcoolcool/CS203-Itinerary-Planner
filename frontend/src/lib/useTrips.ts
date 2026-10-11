@@ -387,14 +387,12 @@ function useConfiguredCreateTrip(): UseCreateTripResult {
         const token = await getToken()
         if (!token) throw new ApiError(401, NO_SESSION_MESSAGE)
 
-        // Resolve the backend user id here so callers only supply the trip
-        // fields. find-or-create is idempotent and covers a missing user row.
-        const backendUser = await createBackendUser(token, displayName)
+                // The backend takes the owner from the token, so no owner id is sent.
+        // find-or-create is idempotent and makes sure the user row exists
+        // before the backend looks the owner up.
+        await createBackendUser(token, displayName)
 
-        return await createTripRequest(token, {
-          ...input,
-          ownerId: backendUser.id,
-        })
+        return await createTripRequest(token, input)
       } catch (cause) {
         setError(describeError(cause))
         throw cause instanceof Error ? cause : new Error(describeError(cause))
@@ -673,8 +671,8 @@ export const useCurrentUser: () => UseCurrentUserResult = CLERK_CONFIGURED
   : useUnconfiguredCurrentUser
 
 /**
- * Loads every trip from the backend. The list is intentionally NOT filtered
- * here — the page filters with `tripsForUser` using the current user id.
+ * Loads the logged-in user's trips. The backend only returns trips the user
+ * owns or is a member of, so no client-side filtering is needed.
  */
 export const useTrips: () => UseTripsResult = CLERK_CONFIGURED
   ? useConfiguredTrips

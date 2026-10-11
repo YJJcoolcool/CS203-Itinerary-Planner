@@ -105,9 +105,21 @@ fi
 
 # ------------------------------------------------------------- install deps
 if [ "$RUN_FRONTEND" -eq 1 ]; then
-  if [ "$FORCE_INSTALL" -eq 1 ] || [ ! -d "$FRONTEND_DIR/node_modules" ]; then
+  # Reinstall when node_modules is missing OR stale. npm records the last
+  # install in node_modules/.package-lock.json, so a newer package.json or
+  # package-lock.json means dependencies were added/changed since the last
+  # install (e.g. a newly declared package such as leaflet) and Vite would
+  # otherwise fail to resolve them.
+  FE_STAMP="$FRONTEND_DIR/node_modules/.package-lock.json"
+  if [ "$FORCE_INSTALL" -eq 1 ] \
+     || [ ! -d "$FRONTEND_DIR/node_modules" ] \
+     || [ ! -f "$FE_STAMP" ] \
+     || [ "$FRONTEND_DIR/package.json" -nt "$FE_STAMP" ] \
+     || [ "$FRONTEND_DIR/package-lock.json" -nt "$FE_STAMP" ]; then
     log "Installing frontend dependencies..."
     ( cd "$FRONTEND_DIR" && npm ci )
+  else
+    log "Frontend dependencies are up to date."
   fi
 fi
 

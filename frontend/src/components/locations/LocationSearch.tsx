@@ -3,6 +3,7 @@ import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useImportLocationFromOsm, useLocationSearch } from '../../lib/useTrips'
 import type { GeoPlace, Location } from '../../types/trip'
+import ManualLocationModal from './ManualLocationModal'
 
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface'
@@ -12,6 +13,8 @@ const ADD_BUTTON = `inline-flex shrink-0 items-center justify-center rounded-lg 
 const DONE_BUTTON = `inline-flex shrink-0 items-center justify-center rounded-xl border border-border px-4 py-2 text-sm font-medium text-muted transition-colors hover:border-border-strong hover:text-foreground ${FOCUS_RING}`
 
 const ICON_BUTTON = `flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-subtle text-muted transition-colors hover:border-border-strong hover:text-foreground ${FOCUS_RING}`
+
+const GHOST_BUTTON = `inline-flex items-center justify-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-muted transition-colors hover:border-border-strong hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`
 
 const PILL =
   'inline-flex items-center rounded-full border border-border bg-surface-subtle px-2.5 py-0.5 font-mono text-[11px] text-muted'
@@ -89,6 +92,7 @@ export function LocationSearch({
   const { importLocation, importingKey, error: importError } = useImportLocationFromOsm()
 
   const [open, setOpen] = useState(false)
+  const [isManualLocationOpen, setIsManualLocationOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const dialogRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -213,7 +217,7 @@ export function LocationSearch({
       {open &&
         createPortal(
           <div
-            className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center sm:p-4"
+            className="fixed inset-0 z-60 flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center sm:p-4"
             onMouseDown={(event) => {
               if (event.target === event.currentTarget) setOpen(false)
             }}
@@ -248,28 +252,42 @@ export function LocationSearch({
                 </button>
               </div>
 
-              <div className="flex flex-col gap-2 border-b border-border p-4 sm:px-6">
-                <label htmlFor={inputId} className="text-xs font-medium text-muted">
-                  Search for a place
-                </label>
-                <input
-                  ref={inputRef}
-                  id={inputId}
-                  type="search"
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  className="input-field"
-                  placeholder="e.g. Marina Bay Sands"
-                  autoComplete="off"
-                  spellCheck={false}
-                  aria-invalid={Boolean(error)}
-                  aria-describedby={error ? errorId : attributionId}
-                />
-                {error && (
-                  <p id={errorId} role="alert" className="text-xs text-terracotta">
-                    {error}
-                  </p>
-                )}
+              <div className="flex flex-col gap-2 px-4 sm:px-6 sm:flex-row">
+                <div className="min-w-0 flex-1">
+                  <label htmlFor={inputId} className="text-xs font-medium text-muted">
+                    Search for a place
+                  </label>
+
+                  <input
+                    ref={inputRef}
+                    id={inputId}
+                    type="search"
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    className="input-field"
+                    placeholder="e.g. Marina Bay Sands"
+                    autoComplete="off"
+                    spellCheck={false}
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? errorId : attributionId}
+                  />
+
+                  {error && (
+                    <p id={errorId} role="alert" className="text-xs text-terracotta">
+                      {error}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex items-end sm:items-end">
+                  <button
+                    type="button"
+                    onClick={() => setIsManualLocationOpen(true)}
+                    className={`${GHOST_BUTTON} h-10 whitespace-nowrap`}
+                  >
+                    Add Manually
+                  </button>
+                </div>
               </div>
 
               <div aria-busy={isSearching} className="min-h-0 flex-1 overflow-y-auto p-4 sm:px-6">
@@ -297,6 +315,15 @@ export function LocationSearch({
                 )}
 
                 {showEmpty && <p className="py-6 text-center text-sm text-muted">No matches for “{trimmed}”.</p>}
+
+                {isManualLocationOpen && (
+                  <ManualLocationModal
+                    onClose={() => setIsManualLocationOpen(false)}
+                    onCreated={(location) => {
+                      onAdded(location)
+                    }}
+                  />
+                )}
 
                 {showResults && (
                   <div>

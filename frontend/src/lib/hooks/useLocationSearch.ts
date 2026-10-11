@@ -13,11 +13,6 @@ const SEARCH_DEBOUNCE_MS = 750
 
 const EMPTY_PLACES: GeoPlace[] = []
 
-/** Identity used to dedupe an OSM place against already-imported locations. */
-function osmKey(osmType: string, osmId: number): string {
-  return `${osmType}:${osmId}`
-}
-
 /** State of one resolved search, tagged with the query it belongs to. */
 interface LocationSearchState {
   query: string

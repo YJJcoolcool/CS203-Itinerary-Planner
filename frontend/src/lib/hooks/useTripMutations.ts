@@ -1,8 +1,8 @@
-import { useAuth, useUser } from '@clerk/react'
+import { useAuth } from '@clerk/react'
 import { useCallback, useState } from 'react'
 import { publishableKey } from '../../auth/authConfiguration'
 import type { Activity, CreateActivityInput, CreateTripInput, Trip } from '../../types/trip'
-import { ApiError, createActivity as createActivityRequest, createBackendUser, createTrip as createTripRequest } from '../api'
+import { ApiError, createActivity as createActivityRequest, createTrip as createTripRequest } from '../api'
 
 export interface UseCreateTripResult { createTrip: (input: CreateTripInput) => Promise<Trip>; isCreating: boolean; error: string | null }
 export interface UseCreateActivityResult { createActivity: (input: CreateActivityInput) => Promise<Activity>; isCreating: boolean; error: string | null }
@@ -10,15 +10,11 @@ const CLERK_CONFIGURED = Boolean(publishableKey)
 const NOT_CONFIGURED_MESSAGE = 'Authentication is not configured. Set VITE_CLERK_PUBLISHABLE_KEY to load your trips.'
 const NO_SESSION_MESSAGE = 'No active Clerk session token is available.'
 function describeError(error: unknown): string { if (error instanceof ApiError) return error.message; if (error instanceof Error && error.message) return error.message; return 'Something went wrong. Please try again.' }
-function deriveDisplayName(user: { fullName: string | null; primaryEmailAddress: { emailAddress: string } | null } | null | undefined): string { return user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? 'New user' }
 function useConfiguredCreateTrip(): UseCreateTripResult {
   const { getToken } = useAuth()
-  const { user: clerkUser } = useUser()
 
   const [isCreating, setIsCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  const displayName = deriveDisplayName(clerkUser)
 
   const create = useCallback(
     async (input: CreateTripInput): Promise<Trip> => {
@@ -31,11 +27,9 @@ function useConfiguredCreateTrip(): UseCreateTripResult {
 
         // Resolve the backend user id here so callers only supply the trip
         // fields. find-or-create is idempotent and covers a missing user row.
-        const backendUser = await createBackendUser(token, displayName)
 
         return await createTripRequest(token, {
           ...input,
-          ownerId: backendUser.id,
         })
       } catch (cause) {
         setError(describeError(cause))
@@ -44,7 +38,7 @@ function useConfiguredCreateTrip(): UseCreateTripResult {
         setIsCreating(false)
       }
     },
-    [displayName, getToken],
+    [getToken],
   )
 
   return { createTrip: create, isCreating, error }

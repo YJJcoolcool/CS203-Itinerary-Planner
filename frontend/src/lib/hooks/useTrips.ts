@@ -4,43 +4,16 @@ import { publishableKey } from '../../auth/authConfiguration'
 import type { Activity, Location, Trip } from '../../types/trip'
 import { ApiError, getActivities, getActivityLocations, getTrip, getTrips } from '../api'
 
-export interface UseTripsResult {
-  trips: Trip[]
-  isLoading: boolean
-  error: string | null
-  refresh: () => void
-}
-export interface UseTripResult {
-  trip: Trip | null
-  isLoading: boolean
-  error: string | null
-  errorStatus: number | null
-  refresh: () => void
-}
-export interface UseTripItineraryResult {
-  activities: Activity[]
-  locationsByActivity: Record<string, Location[]>
-  isLoading: boolean
-  isLoadingLocations: boolean
-  error: string | null
-  refresh: () => void
-}
-
+export interface UseTripsResult { trips: Trip[]; isLoading: boolean; error: string | null; refresh: () => void }
+export interface UseTripResult { trip: Trip | null; isLoading: boolean; error: string | null; errorStatus: number | null; refresh: () => void }
+export interface UseTripItineraryResult { activities: Activity[]; locationsByActivity: Record<string, Location[]>; isLoading: boolean; isLoadingLocations: boolean; error: string | null; refresh: () => void }
 const CLERK_CONFIGURED = Boolean(publishableKey)
-const NOT_CONFIGURED_MESSAGE =
-  'Authentication is not configured. Set VITE_CLERK_PUBLISHABLE_KEY to load your trips.'
+const NOT_CONFIGURED_MESSAGE = 'Authentication is not configured. Set VITE_CLERK_PUBLISHABLE_KEY to load your trips.'
 const NO_SESSION_MESSAGE = 'No active Clerk session token is available.'
-
-function describeError(error: unknown): string {
-  if (error instanceof ApiError) return error.message
-  if (error instanceof Error && error.message) return error.message
-  return 'Something went wrong. Please try again.'
-}
-
+function describeError(error: unknown): string { if (error instanceof ApiError) return error.message; if (error instanceof Error && error.message) return error.message; return 'Something went wrong. Please try again.' }
 const EMPTY_TRIPS: Trip[] = []
 const EMPTY_ACTIVITIES: Activity[] = []
 const EMPTY_LOCATIONS: Record<string, Location[]> = {}
-
 function useConfiguredTrips(): UseTripsResult {
   const { getToken, isLoaded, isSignedIn, userId } = useAuth()
 
@@ -286,33 +259,4 @@ export const useTripItinerary: (tripId: string) => UseTripItineraryResult = CLER
 /**
  * Creates a trip, resolving the owner via `POST /api/users/me` internally.
  */
-export const useCreateTrip: () => UseCreateTripResult = CLERK_CONFIGURED
-  ? useConfiguredCreateTrip
-  : useUnconfiguredCreateTrip
-
-/** Creates an activity in the requested trip. */
-export const useCreateActivity: (tripId: string) => UseCreateActivityResult = CLERK_CONFIGURED
-  ? useConfiguredCreateActivity
-  : useUnconfiguredCreateActivity
-
-/**
- * Debounced OpenStreetMap place search for the activity location picker. Fires
- * at most one request per 750ms pause to respect the Nominatim usage policy.
- */
-export const useLocationSearch: () => UseLocationSearchResult = CLERK_CONFIGURED
-  ? useConfiguredLocationSearch
-  : useUnconfiguredLocationSearch
-
-/**
- * Imports an OpenStreetMap place as a stored location, tracking the in-flight
- * `osmType:osmId` so the UI can show a per-item importing state.
- */
-export const useImportLocationFromOsm: () => UseImportLocationResult = CLERK_CONFIGURED
-  ? useConfiguredImportLocation
-  : useUnconfiguredImportLocation
-
-  interface CreateLocationInput {
-  name: string
-  latitude: number
-  longitude: number
 

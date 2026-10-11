@@ -1,14 +1,10 @@
 export { useCurrentUser } from './hooks/useCurrentUser'
 export type { UseCurrentUserResult } from './hooks/useCurrentUser'
-
 export { useTrips, useTrip, useTripItinerary } from './hooks/useTrips'
 export type { UseTripsResult, UseTripResult, UseTripItineraryResult } from './hooks/useTrips'
-
 export { useCreateTrip, useCreateActivity } from './hooks/useTripMutations'
 export type { UseCreateTripResult, UseCreateActivityResult } from './hooks/useTripMutations'
-
 export { useLocationSearch } from './hooks/useLocationSearch'
 export type { UseLocationSearchResult } from './hooks/useLocationSearch'
-
 export { useImportLocationFromOsm, useCreateLocation } from './hooks/useLocations'
 export type { UseImportLocationResult, UseCreateLocationResult } from './hooks/useLocations'

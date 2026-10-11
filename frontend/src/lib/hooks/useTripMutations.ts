@@ -4,32 +4,13 @@ import { publishableKey } from '../../auth/authConfiguration'
 import type { Activity, CreateActivityInput, CreateTripInput, Trip } from '../../types/trip'
 import { ApiError, createActivity as createActivityRequest, createBackendUser, createTrip as createTripRequest } from '../api'
 
-export interface UseCreateTripResult {
-  createTrip: (input: CreateTripInput) => Promise<Trip>
-  isCreating: boolean
-  error: string | null
-}
-export interface UseCreateActivityResult {
-  createActivity: (input: CreateActivityInput) => Promise<Activity>
-  isCreating: boolean
-  error: string | null
-}
-
+export interface UseCreateTripResult { createTrip: (input: CreateTripInput) => Promise<Trip>; isCreating: boolean; error: string | null }
+export interface UseCreateActivityResult { createActivity: (input: CreateActivityInput) => Promise<Activity>; isCreating: boolean; error: string | null }
 const CLERK_CONFIGURED = Boolean(publishableKey)
-const NOT_CONFIGURED_MESSAGE =
-  'Authentication is not configured. Set VITE_CLERK_PUBLISHABLE_KEY to load your trips.'
+const NOT_CONFIGURED_MESSAGE = 'Authentication is not configured. Set VITE_CLERK_PUBLISHABLE_KEY to load your trips.'
 const NO_SESSION_MESSAGE = 'No active Clerk session token is available.'
-
-function describeError(error: unknown): string {
-  if (error instanceof ApiError) return error.message
-  if (error instanceof Error && error.message) return error.message
-  return 'Something went wrong. Please try again.'
-}
-
-function deriveDisplayName(user: { fullName: string | null; primaryEmailAddress: { emailAddress: string } | null } | null | undefined): string {
-  return user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? 'New user'
-}
-
+function describeError(error: unknown): string { if (error instanceof ApiError) return error.message; if (error instanceof Error && error.message) return error.message; return 'Something went wrong. Please try again.' }
+function deriveDisplayName(user: { fullName: string | null; primaryEmailAddress: { emailAddress: string } | null } | null | undefined): string { return user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? 'New user' }
 function useConfiguredCreateTrip(): UseCreateTripResult {
   const { getToken } = useAuth()
   const { user: clerkUser } = useUser()
@@ -146,20 +127,4 @@ export const useCreateActivity: (tripId: string) => UseCreateActivityResult = CL
  * Debounced OpenStreetMap place search for the activity location picker. Fires
  * at most one request per 750ms pause to respect the Nominatim usage policy.
  */
-export const useLocationSearch: () => UseLocationSearchResult = CLERK_CONFIGURED
-  ? useConfiguredLocationSearch
-  : useUnconfiguredLocationSearch
-
-/**
- * Imports an OpenStreetMap place as a stored location, tracking the in-flight
- * `osmType:osmId` so the UI can show a per-item importing state.
- */
-export const useImportLocationFromOsm: () => UseImportLocationResult = CLERK_CONFIGURED
-  ? useConfiguredImportLocation
-  : useUnconfiguredImportLocation
-
-  interface CreateLocationInput {
-  name: string
-  latitude: number
-  longitude: number
 

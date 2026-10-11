@@ -4,27 +4,11 @@ import { publishableKey } from '../../auth/authConfiguration'
 import type { GeoPlace } from '../../types/trip'
 import { ApiError, searchPlaces } from '../api'
 
-export interface UseLocationSearchResult {
-  query: string
-  setQuery: (value: string) => void
-  results: GeoPlace[]
-  attribution: string | null
-  isSearching: boolean
-  error: string | null
-  hasSearched: boolean
-}
-
+export interface UseLocationSearchResult { query: string; setQuery: (value: string) => void; results: GeoPlace[]; attribution: string | null; isSearching: boolean; error: string | null; hasSearched: boolean }
 const CLERK_CONFIGURED = Boolean(publishableKey)
-const NOT_CONFIGURED_MESSAGE =
-  'Authentication is not configured. Set VITE_CLERK_PUBLISHABLE_KEY to load your trips.'
+const NOT_CONFIGURED_MESSAGE = 'Authentication is not configured. Set VITE_CLERK_PUBLISHABLE_KEY to load your trips.'
 const NO_SESSION_MESSAGE = 'No active Clerk session token is available.'
-
-function describeError(error: unknown): string {
-  if (error instanceof ApiError) return error.message
-  if (error instanceof Error && error.message) return error.message
-  return 'Something went wrong. Please try again.'
-}
-
+function describeError(error: unknown): string { if (error instanceof ApiError) return error.message; if (error instanceof Error && error.message) return error.message; return 'Something went wrong. Please try again.' }
 const SEARCH_DEBOUNCE_MS = 750
 
 const EMPTY_PLACES: GeoPlace[] = []
@@ -138,12 +122,4 @@ export const useLocationSearch: () => UseLocationSearchResult = CLERK_CONFIGURED
  * Imports an OpenStreetMap place as a stored location, tracking the in-flight
  * `osmType:osmId` so the UI can show a per-item importing state.
  */
-export const useImportLocationFromOsm: () => UseImportLocationResult = CLERK_CONFIGURED
-  ? useConfiguredImportLocation
-  : useUnconfiguredImportLocation
-
-  interface CreateLocationInput {
-  name: string
-  latitude: number
-  longitude: number
 

@@ -4,32 +4,13 @@ import { publishableKey } from '../../auth/authConfiguration'
 import type { User } from '../../types/trip'
 import { ApiError, createBackendUser } from '../api'
 
-export interface UseCurrentUserResult {
-  user: User | null
-  isLoading: boolean
-  error: string | null
-}
-
+export interface UseCurrentUserResult { user: User | null; isLoading: boolean; error: string | null }
 const CLERK_CONFIGURED = Boolean(publishableKey)
-const NOT_CONFIGURED_MESSAGE =
-  'Authentication is not configured. Set VITE_CLERK_PUBLISHABLE_KEY to load your trips.'
+const NOT_CONFIGURED_MESSAGE = 'Authentication is not configured. Set VITE_CLERK_PUBLISHABLE_KEY to load your trips.'
 const NO_SESSION_MESSAGE = 'No active Clerk session token is available.'
-
-interface ClerkUserLike {
-  fullName: string | null
-  primaryEmailAddress: { emailAddress: string } | null
-}
-
-function deriveDisplayName(user: ClerkUserLike | null | undefined): string {
-  return user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? 'New user'
-}
-
-function describeError(error: unknown): string {
-  if (error instanceof ApiError) return error.message
-  if (error instanceof Error && error.message) return error.message
-  return 'Something went wrong. Please try again.'
-}
-
+interface ClerkUserLike { fullName: string | null; primaryEmailAddress: { emailAddress: string } | null }
+function deriveDisplayName(user: ClerkUserLike | null | undefined): string { return user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? 'New user' }
+function describeError(error: unknown): string { if (error instanceof ApiError) return error.message; if (error instanceof Error && error.message) return error.message; return 'Something went wrong. Please try again.' }
 function useConfiguredCurrentUser(): UseCurrentUserResult {
   const { getToken } = useAuth()
   const { user: clerkUser, isLoaded: isUserLoaded } = useUser()
@@ -91,6 +72,4 @@ function useUnconfiguredCurrentUser(): UseCurrentUserResult {
 }
 
 
-export const useCurrentUser: () => UseCurrentUserResult = CLERK_CONFIGURED
-  ? useConfiguredCurrentUser
-  : useUnconfiguredCurrentUser
+export const useCurrentUser: () => UseCurrentUserResult = CLERK_CONFIGURED ? useConfiguredCurrentUser : useUnconfiguredCurrentUser

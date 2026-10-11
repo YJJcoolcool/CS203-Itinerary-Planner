@@ -16,4 +16,7 @@ public interface TripInvitationRepository extends JpaRepository<TripInvitation, 
 
     // Blocks duplicate pending invites for the same person on the same trip.
     boolean existsByTripIdAndReceiverIdAndStatus(String tripId, String receiverId, InvitationStatus status);
+
+    // Every invite a user sent or received (used when an admin deletes that user).
+    List<TripInvitation> findBySenderIdOrReceiverId(String senderId, String receiverId);
 }

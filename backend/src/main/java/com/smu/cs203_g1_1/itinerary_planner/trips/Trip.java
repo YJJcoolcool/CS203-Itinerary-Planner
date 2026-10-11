@@ -51,7 +51,7 @@ public class Trip {
      */
     @ManyToOne
     @JoinColumn(name = "owner_id", nullable = false)
-    @JsonIgnoreProperties("trips")
+    @JsonIgnoreProperties({"trips", "role"})
     private User owner;
 
     /*
@@ -66,7 +66,7 @@ public class Trip {
             name = "trip_members",
             joinColumns = @JoinColumn(name = "trip_id"),
             inverseJoinColumns = @JoinColumn(name = "user_id"))
-    @JsonIgnoreProperties("trips")
+    @JsonIgnoreProperties({"trips", "role"})
     private List<User> users = new ArrayList<>();
 
     /*

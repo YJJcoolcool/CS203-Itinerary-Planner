@@ -21,6 +21,7 @@ import {
   getActivityLocations,
   importLocationFromOsm as importLocationFromOsmRequest,
   searchPlaces,
+  createLocation,
 } from './api'
 
 /** Result of `useCurrentUser()`. */
@@ -661,6 +662,40 @@ function useUnconfiguredImportLocation(): UseImportLocationResult {
   }
 }
 
+export function useCreateLocation() {
+  const { getToken } = useAuth()
+  const [isCreating, setIsCreating] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function createLocationMutation(
+    input: CreateLocationInput,
+  ): Promise<Location> {
+    setIsCreating(true)
+    setError(null)
+
+    try {
+      const token = await getToken()
+      return await createLocation(token, input)
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'Failed to create location.'
+
+      setError(message)
+      throw err
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
+  return {
+    createLocation: createLocationMutation,
+    isCreating,
+    error,
+  }
+}
+
 /**
  * Resolves the current backend user, creating the row on first sign-in.
  *
@@ -720,3 +755,9 @@ export const useLocationSearch: () => UseLocationSearchResult = CLERK_CONFIGURED
 export const useImportLocationFromOsm: () => UseImportLocationResult = CLERK_CONFIGURED
   ? useConfiguredImportLocation
   : useUnconfiguredImportLocation
+
+  interface CreateLocationInput {
+  name: string
+  latitude: number
+  longitude: number
+}

@@ -22,6 +22,14 @@ public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, String>> handleIllegalArgument(
+            IllegalArgumentException exception) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("error", exception.getMessage()));
+    }
+
     @ExceptionHandler(LocationNotFoundException.class)
     public ResponseEntity<Void> handleLocationNotFound(LocationNotFoundException e) {
         log.warn("Location not found: {}", e.getMessage());

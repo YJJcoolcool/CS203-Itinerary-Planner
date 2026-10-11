@@ -44,12 +44,33 @@ public class LocationService {
     }
 
     public Location createLocation(Location location) {
-        String id = ID.generateUniqueID(locationRepository::existsById);
-        location.setId(id);
+        // Validate name
+        if (location.getName() == null || location.getName().isBlank()) {
+            throw new IllegalArgumentException("Location name must not be blank");
+        }
 
+        // Validate coordinates
+        if (location.getLatitude() == null
+                || location.getLatitude() < -90
+                || location.getLatitude() > 90) {
+            throw new IllegalArgumentException(
+                    "Latitude must be between -90 and 90"
+            );
+        }
+
+        if (location.getLongitude() == null
+                || location.getLongitude() < -180
+                || location.getLongitude() > 180) {
+            throw new IllegalArgumentException(
+                    "Longitude must be between -180 and 180"
+            );
+        }
+
+        // Generate ID and save
+        location.setId(ID.generateUniqueID(locationRepository::existsById));
         Location saved = locationRepository.save(location);
 
-        log.info("Created location id={} name={}", saved.getId(), saved.getName());
+        // Keep your existing logging here, if any
         return saved;
     }
 

@@ -4,6 +4,7 @@ import type { FormEvent } from 'react'
 import { useCreateActivity } from '../../lib/useTrips'
 import { LocationSearch } from '../locations/LocationSearch'
 import type { GeoPlace, Location } from '../../types/trip'
+import ManualLocationModal from '../locations/ManualLocationModal'
 
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface'
@@ -41,6 +42,7 @@ export function CreateActivityModal({
   const [endDateTime, setEndDateTime] = useState('')
   const [locations, setLocations] = useState<Location[]>([])
   const [selectedLocationIds, setSelectedLocationIds] = useState<string[]>([])
+  const [isManualLocationOpen, setIsManualLocationOpen] = useState(false)
   const [errors, setErrors] = useState<FieldErrors>({})
   const nameRef = useRef<HTMLInputElement>(null)
   const titleId = useId()
@@ -219,7 +221,28 @@ export function CreateActivityModal({
               Locations (at least one required)
             </legend>
 
-            <LocationSearch onAdded={handleLocationAdded} isAdded={isPlaceAdded} />
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+              <div className="min-w-0 flex-1">
+                <LocationSearch onAdded={handleLocationAdded} isAdded={isPlaceAdded} />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsManualLocationOpen(true)}
+                className={GHOST_BUTTON}
+              >
+                Add Manually
+              </button>
+
+              {isManualLocationOpen && (
+                <ManualLocationModal
+                  onClose={() => setIsManualLocationOpen(false)}
+                  onCreated={(location) => {
+                    handleLocationAdded(location)
+                  }}
+                />
+              )}
+            </div>
 
             {locations.length > 0 && (
               <ul className="flex max-h-40 flex-col gap-2 overflow-y-auto rounded-xl border border-border p-3">

@@ -295,3 +295,23 @@ export function importLocationFromOsm(
     token,
   })
 }
+
+export interface CreateLocationInput {
+  name: string
+  latitude: number
+  longitude: number
+}
+
+/**
+ * For manual entry of Locations
+ */
+export function createLocation(
+  token: string | null,
+  input: CreateLocationInput,
+): Promise<Location> {
+  return request<Location>('/api/locations', {
+    method: 'POST',
+    body: input,
+    token,
+  })
+}

@@ -4,6 +4,7 @@ import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,6 +72,17 @@ class TripMembershipTest {
         ResponseStatusException error = assertThrows(ResponseStatusException.class,
                 () -> tripService.getTripForMember("NoSuchId", owner.getId()));
         assertEquals(HttpStatus.NOT_FOUND, error.getStatusCode());
+    }
+
+    @Test
+    void ownerAndMemberSeeTheTripInTheirList() {
+        assertEquals(1, tripService.getTripsForUser(owner.getId()).size());
+        assertEquals(1, tripService.getTripsForUser(member.getId()).size());
+    }
+
+    @Test
+    void nonMemberDoesNotSeeTheTripInTheirList() {
+        assertTrue(tripService.getTripsForUser(outsider.getId()).isEmpty());
     }
 
     private User saveUser(String id, String clerkUserId) {

@@ -117,14 +117,19 @@ The frontend does not send an identity field to determine ownership.
 - Does the request body omit `userId` and `clerkUserId`?
 - Does a request with no or an invalid bearer token return `401 Unauthorized`?
 
-## Current user endpoints
+## Endpoint coverage
 
-`/api/users/me` is the only current place that intentionally uses Clerk's ID.
-It creates or retrieves the local user through `clerkUserId`; its response
-contains the internal `id` used by the rest of the application.
+Controllers never read the token themselves. They call `UserService`
+(`getCurrentUser`, `getCurrentUserId`, `findCurrentUser`,
+`findOrCreateCurrentUser`), which returns 401 when there is no token.
 
-When the Trip entity is merged, restore the pending `User` ↔ `Trip`
-relationship and keep all trip ownership queries based on `User.id`.
+| Endpoints | Who is allowed |
+| --- | --- |
+| `/api/users/me` | The logged-in user (their own profile only) |
+| `GET /api/trips`, `POST /api/trips` | The logged-in user (lists their trips; becomes owner of new trips) |
+| `/api/trips/{tripId}/**` (trip, members, activities) | Owner or members of that trip, else 403 |
+| `/api/trips/{tripId}/invitations`, `/api/users/me/invitations` | Trip owner / the invited user |
+| `/api/locations/**`, `/api/geo/**` | Any logged-in user. Locations are a shared catalog with no owner, so no user id is passed |
 
 ## Email claim (required for trip invitations)
 

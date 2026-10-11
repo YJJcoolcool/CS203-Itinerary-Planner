@@ -29,8 +29,8 @@ public class TripService {
     }
 
     @Transactional(readOnly = true)
-    public List<Trip> getAllTrips() {
-        return tripRepository.findAll();
+    public List<Trip> getTripsForUser(String userId) {
+        return tripRepository.findDistinctByOwnerIdOrUsersId(userId, userId);
     }
 
     @Transactional(readOnly = true)

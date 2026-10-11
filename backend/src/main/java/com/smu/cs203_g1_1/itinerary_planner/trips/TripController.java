@@ -30,7 +30,7 @@ public class TripController {
         this.userService = userService;
     }
 
-    public record TripRequest(String name, LocalDate startDate, LocalDate endDate, String ownerId) { }
+    public record TripRequest(String name, LocalDate startDate, LocalDate endDate) { }
 
     public record TripUpdateRequest(String name, LocalDate startDate, LocalDate endDate) { }
 
@@ -39,12 +39,15 @@ public class TripController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public Trip createTrip(@RequestBody TripRequest request) {
-        return tripService.createTrip( request.name(), request.startDate(), request.endDate(), request.ownerId()); }
+    public Trip createTrip(@AuthenticationPrincipal Jwt jwt, @RequestBody TripRequest request) {
+        return tripService.createTrip(request.name(), request.startDate(), request.endDate(), userService.getCurrentUserId(jwt)); 
+    }
 
     @GetMapping
-    public List<Trip> getAllTrips() {
-        return tripService.getAllTrips();
+    public List<Trip> getTrips(@AuthenticationPrincipal Jwt jwt) {
+        return userService.findCurrentUser(jwt)
+                .map(user -> tripService.getTripsForUser(user.getId()))
+                .orElseGet(List::of);
     }
 
     @GetMapping("/{tripId}")

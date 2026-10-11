@@ -21,34 +21,22 @@ public class UserController{
     public User createCurrentUser(
             @AuthenticationPrincipal Jwt jwt,
             @RequestBody CreateUserRequest request) {
-        return userService.findOrCreateUser(
-                jwt.getSubject(),
-                request.displayName(),
-                jwt.getClaimAsString("email"));
+        return userService.findOrCreateCurrentUser(
+                jwt,
+                request.displayName());
     }
 
     @GetMapping("/api/users/me")
     public User getCurrentUser(@AuthenticationPrincipal Jwt jwt) {
-        return userService.getUserByClerkId(jwt.getSubject());
+        return userService.getCurrentUser(jwt);
     }
 
     @PatchMapping("/api/users/me")
     public User updateDisplayName(
             @AuthenticationPrincipal Jwt jwt,
             @RequestBody UpdateDisplayNameRequest request) {
-        User user = userService.getUserByClerkId(jwt.getSubject());
         return userService.updateDisplayName(
-                user,
+                userService.getCurrentUser(jwt),
                 request.displayName());
     }
-
-    /*
-     * TODO: Uncomment after the Trip entity is added.
-     *
-     * @GetMapping("/api/users/me/trips")
-     * public List<Trip> getUserTrips(@AuthenticationPrincipal Jwt jwt) {
-     *     User user = userService.getUserByClerkId(jwt.getSubject());
-     *     return userService.getUserTrips(user.getId());
-     * }
-     */
 }

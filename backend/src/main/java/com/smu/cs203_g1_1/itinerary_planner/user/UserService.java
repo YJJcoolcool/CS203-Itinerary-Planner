@@ -8,6 +8,8 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.stereotype.Service;
 import com.smu.cs203_g1_1.itinerary_planner.util.ID;
 
+import java.util.Optional;
+
 @Service
 public class UserService {
     private static final Logger log = LoggerFactory.getLogger(UserService.class);
@@ -23,11 +25,28 @@ public class UserService {
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
     }
 
+    public User getCurrentUser(Jwt jwt) {
+        return getUserByClerkId(requireToken(jwt).getSubject());
+    }
+
     public String getCurrentUserId(Jwt jwt) {
+        return getCurrentUser(jwt).getId();
+    }
+
+    public Optional<User> findCurrentUser(Jwt jwt) {
+        return userRepository.findByClerkUserId(requireToken(jwt).getSubject());
+    }
+
+    public User findOrCreateCurrentUser(Jwt jwt, String displayName) {
+        requireToken(jwt);
+        return findOrCreateUser(jwt.getSubject(), displayName, jwt.getClaimAsString("email"));
+    }
+
+    private Jwt requireToken(Jwt jwt) {
         if (jwt == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
         }
-        return getUserByClerkId(jwt.getSubject()).getId();
+        return jwt;
     }
 
     public User findOrCreateUser(String clerkUserId, String displayName, String email) {
@@ -76,12 +95,4 @@ public class UserService {
         log.info("Updated display name for user id={}", user.getId());
         return saved;
     }
-
-    /*
-     * TODO: Uncomment after the Trip entity is added.
-     *
-     * public List<Trip> getUserTrips(Long userId) {
-     *     return getUserById(userId).getTrips();
-     * }
-     */
 }

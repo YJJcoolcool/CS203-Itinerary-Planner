@@ -1,11 +1,15 @@
 import { useCallback, useState } from 'react'
 import { Link, useParams } from 'react-router'
+
+import { NotFoundPage } from './NotFoundPage'
+import { useCurrentUser, useTrip } from '../lib/useTrips'
+
 import { Navbar } from '../components/Navbar'
 import { TripDetailsCard } from '../components/trips/TripDetailsCard'
-import { TripSettingsPanel } from '../components/trips/TripSettingsPanel'
-import { useCurrentUser, useTrip } from '../lib/useTrips'
-import { NotFoundPage } from './NotFoundPage'
 import { TripItinerary } from '../components/trips/TripItinerary'
+import { TripSettingsPanel } from '../components/trips/TripSettingsPanel'
+import { WeatherForecastPanel } from '../components/trips/WeatherForecastPanel'
+
 import type { Trip } from '../types/trip'
 
 const FOCUS_RING =
@@ -114,6 +118,11 @@ function TripDetailsContent({ tripId }: { tripId: string }) {
             <TripDetailsCard
               trip={displayedTrip}
               onInvite={isOwner ? openSettings : undefined}
+            />
+
+            <WeatherForecastPanel
+              startDate={displayedTrip.startDate}
+              endDate={displayedTrip.endDate}
             />
 
             <TripItinerary tripId={displayedTrip.id} />

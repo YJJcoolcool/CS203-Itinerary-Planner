@@ -113,3 +113,10 @@ export interface GeoSearchResponse {
   results: GeoPlace[]
   attribution: string | null
 }
+
+/** A daily weather forecast returned by the backend. */
+export interface WeatherForecast {
+  date: string
+  forecast: string
+  rainExpected: boolean
+}

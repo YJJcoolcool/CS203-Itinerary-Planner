@@ -8,6 +8,7 @@ import type {
   Location,
   Trip,
   User,
+  WeatherForecast,
 } from '../types/trip'
 
 /**
@@ -295,4 +296,11 @@ export function createLocation(
     body: input,
     token,
   })
+}
+
+/** Fetches the four-day weather forecast from the backend. */
+export function getWeatherForecast(
+  token: string | null,
+): Promise<WeatherForecast[]> {
+  return request<WeatherForecast[]>('/api/weather', { token })
 }

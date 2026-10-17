@@ -246,7 +246,12 @@ public class Trip {
     // Only way to create an invite: guarantees invitation.trip == this and that it is in
     // this list, so both sides of the relationship stay in sync (no setTrip on purpose).
     public TripInvitation invite(User sender, User receiver) {
-        TripInvitation invitation = new TripInvitation(this, sender, receiver);
+        return invite(sender, receiver, TripRole.VIEWER);
+    }
+
+    // Role is the membership the receiver gets upon accepting (VIEWER or EDITOR).
+    public TripInvitation invite(User sender, User receiver, TripRole role) {
+        TripInvitation invitation = new TripInvitation(this, sender, receiver, role);
         invitations.add(invitation);
         return invitation;
     }

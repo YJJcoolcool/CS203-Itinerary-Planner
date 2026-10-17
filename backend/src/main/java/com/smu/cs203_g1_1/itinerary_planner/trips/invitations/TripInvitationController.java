@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.smu.cs203_g1_1.itinerary_planner.trips.TripRole;
 import com.smu.cs203_g1_1.itinerary_planner.user.UserService;
 
 @RestController
@@ -28,7 +29,8 @@ public class TripInvitationController {
         this.userService = userService;
     }
 
-    public record SendInvitationRequest(String email) { }
+    // role is optional; null means VIEWER. OWNER is not inviteable.
+    public record SendInvitationRequest(String email, TripRole role) { }
 
     public record RespondInvitationRequest(InvitationStatus status) { }
 
@@ -43,7 +45,11 @@ public class TripInvitationController {
         if (request.email() == null || request.email().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is required");
         }
-        return invitationService.sendInvitation(tripId, userService.getCurrentUserId(jwt), request.email());
+        if (request.role() == TripRole.OWNER) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Role must be VIEWER or EDITOR");
+        }
+        return invitationService.sendInvitation(
+                tripId, userService.getCurrentUserId(jwt), request.email(), request.role());
     }
 
     @GetMapping("/api/trips/{tripId}/invitations")

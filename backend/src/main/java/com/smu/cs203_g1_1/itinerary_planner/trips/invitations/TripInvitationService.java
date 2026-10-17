@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.smu.cs203_g1_1.itinerary_planner.trips.Trip;
+import com.smu.cs203_g1_1.itinerary_planner.trips.TripRole;
 import com.smu.cs203_g1_1.itinerary_planner.trips.TripService;
 import com.smu.cs203_g1_1.itinerary_planner.user.User;
 import com.smu.cs203_g1_1.itinerary_planner.user.UserService;
@@ -33,8 +34,17 @@ public class TripInvitationService {
 
     @Transactional
     public TripInvitationResponse sendInvitation(String tripId, String senderId, String receiverEmail) {
+        return sendInvitation(tripId, senderId, receiverEmail, TripRole.VIEWER);
+    }
+
+    @Transactional
+    public TripInvitationResponse sendInvitation(String tripId, String senderId, String receiverEmail, TripRole role) {
         Trip trip = tripService.getTrip(tripId);
         requireCanManageInvitations(trip, senderId);
+        TripRole inviteRole = role == null ? TripRole.VIEWER : role;
+        if (inviteRole == TripRole.OWNER) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Role must be VIEWER or EDITOR");
+        }
         // Looked up (not trip.getOwner()) so it stays correct when non-owners can invite.
         User sender = userService.getUserById(senderId);
         User receiver = userService.getUserByEmail(receiverEmail);
@@ -51,10 +61,10 @@ public class TripInvitationService {
 
         // Before trip.invite(): existsById auto-flushes, which would cascade-persist an id-less invite.
         String id = ID.generateUniqueID(invitationRepository::existsById);
-        TripInvitation invitation = trip.invite(sender, receiver);
+        TripInvitation invitation = trip.invite(sender, receiver, inviteRole);
         invitation.setId(id);
         TripInvitation saved = invitationRepository.save(invitation);
-        log.info("User id={} invited user id={} to trip id={} (invite {})", senderId, receiver.getId(), tripId, saved.getId());
+        log.info("User id={} invited user id={} to trip id={} as {} (invite {})", senderId, receiver.getId(), tripId, inviteRole, saved.getId());
         return TripInvitationResponse.from(saved);
     }
 
@@ -85,7 +95,7 @@ public class TripInvitationService {
         switch (decision) {
             case ACCEPTED -> {
                 transition(invitation::accept);
-                invitation.getTrip().addMember(invitation.getReceiver());
+                invitation.getTrip().addMember(invitation.getReceiver(), invitation.getRole());
             }
             case DECLINED -> transition(invitation::decline);
             default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status must be ACCEPTED or DECLINED");

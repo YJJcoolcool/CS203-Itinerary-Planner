@@ -17,6 +17,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.smu.cs203_g1_1.itinerary_planner.trips.Trip;
 import com.smu.cs203_g1_1.itinerary_planner.trips.TripRepository;
+import com.smu.cs203_g1_1.itinerary_planner.trips.TripRole;
 import com.smu.cs203_g1_1.itinerary_planner.trips.TripService;
 import com.smu.cs203_g1_1.itinerary_planner.trips.invitations.InvitationStatus;
 import com.smu.cs203_g1_1.itinerary_planner.trips.invitations.TripInvitationRepository;
@@ -83,6 +84,42 @@ class TripInvitationServiceTest {
         assertEquals("Owner", res.senderDisplayName());
         assertEquals("Invitee", res.receiverDisplayName());
         assertEquals("Japan Autumn", res.tripName());
+        assertEquals(TripRole.VIEWER, res.role());
+        assertEquals(TripRole.VIEWER, invitationRepository.findById(res.id()).orElseThrow().getRole());
+    }
+
+    @Test
+    void sendInvitation_withoutRole_defaultsToViewer() {
+        TripInvitationResponse res = invitationService.sendInvitation(
+                trip.getId(), owner.getId(), "invitee@test.com", null);
+
+        assertEquals(TripRole.VIEWER, res.role());
+        assertEquals(TripRole.VIEWER, invitationService.getPendingForTrip(trip.getId(), owner.getId()).get(0).role());
+        assertEquals(TripRole.VIEWER, invitationService.getPendingForUser(invitee.getId()).get(0).role());
+    }
+
+    @Test
+    void sendInvitation_withEditorRole_isReturnedAndAppliedOnAccept() {
+        TripInvitationResponse sent = invitationService.sendInvitation(
+                trip.getId(), owner.getId(), "invitee@test.com", TripRole.EDITOR);
+
+        assertEquals(TripRole.EDITOR, sent.role());
+        assertEquals(TripRole.EDITOR, invitationService.getPendingForTrip(trip.getId(), owner.getId()).get(0).role());
+        assertEquals(TripRole.EDITOR, invitationService.getPendingForUser(invitee.getId()).get(0).role());
+
+        TripInvitationResponse accepted = invitationService.respond(sent.id(), invitee.getId(), InvitationStatus.ACCEPTED);
+
+        assertEquals(TripRole.EDITOR, accepted.role());
+        assertTrue(isMember(invitee));
+        assertEquals(TripRole.EDITOR, roleOf(invitee));
+    }
+
+    @Test
+    void sendInvitation_withOwnerRole_is400() {
+        assertStatus(HttpStatus.BAD_REQUEST,
+                () -> invitationService.sendInvitation(
+                        trip.getId(), owner.getId(), "invitee@test.com", TripRole.OWNER));
+        assertEquals(0, invitationRepository.count());
     }
 
     @Test
@@ -240,6 +277,11 @@ class TripInvitationServiceTest {
     private boolean isMember(User user) {
         return tripRepository.findById(trip.getId()).orElseThrow()
                 .getUsers().stream().anyMatch(u -> u.getId().equals(user.getId()));
+    }
+
+    private TripRole roleOf(User user) {
+        return tripRepository.findById(trip.getId()).orElseThrow()
+                .findRole(user.getId()).orElseThrow();
     }
 
     private void assertStatus(HttpStatus expected, Executable call) {

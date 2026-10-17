@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 
 import com.smu.cs203_g1_1.itinerary_planner.trips.Trip;
+import com.smu.cs203_g1_1.itinerary_planner.trips.TripRole;
 
 // Flat view of an invite for the frontend; avoids serializing full User/Trip graphs (no emails).
 public record TripInvitationResponse(
@@ -15,6 +16,7 @@ public record TripInvitationResponse(
         String senderDisplayName,
         String receiverDisplayName,
         InvitationStatus status,
+        TripRole role,
         Instant createdAt) {
 
     public static TripInvitationResponse from(TripInvitation invitation) {
@@ -28,6 +30,7 @@ public record TripInvitationResponse(
                 invitation.getSender().getDisplayName(),
                 invitation.getReceiver().getDisplayName(),
                 invitation.getStatus(),
+                invitation.getRole(),
                 invitation.getCreatedAt());
     }
 }

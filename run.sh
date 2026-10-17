@@ -41,6 +41,7 @@ Usage: ./run.sh [backend|frontend] [--install]
 Environment overrides:
   BACKEND_PORT   Backend port  (default 8080)
   FRONTEND_PORT  Frontend port (default 5173)
+  SPRING_PROFILES_ACTIVE  Backend profile (default dev; needs the SSH tunnel and DB_PASSWORD)
 EOF
 }
 
@@ -90,6 +91,9 @@ if [ -f "$BACKEND_DIR/.env" ]; then
   . "$BACKEND_DIR/.env" 2>/dev/null || warn "Could not source backend/.env; continuing with current environment."
   set +a
 fi
+
+# The backend has no datasource without a profile; default to dev (EC2 via the SSH tunnel).
+export SPRING_PROFILES_ACTIVE="${SPRING_PROFILES_ACTIVE:-dev}"
 
 # Treat the example placeholders (and an empty value) as "not configured":
 # drop CLERK_ISSUER_URI before launching so Spring starts the backend without

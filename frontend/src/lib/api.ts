@@ -1,4 +1,4 @@
-import type { TripInvitation } from '../types/invitation'
+import type { TripInvitation, TripRole } from '../types/invitation'
 import type {
   Activity,
   CreateActivityInput,
@@ -208,10 +208,11 @@ export function sendInvitation(
   token: string | null,
   tripId: string,
   email: string,
+  role: TripRole,
 ): Promise<TripInvitation> {
   return request<TripInvitation>(`/api/trips/${tripId}/invitations`, {
     method: 'POST',
-    body: { email },
+    body: { email, role },
     token,
   })
 }

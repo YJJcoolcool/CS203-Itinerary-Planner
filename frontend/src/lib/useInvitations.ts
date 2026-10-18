@@ -1,7 +1,7 @@
 import { useAuth } from '@clerk/react'
 import { useCallback, useEffect, useState } from 'react'
 import { publishableKey } from '../auth/authConfiguration'
-import type { TripInvitation } from '../types/invitation'
+import type { TripInvitation, TripRole } from '../types/invitation'
 import {
   ApiError,
   cancelInvitation,
@@ -116,8 +116,8 @@ export interface UseTripInvitationsResult {
   invitations: TripInvitation[]
   isLoading: boolean
   error: string | null
-  /** Sends an invite and appends it on success. Rejects with the API error. */
-  send: (email: string) => Promise<TripInvitation>
+  /** Sends an invite and appends it on success. Defaults to the Viewer role. Rejects with the API error. */
+  send: (email: string, role?: TripRole) => Promise<TripInvitation>
   /** Cancels an invite and removes it on success. Rejects with the API error. */
   cancel: (invitationId: string) => Promise<void>
 }
@@ -159,10 +159,10 @@ function useConfiguredTripInvitations(tripId: string): UseTripInvitationsResult 
   }, [getToken, isLoaded, isSignedIn, tripId])
 
   const send = useCallback(
-    async (email: string) => {
+    async (email: string, role: TripRole = 'VIEWER') => {
       const token = await getToken()
       if (!token) throw new ApiError(401, 'No active Clerk session token is available.')
-      const created = await sendInvitation(token, tripId, email)
+      const created = await sendInvitation(token, tripId, email, role)
       setInvitations((current) => [...current, created])
       return created
     },

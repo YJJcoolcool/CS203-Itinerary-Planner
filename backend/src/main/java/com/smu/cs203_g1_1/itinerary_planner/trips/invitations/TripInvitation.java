@@ -5,6 +5,7 @@ import java.time.Instant;
 import org.springframework.data.domain.Persistable;
 
 import com.smu.cs203_g1_1.itinerary_planner.trips.Trip;
+import com.smu.cs203_g1_1.itinerary_planner.trips.TripRole;
 import com.smu.cs203_g1_1.itinerary_planner.user.User;
 
 import jakarta.persistence.*;
@@ -34,6 +35,11 @@ public class TripInvitation implements Persistable<String> {
     @Column(nullable = false)
     private InvitationStatus status = InvitationStatus.PENDING;
 
+    // Role the receiver gets on acceptance. OWNER is never valid here (see Trip#invite).
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private TripRole role = TripRole.VIEWER;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -45,9 +51,14 @@ public class TripInvitation implements Persistable<String> {
 
     // Use Trip#invite(...) instead; public only because Trip is in another package.
     public TripInvitation(Trip trip, User sender, User receiver) {
+        this(trip, sender, receiver, TripRole.VIEWER);
+    }
+
+    public TripInvitation(Trip trip, User sender, User receiver, TripRole role) {
         this.trip = trip;
         this.sender = sender;
         this.receiver = receiver;
+        this.role = role == null ? TripRole.VIEWER : role;
     }
 
     @PrePersist
@@ -106,6 +117,10 @@ public class TripInvitation implements Persistable<String> {
 
     public InvitationStatus getStatus() {
         return status;
+    }
+
+    public TripRole getRole() {
+        return role;
     }
 
     public Instant getCreatedAt() {

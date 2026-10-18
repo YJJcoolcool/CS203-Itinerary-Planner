@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useMyInvitations } from '../../lib/useInvitations'
+import { roleLabel } from '../../types/invitation'
 import type { TripInvitation } from '../../types/invitation'
 import { formatDateRange } from '../trips/tripUtils'
 import { InvitationModal } from './InvitationModal'
@@ -99,6 +100,9 @@ export function InvitationsInbox() {
                 <span className="block text-xs text-muted">
                   from {invitation.senderDisplayName ?? 'Someone'} ·{' '}
                   {formatDateRange(invitation.tripStartDate, invitation.tripEndDate)}
+                </span>
+                <span className="mt-0.5 block text-xs text-faint">
+                  Invited as {roleLabel(invitation.role)}
                 </span>
               </button>
             ))

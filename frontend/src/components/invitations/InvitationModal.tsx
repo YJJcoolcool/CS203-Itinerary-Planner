@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ApiError } from '../../lib/api'
 import type { UseMyInvitationsResult } from '../../lib/useInvitations'
+import { roleLabel } from '../../types/invitation'
 import type { TripInvitation } from '../../types/invitation'
 import { formatDateRange } from '../trips/tripUtils'
 
@@ -91,7 +92,7 @@ export function InvitationModal({
           <strong className="font-semibold text-foreground">
             {invitation.senderDisplayName ?? 'Someone'}
           </strong>{' '}
-          invited you to join
+          invited you to join as {roleLabel(invitation.role)}
         </p>
 
         <div className="mt-4 rounded-xl border border-border bg-surface-subtle px-4 py-3">

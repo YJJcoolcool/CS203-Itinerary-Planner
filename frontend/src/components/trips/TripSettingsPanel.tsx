@@ -8,6 +8,8 @@ import { useNavigate } from 'react-router'
 import { publishableKey } from '../../auth/authConfiguration'
 import { ApiError, deleteTrip, updateTrip } from '../../lib/api'
 import { useTripInvitations } from '../../lib/useInvitations'
+import { roleLabel } from '../../types/invitation'
+import type { TripRole } from '../../types/invitation'
 import type { Trip } from '../../types/trip'
 import { DeleteTripDialog } from './DeleteTripDialog'
 
@@ -53,6 +55,7 @@ function InvitationsSection({ tripId }: InvitationsSectionProps) {
   } = useTripInvitations(tripId)
 
   const [email, setEmail] = useState('')
+  const [role, setRole] = useState<TripRole>('VIEWER')
   const [isSending, setIsSending] = useState(false)
   const [cancellingId, setCancellingId] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<{
@@ -61,6 +64,7 @@ function InvitationsSection({ tripId }: InvitationsSectionProps) {
   } | null>(null)
 
   const inputId = useId()
+  const roleId = useId()
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -72,11 +76,11 @@ function InvitationsSection({ tripId }: InvitationsSectionProps) {
     setFeedback(null)
 
     try {
-      const created = await send(trimmed)
+      const created = await send(trimmed, role)
       setEmail('')
       setFeedback({
         kind: 'success',
-        message: `Invite sent to ${created.receiverDisplayName ?? trimmed}.`,
+        message: `Invite sent to ${created.receiverDisplayName ?? trimmed} as ${roleLabel(created.role)}.`,
       })
     } catch (cause) {
       setFeedback({
@@ -137,6 +141,20 @@ function InvitationsSection({ tripId }: InvitationsSectionProps) {
           className="input-field min-w-0 flex-1"
         />
 
+        <label htmlFor={roleId} className="sr-only">
+          Role
+        </label>
+        <select
+          id={roleId}
+          value={role}
+          onChange={(event) => setRole(event.target.value as TripRole)}
+          disabled={isSending}
+          className="input-field sm:w-32 sm:shrink-0"
+        >
+          <option value="VIEWER">Viewer</option>
+          <option value="EDITOR">Editor</option>
+        </select>
+
         <button
           type="submit"
           disabled={isSending || !email.trim()}
@@ -183,9 +201,14 @@ function InvitationsSection({ tripId }: InvitationsSectionProps) {
                 className="flex items-center justify-between gap-3 py-3"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-foreground">
-                    {invitation.receiverDisplayName ?? 'Unknown traveler'}
-                  </p>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <p className="truncate text-sm font-medium text-foreground">
+                      {invitation.receiverDisplayName ?? 'Unknown traveler'}
+                    </p>
+                    <span className="shrink-0 rounded-full border border-border bg-surface-subtle px-2 py-0.5 text-xs text-muted">
+                      {roleLabel(invitation.role)}
+                    </span>
+                  </div>
                   <p className="text-xs text-muted">
                     Sent {formatSentDate(invitation.createdAt)}
                   </p>

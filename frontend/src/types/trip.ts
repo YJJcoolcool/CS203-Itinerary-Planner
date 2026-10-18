@@ -115,3 +115,20 @@ export interface GeoSearchResponse {
   results: GeoPlace[]
   attribution: string | null
 }
+
+/** A four-day weather forecast returned by the backend. */
+export interface FourDayWeatherForecast {
+  date: string
+  forecast: string
+  rainExpected: boolean
+}
+
+/** A two-hour weather forecast returned by the backend. */
+export interface TwoHourWeatherForecast {
+  area: string
+  forecast: string
+  validFrom: string
+  validUntil: string
+  updatedAt: string | null
+  rainExpected: boolean
+}

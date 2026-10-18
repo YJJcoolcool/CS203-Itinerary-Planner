@@ -1,13 +1,15 @@
 import { useCallback, useState } from 'react'
 import { Link, useParams } from 'react-router'
+
 import { Navbar } from '../components/Navbar'
-import { TripDetailsCard } from '../components/trips/TripDetailsCard'
-import { TripSettingsPanel } from '../components/trips/TripSettingsPanel'
-import { useCurrentUser, useTrip } from '../lib/useTrips'
 import { SuggestionsPanel } from '../components/suggestions/SuggestionsPanel'
-import { NotFoundPage } from './NotFoundPage'
+import { TripDetailsCard } from '../components/trips/TripDetailsCard'
 import { TripItinerary } from '../components/trips/TripItinerary'
+import { TripSettingsPanel } from '../components/trips/TripSettingsPanel'
+import { WeatherForecastPanel } from '../components/trips/WeatherForecastPanel'
+import { useCurrentUser, useTrip } from '../lib/useTrips'
 import type { Trip } from '../types/trip'
+import { NotFoundPage } from './NotFoundPage'
 
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface'
@@ -121,6 +123,11 @@ function TripDetailsContent({ tripId }: { tripId: string }) {
             <TripDetailsCard
               trip={displayedTrip}
               onInvite={isOwner ? openSettings : undefined}
+            />
+
+            <WeatherForecastPanel
+              startDate={displayedTrip.startDate}
+              endDate={displayedTrip.endDate}
             />
 
             <TripItinerary key={itineraryRefreshKey} tripId={displayedTrip.id} />

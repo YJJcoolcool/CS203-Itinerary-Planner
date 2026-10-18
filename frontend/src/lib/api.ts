@@ -4,10 +4,12 @@ import type {
   Activity,
   CreateActivityInput,
   CreateTripInput,
+  FourDayWeatherForecast,
   GeoPlace,
   GeoSearchResponse,
   Location,
   Trip,
+  TwoHourWeatherForecast,
   User,
 } from '../types/trip'
 
@@ -332,4 +334,18 @@ export function rejectSuggestion(
     method: 'POST',
     token,
   })
+}
+
+/** Fetches the four-day weather forecast from the backend. */
+export function getFourDayWeatherForecast(
+  token: string | null,
+): Promise<FourDayWeatherForecast[]> {
+  return request<FourDayWeatherForecast[]>('/api/weather/four-day', { token })
+}
+
+/** Fetches the two-hour weather forecast for Singapore. */
+export function getTwoHourWeatherForecast(
+  token: string | null,
+): Promise<TwoHourWeatherForecast[]> {
+  return request<TwoHourWeatherForecast[]>('/api/weather/two-hour', { token })
 }

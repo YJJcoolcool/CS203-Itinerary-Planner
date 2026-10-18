@@ -235,6 +235,18 @@ export function updateActivity(
   })
 }
 
+/** Deletes an activity from a trip. Editor or owner only. */
+export function deleteActivity(
+  token: string | null,
+  tripId: string,
+  activityId: string,
+): Promise<void> {
+  return request<void>(`/api/trips/${tripId}/activities/${activityId}`, {
+    method: 'DELETE',
+    token,
+  })
+}
+
 /** Fetches the locations attached to one activity of a trip. */
 export function getActivityLocations(
   token: string | null,

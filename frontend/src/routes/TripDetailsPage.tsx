@@ -7,6 +7,7 @@ import { useCurrentUser, useTrip } from '../lib/useTrips'
 import { Navbar } from '../components/Navbar'
 import { TripDetailsCard } from '../components/trips/TripDetailsCard'
 import { TripItinerary } from '../components/trips/TripItinerary'
+import { TripMembersPanel } from '../components/trips/TripMembersPanel'
 import { TripSettingsPanel } from '../components/trips/TripSettingsPanel'
 import { roleOf } from '../components/trips/tripUtils'
 import { WeatherForecastPanel } from '../components/trips/WeatherForecastPanel'
@@ -82,6 +83,7 @@ function TripDetailsContent({ tripId }: { tripId: string }) {
   const displayedTrip = trip && updatedTrip?.id === trip.id
     ? updatedTrip
     : trip
+  const myRole = displayedTrip ? roleOf(displayedTrip, user?.id) : null
 
   if (errorStatus === 404) return <NotFoundPage />
 
@@ -118,8 +120,14 @@ function TripDetailsContent({ tripId }: { tripId: string }) {
           <>
             <TripDetailsCard
               trip={displayedTrip}
-              myRole={roleOf(displayedTrip, user?.id)}
+              myRole={myRole}
               onInvite={isOwner ? openSettings : undefined}
+            />
+
+            <TripMembersPanel
+              trip={displayedTrip}
+              myRole={myRole}
+              onUpdated={handleUpdated}
             />
 
             <WeatherForecastPanel

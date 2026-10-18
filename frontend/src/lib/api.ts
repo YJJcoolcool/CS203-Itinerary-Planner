@@ -177,6 +177,20 @@ export function deleteTrip(
   })
 }
 
+/** Changes a member's role to Editor or Viewer. Owner-only. Returns the updated trip. */
+export function changeMemberRole(
+  token: string | null,
+  tripId: string,
+  userId: string,
+  role: TripRole,
+): Promise<Trip> {
+  return request<Trip>(`/api/trips/${tripId}/members/${userId}`, {
+    method: 'PUT',
+    body: { role },
+    token,
+  })
+}
+
 /** Fetches a trip's activities, ordered by start time. */
 export function getActivities(token: string | null, tripId: string): Promise<Activity[]> {
   return request<Activity[]>(`/api/trips/${tripId}/activities`, { token })

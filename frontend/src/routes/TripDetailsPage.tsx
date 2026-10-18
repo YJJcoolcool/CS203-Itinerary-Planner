@@ -8,6 +8,7 @@ import { Navbar } from '../components/Navbar'
 import { TripDetailsCard } from '../components/trips/TripDetailsCard'
 import { TripItinerary } from '../components/trips/TripItinerary'
 import { TripSettingsPanel } from '../components/trips/TripSettingsPanel'
+import { roleOf } from '../components/trips/tripUtils'
 import { WeatherForecastPanel } from '../components/trips/WeatherForecastPanel'
 
 import type { Trip } from '../types/trip'
@@ -117,6 +118,7 @@ function TripDetailsContent({ tripId }: { tripId: string }) {
           <>
             <TripDetailsCard
               trip={displayedTrip}
+              myRole={roleOf(displayedTrip, user?.id)}
               onInvite={isOwner ? openSettings : undefined}
             />
 

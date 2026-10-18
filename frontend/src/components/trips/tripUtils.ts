@@ -1,4 +1,4 @@
-import type { Trip, User } from '../../types/trip'
+import type { MemberRole, Trip, User } from '../../types/trip'
 
 /** Matches the ISO `YYYY-MM-DD` shape the backend uses for trip dates. */
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
@@ -106,4 +106,16 @@ export function uniqueMembers(trip: Trip): User[] {
 /** Activity count, tolerant of a missing/non-array `itinerary`. */
 export function activityCount(trip: Trip): number {
   return Array.isArray(trip.itinerary) ? trip.itinerary.length : 0
+}
+
+/**
+ * The user's role on the trip, or null if they aren't on it. Mirrors the
+ * backend's Trip.findRole(): the owner is OWNER, and a member with no entry in
+ * `roles` is a VIEWER.
+ */
+export function roleOf(trip: Trip, userId: string | null | undefined): MemberRole | null {
+  if (!userId) return null
+  if (trip.owner.id === userId) return 'OWNER'
+  if (!trip.users.some((member) => member.id === userId)) return null
+  return trip.roles?.[userId] ?? 'VIEWER'
 }

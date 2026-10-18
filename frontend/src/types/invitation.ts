@@ -1,3 +1,5 @@
+import type { MemberRole } from './trip'
+
 /** Mirrors backend InvitationStatus. */
 export type InvitationStatus = 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'CANCELLED'
 
@@ -5,7 +7,8 @@ export type InvitationStatus = 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'CANCELLED'
 export type TripRole = 'EDITOR' | 'VIEWER'
 
 /** Display label for a trip role. */
-export function roleLabel(role: TripRole): 'Editor' | 'Viewer' {
+export function roleLabel(role: MemberRole): 'Owner' | 'Editor' | 'Viewer' {
+  if (role === 'OWNER') return 'Owner'
   return role === 'EDITOR' ? 'Editor' : 'Viewer'
 }
 

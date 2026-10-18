@@ -191,6 +191,18 @@ export function changeMemberRole(
   })
 }
 
+/** Removes a member from a trip. Owner-only; the owner can't be removed. Returns the updated trip. */
+export function removeMember(
+  token: string | null,
+  tripId: string,
+  userId: string,
+): Promise<Trip> {
+  return request<Trip>(`/api/trips/${tripId}/members/${userId}`, {
+    method: 'DELETE',
+    token,
+  })
+}
+
 /** Fetches a trip's activities, ordered by start time. */
 export function getActivities(token: string | null, tripId: string): Promise<Activity[]> {
   return request<Activity[]>(`/api/trips/${tripId}/activities`, { token })

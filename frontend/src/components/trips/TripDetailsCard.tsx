@@ -1,4 +1,5 @@
-import type { Trip } from '../../types/trip'
+import { roleLabel } from '../../types/invitation'
+import type { MemberRole, Trip } from '../../types/trip'
 import {
   avatarTone,
   daysInclusive,
@@ -17,7 +18,16 @@ const FOCUS_RING =
  * Header card for the trip details page: name, dates, length, budget and the
  * travelers on the trip. Purely presentational — the page loads the trip.
  */
-export function TripDetailsCard({ trip, onInvite }: { trip: Trip; onInvite?: () => void }) {
+export function TripDetailsCard({
+  trip,
+  myRole,
+  onInvite,
+}: {
+  trip: Trip
+  /** The signed-in user's role on this trip; the badge is hidden when null. */
+  myRole?: MemberRole | null
+  onInvite?: () => void
+}) {
   const days = daysInclusive(trip.startDate, trip.endDate)
   const members = uniqueMembers(trip)
 
@@ -39,6 +49,9 @@ export function TripDetailsCard({ trip, onInvite }: { trip: Trip; onInvite?: () 
             </span>
             {/* No budget field on the backend yet (FRONTEND_PAGES.md §8). */}
             <span className={`${PILL} text-sage`}>Budget: TBD</span>
+            {myRole && (
+              <span className={`${PILL} text-foreground`}>You: {roleLabel(myRole)}</span>
+            )}
           </div>
         </div>
 

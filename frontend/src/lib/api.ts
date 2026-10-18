@@ -1,4 +1,5 @@
 import type { TripInvitation, TripRole } from '../types/invitation'
+import type { Suggestion } from '../types/suggestion'
 import type {
   Activity,
   CreateActivityInput,
@@ -294,6 +295,41 @@ export function createLocation(
   return request<Location>('/api/locations', {
     method: 'POST',
     body: input,
+    token,
+  })
+}
+
+/** Fetches all suggestions for a trip, including already answered ones. */
+export function getSuggestions(token: string | null, tripId: string): Promise<Suggestion[]> {
+  return request<Suggestion[]>(`/api/trips/${tripId}/suggestions`, { token })
+}
+
+/** Asks the backend to check the weather and propose new alternatives. */
+export function replanTrip(token: string | null, tripId: string): Promise<Suggestion[]> {
+  return request<Suggestion[]>(`/api/trips/${tripId}/replan`, {
+    method: 'POST',
+    token,
+  })
+}
+
+/** Accepts one suggestion and applies its proposed location to the activity. */
+export function acceptSuggestion(
+  token: string | null,
+  suggestionId: string,
+): Promise<Suggestion> {
+  return request<Suggestion>(`/api/suggestions/${suggestionId}/accept`, {
+    method: 'POST',
+    token,
+  })
+}
+
+/** Dismisses one suggestion without changing the itinerary. */
+export function rejectSuggestion(
+  token: string | null,
+  suggestionId: string,
+): Promise<Suggestion> {
+  return request<Suggestion>(`/api/suggestions/${suggestionId}/reject`, {
+    method: 'POST',
     token,
   })
 }

@@ -4,6 +4,7 @@ import { Navbar } from '../components/Navbar'
 import { TripDetailsCard } from '../components/trips/TripDetailsCard'
 import { TripSettingsPanel } from '../components/trips/TripSettingsPanel'
 import { useCurrentUser, useTrip } from '../lib/useTrips'
+import { SuggestionsPanel } from '../components/suggestions/SuggestionsPanel'
 import { NotFoundPage } from './NotFoundPage'
 import { TripItinerary } from '../components/trips/TripItinerary'
 import type { Trip } from '../types/trip'
@@ -58,6 +59,7 @@ function TripDetailsContent({ tripId }: { tripId: string }) {
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [updatedTrip, setUpdatedTrip] = useState<Trip | null>(null)
+  const [itineraryRefreshKey, setItineraryRefreshKey] = useState(0)
 
   const closeSettings = useCallback(() => {
     setIsSettingsOpen(false)
@@ -77,6 +79,11 @@ function TripDetailsContent({ tripId }: { tripId: string }) {
   const displayedTrip = trip && updatedTrip?.id === trip.id
     ? updatedTrip
     : trip
+  const canEdit = Boolean(
+    user &&
+      displayedTrip &&
+      ['OWNER', 'EDITOR'].includes(displayedTrip.roles?.[user.id] ?? ''),
+  )
 
   if (errorStatus === 404) return <NotFoundPage />
 
@@ -116,7 +123,13 @@ function TripDetailsContent({ tripId }: { tripId: string }) {
               onInvite={isOwner ? openSettings : undefined}
             />
 
-            <TripItinerary tripId={displayedTrip.id} />
+            <TripItinerary key={itineraryRefreshKey} tripId={displayedTrip.id} />
+
+            <SuggestionsPanel
+              tripId={displayedTrip.id}
+              canEdit={canEdit}
+              onAccepted={() => setItineraryRefreshKey((key) => key + 1)}
+            />
           </>
         ) : null}
       </section>

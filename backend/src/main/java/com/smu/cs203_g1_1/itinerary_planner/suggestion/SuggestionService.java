@@ -1,0 +1,350 @@
+package com.smu.cs203_g1_1.itinerary_planner.suggestion;
+
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.smu.cs203_g1_1.itinerary_planner.ai.PlanChoice;
+import com.smu.cs203_g1_1.itinerary_planner.ai.PlanChoiceRequest;
+import com.smu.cs203_g1_1.itinerary_planner.ai.PlanChoiceValidator;
+import com.smu.cs203_g1_1.itinerary_planner.ai.PlanChooser;
+import com.smu.cs203_g1_1.itinerary_planner.planner.Candidate;
+import com.smu.cs203_g1_1.itinerary_planner.planner.CandidateFinder;
+import com.smu.cs203_g1_1.itinerary_planner.planner.CandidateRequest;
+import com.smu.cs203_g1_1.itinerary_planner.trips.Activity;
+import com.smu.cs203_g1_1.itinerary_planner.trips.ActivityRepository;
+import com.smu.cs203_g1_1.itinerary_planner.trips.Location;
+import com.smu.cs203_g1_1.itinerary_planner.trips.Trip;
+import com.smu.cs203_g1_1.itinerary_planner.trips.TripRole;
+import com.smu.cs203_g1_1.itinerary_planner.trips.TripService;
+import com.smu.cs203_g1_1.itinerary_planner.util.ID;
+import com.smu.cs203_g1_1.itinerary_planner.weather.WeatherSource;
+
+/**
+ * Builds weather-driven alternative suggestions and applies the user's decision.
+ *
+ * <p>Replanning scans the trip's outdoor stops, asks the {@link WeatherSource}
+ * whether rain intersects each stop's window, and asks the {@link PlanChooser}
+ * to re-rank the deterministic shortlist. When the chooser is unavailable or
+ * its answer fails validation, the top deterministic candidate is stored
+ * instead. Accepting swaps the one affected location in the same transaction
+ * as the status change.</p>
+ */
+@Service
+public class SuggestionService {
+
+    private static final Logger log = LoggerFactory.getLogger(SuggestionService.class);
+
+    private static final ZoneId SG = ZoneId.of("Asia/Singapore");
+    private static final int MAX_SUGGESTIONS_PER_REPLAN = 3;
+    private static final int WINDOW_HOURS = 24;
+    private static final int SHORTLIST_LIMIT = 5;
+    private static final int RAIN_WINDOW_FALLBACK_HOURS = 2;
+
+    private final SuggestionRepository suggestionRepository;
+    private final ActivityRepository activityRepository;
+    private final TripService tripService;
+    private final CandidateFinder candidateFinder;
+    private final WeatherSource weatherSource;
+    private final PlanChooser planChooser;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    public SuggestionService(SuggestionRepository suggestionRepository,
+                             ActivityRepository activityRepository,
+                             TripService tripService,
+                             CandidateFinder candidateFinder,
+                             WeatherSource weatherSource,
+                             PlanChooser planChooser) {
+        this.suggestionRepository = suggestionRepository;
+        this.activityRepository = activityRepository;
+        this.tripService = tripService;
+        this.candidateFinder = candidateFinder;
+        this.weatherSource = weatherSource;
+        this.planChooser = planChooser;
+    }
+
+    @Transactional(readOnly = true)
+    public List<SuggestionResponse> list(String tripId, String userId) {
+        tripService.getTripForMember(tripId, userId);
+        return suggestionRepository.findByTripIdOrderByCreatedAtDesc(tripId)
+                .stream()
+                .map(SuggestionResponse::from)
+                .toList();
+    }
+
+    @Transactional
+    public SuggestionResponse accept(String suggestionId, String userId) {
+        Suggestion suggestion = loadSuggestion(suggestionId);
+        tripService.requireTripRole(suggestion.getTrip().getId(), userId, TripRole.EDITOR);
+        requirePending(suggestion);
+
+        Activity activity = suggestion.getActivity();
+        Location current = suggestion.getCurrentLocation();
+        Location proposed = suggestion.getProposedLocation();
+
+        List<Location> locations = activity.getLocations();
+        int index = indexOf(locations, current);
+        if (current == null || index < 0) {
+            log.warn("Suggestion id={} is stale: activity id={} no longer contains location id={}",
+                    suggestionId, activity.getId(),
+                    current == null ? null : current.getId());
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "The activity no longer contains the suggested location");
+        }
+
+        locations.set(index, proposed);
+        activityRepository.save(activity);
+
+        suggestion.setStatus(SuggestionStatus.ACCEPTED);
+        suggestion.setRespondedAt(Instant.now());
+        Suggestion saved = suggestionRepository.save(suggestion);
+
+        log.info("Accepted suggestion id={} for activity id={} on trip id={}",
+                suggestionId, activity.getId(), suggestion.getTrip().getId());
+        return SuggestionResponse.from(saved);
+    }
+
+    @Transactional
+    public SuggestionResponse reject(String suggestionId, String userId) {
+        Suggestion suggestion = loadSuggestion(suggestionId);
+        tripService.requireTripRole(suggestion.getTrip().getId(), userId, TripRole.EDITOR);
+        requirePending(suggestion);
+
+        suggestion.setStatus(SuggestionStatus.REJECTED);
+        suggestion.setRespondedAt(Instant.now());
+        Suggestion saved = suggestionRepository.save(suggestion);
+
+        log.info("Rejected suggestion id={} for activity id={} on trip id={}",
+                suggestionId, suggestion.getActivity().getId(), suggestion.getTrip().getId());
+        return SuggestionResponse.from(saved);
+    }
+
+    /**
+     * Looks for outdoor stops that rain is expected to affect and creates at
+     * most {@value #MAX_SUGGESTIONS_PER_REPLAN} pending suggestions. A pending
+     * suggestion for a stop suppresses new ones until it is decided.
+     */
+    @Transactional
+    public List<SuggestionResponse> replan(String tripId, String userId, ZonedDateTime at) {
+        Trip trip = tripService.requireTripRole(tripId, userId, TripRole.EDITOR);
+        ZonedDateTime now = at != null ? at : ZonedDateTime.now(SG);
+
+        List<Activity> activities = activityRepository.findByTripIdOrderByStartDateTimeAsc(tripId);
+        List<SuggestionResponse> created = new ArrayList<>();
+
+        for (int activityIndex = 0; activityIndex < activities.size(); activityIndex++) {
+            Activity activity = activities.get(activityIndex);
+            if (created.size() >= MAX_SUGGESTIONS_PER_REPLAN) {
+                break;
+            }
+
+            ZonedDateTime start = activity.getStartDateTime();
+            ZonedDateTime end = activity.getEndDateTime();
+
+            if (end != null && end.isBefore(now)) {
+                continue;
+            }
+            if (start != null && start.isAfter(now.plusHours(WINDOW_HOURS))) {
+                continue;
+            }
+
+            Location dropped = firstOutdoor(activity);
+            if (dropped == null) {
+                continue;
+            }
+
+            if (suggestionRepository.existsByActivityIdAndStatus(
+                    activity.getId(), SuggestionStatus.PENDING)) {
+                continue;
+            }
+
+            ZonedDateTime arrival = start != null && start.isAfter(now) ? start : now;
+            ZonedDateTime fromWindow = start != null ? start : now;
+            ZonedDateTime toWindow = end != null ? end : now.plusHours(RAIN_WINDOW_FALLBACK_HOURS);
+
+            if (!weatherSource.isRainy(
+                    dropped.getLatitude(), dropped.getLongitude(), fromWindow, toWindow)) {
+                continue;
+            }
+
+            Set<String> excluded = activity.getLocations().stream()
+                    .map(Location::getId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+
+            List<Candidate> candidates = candidateFinder.find(new CandidateRequest(
+                    dropped.getId(), arrival, true, Set.of(), SHORTLIST_LIMIT, excluded));
+
+            if (candidates.isEmpty()) {
+                log.info("No indoor candidate for activity id={} on trip id={}",
+                        activity.getId(), tripId);
+                continue;
+            }
+
+            String nextActivityName = activityIndex + 1 < activities.size()
+                    ? activities.get(activityIndex + 1).getName()
+                    : null;
+
+            Set<String> candidateIds = candidates.stream()
+                    .map(candidate -> candidate.location().getId())
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+
+            PlanChoiceRequest choiceRequest = new PlanChoiceRequest(
+                    "rain_expected",
+                    activity.getName(),
+                    dropped.getCategoryGroup(),
+                    arrival,
+                    Set.of(),
+                    nextActivityName,
+                    candidates.stream()
+                            .map(SuggestionService::toPlanCandidate)
+                            .toList());
+
+            Optional<PlanChoice> choice;
+            try {
+                choice = planChooser.choose(choiceRequest);
+            } catch (RuntimeException e) {
+                log.warn("Plan chooser failed for activity id={}: {}: {}",
+                        activity.getId(), e.getClass().getSimpleName(), e.getMessage());
+                choice = Optional.empty();
+            }
+
+            Candidate top = candidates.get(0);
+            PlanChoice.RankedChoice ranked =
+                    PlanChoiceValidator.pick(choice.orElse(null), candidateIds).orElse(null);
+
+            Candidate selected = ranked == null ? null : candidates.stream()
+                    .filter(candidate -> ranked.id().equals(candidate.location().getId()))
+                    .findFirst()
+                    .orElse(null);
+
+            Location proposed;
+            String explanation;
+            String aiChoiceId;
+            if (selected != null) {
+                proposed = selected.location();
+                explanation = ranked.reason();
+                aiChoiceId = selected.location().getId();
+            } else {
+                proposed = top.location();
+                explanation = proposed.getName()
+                        + " is an indoor option about "
+                        + String.format(Locale.ROOT, "%.1f", top.distanceKm())
+                        + " km away.";
+                aiChoiceId = null;
+            }
+
+            Suggestion suggestion = new Suggestion();
+            suggestion.setId(ID.generateUniqueID(suggestionRepository::existsById));
+            suggestion.setTrip(trip);
+            suggestion.setActivity(activity);
+            suggestion.setCurrentLocation(dropped);
+            suggestion.setProposedLocation(proposed);
+            suggestion.setStatus(SuggestionStatus.PENDING);
+            suggestion.setReason("Rain is expected during " + activity.getName() + ".");
+            suggestion.setExplanation(explanation);
+            suggestion.setCandidatesJson(serialiseCandidates(candidates));
+            suggestion.setTopScoreChoiceId(top.location().getId());
+            suggestion.setAiChoiceId(aiChoiceId);
+            suggestion.setCreatedAt(now.toInstant());
+
+            SuggestionResponse response = SuggestionResponse.from(
+                    suggestionRepository.save(suggestion));
+            created.add(response);
+
+            log.info("Created suggestion id={} for activity id={} on trip id={} chooser={}",
+                    response.id(), activity.getId(), tripId,
+                    selected != null ? "LLM" : "FALLBACK");
+        }
+
+        return created;
+    }
+
+    private Suggestion loadSuggestion(String suggestionId) {
+        return suggestionRepository.findById(suggestionId)
+                .orElseThrow(() -> {
+                    log.warn("Suggestion not found: id={}", suggestionId);
+                    return new ResponseStatusException(HttpStatus.NOT_FOUND,
+                            "Suggestion not found");
+                });
+    }
+
+    private static void requirePending(Suggestion suggestion) {
+        if (suggestion.getStatus() != SuggestionStatus.PENDING) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Suggestion is no longer pending");
+        }
+    }
+
+    private static Location firstOutdoor(Activity activity) {
+        return activity.getLocations().stream()
+                .filter(location -> "OUTDOOR".equalsIgnoreCase(location.getIndoorClass()))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private static int indexOf(List<Location> locations, Location target) {
+        if (target == null) {
+            return -1;
+        }
+        for (int i = 0; i < locations.size(); i++) {
+            Location location = locations.get(i);
+            if (location.getId() != null && location.getId().equals(target.getId())) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private static PlanChoiceRequest.PlanCandidate toPlanCandidate(Candidate candidate) {
+        Location location = candidate.location();
+        return new PlanChoiceRequest.PlanCandidate(
+                location.getId(),
+                location.getName(),
+                location.getCategory(),
+                location.getCategoryGroup(),
+                candidate.distanceKm(),
+                candidate.openStatus().name(),
+                "INDOOR".equalsIgnoreCase(location.getIndoorClass()),
+                location.getEstCost());
+    }
+
+    private String serialiseCandidates(List<Candidate> candidates) {
+        List<Map<String, Object>> payload = new ArrayList<>(candidates.size());
+        for (Candidate candidate : candidates) {
+            Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("id", candidate.location().getId());
+            entry.put("name", candidate.location().getName());
+            entry.put("score", candidate.score());
+            entry.put("distanceKm", candidate.distanceKm());
+            payload.add(entry);
+        }
+
+        try {
+            return objectMapper.writeValueAsString(payload);
+        } catch (JsonProcessingException e) {
+            log.error("Could not serialise suggestion candidates", e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Could not build suggestion");
+        }
+    }
+}

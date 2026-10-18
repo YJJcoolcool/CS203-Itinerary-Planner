@@ -103,3 +103,12 @@ lerna-debug.log*
 
 # Figma Make export kept locally as a design reference; not part of the repo.
 planning/Collaborative Trip Itinerary/
+
+# =========================
+# Local OSM extracts
+# =========================
+
+# Raw OSM data used to build the POI seed; never committed.
+/data/
+*.osm.pbf
+*.osm.bz2

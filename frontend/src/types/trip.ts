@@ -50,6 +50,8 @@ export interface Trip {
   owner: User
   users: User[]
   itinerary: Activity[]
+  /** Access level per backend user id, when the backend includes it. */
+  roles?: Record<string, 'VIEWER' | 'EDITOR' | 'OWNER'>
 }
 
 /** Client-supplied fields for creating a trip. The backend sets the owner from the login token. */

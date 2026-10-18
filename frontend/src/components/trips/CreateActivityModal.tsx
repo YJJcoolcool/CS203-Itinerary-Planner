@@ -1,9 +1,11 @@
 
 import { useEffect, useId, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
+import { useAuth } from '@clerk/react'
+import { ApiError, updateActivity } from '../../lib/api'
 import { useCreateActivity } from '../../lib/useTrips'
 import { LocationSearch } from '../locations/LocationSearch'
-import type { GeoPlace, Location } from '../../types/trip'
+import type { Activity, GeoPlace, Location } from '../../types/trip'
 import ManualLocationModal from '../locations/ManualLocationModal'
 
 const FOCUS_RING =
@@ -21,27 +23,49 @@ interface FieldErrors {
   form?: string
 }
 
-function describeError(cause: unknown): string {
-  return cause instanceof Error && cause.message
-    ? cause.message
+function describeError(cause: unknown, isEditing: boolean): string {
+  if (cause instanceof Error && cause.message) return cause.message
+  return isEditing
+    ? 'Could not save the activity. Please try again.'
     : 'Could not create the activity. Please try again.'
 }
 
+/** ISO date-time -> the "YYYY-MM-DDTHH:mm" local value a datetime-local input expects. */
+function toDateTimeLocal(iso: string | null): string {
+  if (!iso) return ''
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+/**
+ * Add-activity form. Pass `activity` (and its current `activityLocations`) to
+ * use it as the edit form instead: fields start filled in and Save sends a PUT.
+ */
 export function CreateActivityModal({
   tripId,
+  activity,
+  activityLocations,
   onClose,
   onCreated,
 }: {
   tripId: string
+  activity?: Activity
+  activityLocations?: Location[]
   onClose: () => void
   onCreated: () => void
 }) {
+  const isEditing = Boolean(activity)
+  const { getToken } = useAuth()
   const { createActivity, isCreating } = useCreateActivity(tripId)
-  const [name, setName] = useState('')
-  const [startDateTime, setStartDateTime] = useState('')
-  const [endDateTime, setEndDateTime] = useState('')
-  const [locations, setLocations] = useState<Location[]>([])
-  const [selectedLocationIds, setSelectedLocationIds] = useState<string[]>([])
+  const [isSaving, setIsSaving] = useState(false)
+  const isBusy = isCreating || isSaving
+  const [name, setName] = useState(activity?.name ?? '')
+  const [startDateTime, setStartDateTime] = useState(toDateTimeLocal(activity?.startDateTime ?? null))
+  const [endDateTime, setEndDateTime] = useState(toDateTimeLocal(activity?.endDateTime ?? null))
+  const [locations, setLocations] = useState<Location[]>(activityLocations ?? [])
+  const [selectedLocationIds, setSelectedLocationIds] = useState<string[]>((activityLocations ?? []).map((location) => location.id),)
   const [isManualLocationOpen, setIsManualLocationOpen] = useState(false)
   const [errors, setErrors] = useState<FieldErrors>({})
   const nameRef = useRef<HTMLInputElement>(null)
@@ -53,12 +77,12 @@ export function CreateActivityModal({
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape' && !isCreating) onClose()
+      if (event.key === 'Escape' && !isBusy) onClose()
     }
 
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [isCreating, onClose])
+  }, [isBusy, onClose])
 
   function toggleLocation(id: string) {
     setSelectedLocationIds((current) =>
@@ -114,22 +138,33 @@ export function CreateActivityModal({
 
     setErrors({})
 
+        const input = {
+      name: name.trim(),
+      startDateTime: startDateTime
+        ? new Date(startDateTime).toISOString()
+        : null,
+      endDateTime: endDateTime
+        ? new Date(endDateTime).toISOString()
+        : null,
+      locations: selectedLocationIds.map((id) => ({ id })),
+    }
+
     try {
-      await createActivity({
-        name: name.trim(),
-        startDateTime: startDateTime
-          ? new Date(startDateTime).toISOString()
-          : null,
-        endDateTime: endDateTime
-          ? new Date(endDateTime).toISOString()
-          : null,
-        locations: selectedLocationIds.map((id) => ({ id })),
-      })
+      if (activity) {
+        setIsSaving(true)
+        const token = await getToken()
+        if (!token) throw new ApiError(401, 'No active session token is available.')
+        await updateActivity(token, tripId, activity.id, input)
+      } else {
+        await createActivity(input)
+      }
 
       onCreated()
       onClose()
     } catch (cause) {
-      setErrors({ form: describeError(cause) })
+      setErrors({ form: describeError(cause, isEditing) })
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -137,7 +172,7 @@ export function CreateActivityModal({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !isCreating) onClose()
+        if (event.target === event.currentTarget && !isBusy) onClose()
       }}
     >
       <div
@@ -150,10 +185,12 @@ export function CreateActivityModal({
           id={titleId}
           className="font-display text-2xl font-medium tracking-tight text-foreground"
         >
-          Add activity
+          {isEditing ? 'Edit activity' : 'Add activity'}
         </h2>
         <p className="mt-2 text-sm text-muted">
-          Add an activity to your itinerary and select at least one location.
+          {isEditing
+            ? 'Change the name, times or locations. Keep at least one location selected.'
+            : 'Add an activity to your itinerary and select at least one location.'}
         </p>
 
         <form className="mt-6 flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
@@ -291,17 +328,19 @@ export function CreateActivityModal({
               type="button"
               onClick={onClose}
               className={GHOST_BUTTON}
-              disabled={isCreating}
+              disabled={isBusy}
             >
               Cancel
             </button>
             <button
               type="submit"
               className={PRIMARY_BUTTON}
-              disabled={isCreating || selectedLocationIds.length === 0}
-              aria-busy={isCreating}
+              disabled={isBusy || selectedLocationIds.length === 0}
+              aria-busy={isBusy}
             >
-              {isCreating ? 'Creating…' : 'Add activity'}
+              {isEditing
+                ? (isBusy ? 'Saving…' : 'Save changes')
+                : (isBusy ? 'Creating…' : 'Add activity')}
             </button>
           </div>
         </form>

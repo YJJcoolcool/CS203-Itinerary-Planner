@@ -61,10 +61,13 @@ function ActivityItem({
   activity,
   locations,
   isLoadingLocations,
+  onEdit,
 }: {
   activity: Activity
   locations: Location[] | undefined
   isLoadingLocations: boolean
+  /** Only passed for editors and the owner, so viewers never see the Edit button. */
+  onEdit?: () => void
 }) {
   return (
     <li className="animate-rise flex flex-col gap-3 rounded-2xl border border-border bg-surface-raised p-5">
@@ -75,7 +78,21 @@ function ActivityItem({
           </p>
           <h3 className="mt-1 text-lg font-medium text-foreground">{activity.name}</h3>
         </div>
-        {activity.status && <span className={PILL}>{activity.status}</span>}
+        <div className="flex items-center gap-2">
+          {activity.status && <span className={PILL}>{activity.status}</span>}
+          {onEdit && (
+            <button
+              type="button"
+              onClick={onEdit}
+              // The form needs the current locations, so wait until they have loaded.
+              disabled={locations === undefined}
+              aria-label={`Edit ${activity.name}`}
+              className={`rounded-lg border border-border px-3 py-1 text-xs text-muted transition-colors hover:border-border-strong hover:text-foreground disabled:opacity-50 ${FOCUS_RING}`}
+            >
+              Edit
+            </button>
+          )}
+        </div>
       </div>
       <LocationList locations={locations} isLoading={isLoadingLocations} />
     </li>
@@ -86,11 +103,12 @@ function ActivityItem({
  * Itinerary for a trip. Loads the activities first, then each activity's
  * locations (see `useTripItinerary`).
  */
-export function TripItinerary({ tripId }: { tripId: string }) {
+export function TripItinerary({ tripId, canEdit }: { tripId: string; canEdit: boolean }) {
   const { activities, locationsByActivity, isLoading, isLoadingLocations, error, refresh } =
     useTripItinerary(tripId)
   
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [editingActivity, setEditingActivity] = useState<Activity | null>(null)
 
   return (
     <section className="mt-10" aria-labelledby="itinerary-heading">
@@ -102,13 +120,15 @@ export function TripItinerary({ tripId }: { tripId: string }) {
           Itinerary
         </h2>
 
-        <button
-          type="button"
-          onClick={() => setIsCreateModalOpen(true)}
-          className={`rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-contrast transition-colors hover:bg-accent-strong ${FOCUS_RING}`}
-        >
-          + Add activity
-        </button>
+        {canEdit && (
+          <button
+            type="button"
+            onClick={() => setIsCreateModalOpen(true)}
+            className={`rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-contrast transition-colors hover:bg-accent-strong ${FOCUS_RING}`}
+          >
+            + Add activity
+          </button>
+        )}
       </div>
 
       <div className="mt-4">
@@ -143,6 +163,7 @@ export function TripItinerary({ tripId }: { tripId: string }) {
                 activity={activity}
                 locations={locationsByActivity[activity.id]}
                 isLoadingLocations={isLoadingLocations}
+                onEdit={canEdit ? () => setEditingActivity(activity) : undefined}
               />
             ))}
           </ol>
@@ -153,6 +174,16 @@ export function TripItinerary({ tripId }: { tripId: string }) {
         <CreateActivityModal
           tripId={tripId}
           onClose={() => setIsCreateModalOpen(false)}
+          onCreated={refresh}
+        />
+      )}
+
+      {editingActivity && (
+        <CreateActivityModal
+          tripId={tripId}
+          activity={editingActivity}
+          activityLocations={locationsByActivity[editingActivity.id]}
+          onClose={() => setEditingActivity(null)}
           onCreated={refresh}
         />
       )}

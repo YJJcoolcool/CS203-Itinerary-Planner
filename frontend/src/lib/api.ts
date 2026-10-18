@@ -221,6 +221,20 @@ export function createActivity(
   })
 }
 
+/** Updates an activity's name, times and locations. Editor or owner only. */
+export function updateActivity(
+  token: string | null,
+  tripId: string,
+  activityId: string,
+  input: CreateActivityInput,
+): Promise<Activity> {
+  return request<Activity>(`/api/trips/${tripId}/activities/${activityId}`, {
+    method: 'PUT',
+    body: input,
+    token,
+  })
+}
+
 /** Fetches the locations attached to one activity of a trip. */
 export function getActivityLocations(
   token: string | null,

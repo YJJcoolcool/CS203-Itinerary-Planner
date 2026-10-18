@@ -114,9 +114,19 @@ export interface GeoSearchResponse {
   attribution: string | null
 }
 
-/** A daily weather forecast returned by the backend. */
-export interface WeatherForecast {
+/** A four-day weather forecast returned by the backend. */
+export interface FourDayWeatherForecast {
   date: string
   forecast: string
+  rainExpected: boolean
+}
+
+/** A two-hour weather forecast returned by the backend. */
+export interface TwoHourWeatherForecast {
+  area: string
+  forecast: string
+  validFrom: string
+  validUntil: string
+  updatedAt: string | null
   rainExpected: boolean
 }

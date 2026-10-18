@@ -16,8 +16,13 @@ public class WeatherController {
         this.weatherService = weatherService;
     }
 
-    @GetMapping
-    public List<WeatherForecast> getForecast() {
-        return weatherService.getForecast();
+    @GetMapping("/four-day")
+    public List<WeatherForecast> getFourDayForecast() {
+        return weatherService.getFourDayForecast();
+    }
+
+    @GetMapping("/two-hour")
+    public List<TwoHourWeatherForecast> getTwoHourForecast() {
+        return weatherService.getTwoHourForecast();
     }
 }

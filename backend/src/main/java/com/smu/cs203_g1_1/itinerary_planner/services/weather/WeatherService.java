@@ -14,10 +14,14 @@ public class WeatherService {
         this.neaWeatherClient = neaWeatherClient;
     }
 
-    public List<WeatherForecast> getForecast() {
-        return neaWeatherClient.getForecast()
+    public List<WeatherForecast> getFourDayForecast() {
+        return neaWeatherClient.getFourDayForecast()
             .stream()
             .sorted(Comparator.comparing(WeatherForecast::date))
             .toList();
+    }
+
+    public List<TwoHourWeatherForecast> getTwoHourForecast() {
+        return neaWeatherClient.getTwoHourForecast();
     }
 }

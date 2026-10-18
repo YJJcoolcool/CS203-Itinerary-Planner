@@ -112,14 +112,14 @@ export function TripMembersPanel({
                     <option value="VIEWER">Viewer</option>
                     <option value="EDITOR">Editor</option>
                   </select>
-                <button
-                    type="button"
-                    disabled={isBusy}
-                    onClick={() => handleRemove(member.id, name)}
-                    className={SECONDARY_BUTTON}
-                >
-                    Remove
-                </button>
+                  <button
+                      type="button"
+                      disabled={isBusy}
+                      onClick={() => handleRemove(member.id, name)}
+                      className={SECONDARY_BUTTON}
+                  >
+                      Remove
+                  </button>
                 </div>
               ) : (
                 <span className="shrink-0 text-sm text-muted">{roleLabel(role)}</span>

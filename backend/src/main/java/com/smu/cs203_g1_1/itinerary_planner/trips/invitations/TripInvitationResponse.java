@@ -16,8 +16,8 @@ public record TripInvitationResponse(
         String senderDisplayName,
         String receiverDisplayName,
         InvitationStatus status,
-        TripRole role,
-        Instant createdAt) {
+        Instant createdAt,
+        TripRole role) {
 
     public static TripInvitationResponse from(TripInvitation invitation) {
         Trip trip = invitation.getTrip();
@@ -30,7 +30,7 @@ public record TripInvitationResponse(
                 invitation.getSender().getDisplayName(),
                 invitation.getReceiver().getDisplayName(),
                 invitation.getStatus(),
-                invitation.getRole(),
-                invitation.getCreatedAt());
+                invitation.getCreatedAt(),
+                invitation.getRole());
     }
 }

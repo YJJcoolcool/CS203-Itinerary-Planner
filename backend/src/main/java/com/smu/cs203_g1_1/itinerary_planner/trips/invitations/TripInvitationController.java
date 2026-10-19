@@ -29,7 +29,7 @@ public class TripInvitationController {
         this.userService = userService;
     }
 
-    // role is optional; null means VIEWER. OWNER is not inviteable.
+    // role is optional: EDITOR or VIEWER; missing means VIEWER, OWNER is rejected with 400.
     public record SendInvitationRequest(String email, TripRole role) { }
 
     public record RespondInvitationRequest(InvitationStatus status) { }
@@ -44,9 +44,6 @@ public class TripInvitationController {
             @RequestBody SendInvitationRequest request) {
         if (request.email() == null || request.email().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is required");
-        }
-        if (request.role() == TripRole.OWNER) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Role must be VIEWER or EDITOR");
         }
         return invitationService.sendInvitation(
                 tripId, userService.getCurrentUserId(jwt), request.email(), request.role());

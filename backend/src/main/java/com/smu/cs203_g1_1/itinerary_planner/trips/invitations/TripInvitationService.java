@@ -18,6 +18,7 @@ import com.smu.cs203_g1_1.itinerary_planner.util.ID;
 
 @Service
 public class TripInvitationService {
+
     private static final Logger log = LoggerFactory.getLogger(TripInvitationService.class);
 
     private final TripInvitationRepository invitationRepository;
@@ -25,26 +26,29 @@ public class TripInvitationService {
     private final UserService userService;
 
     public TripInvitationService(TripInvitationRepository invitationRepository,
-                                 TripService tripService,
-                                 UserService userService) {
+            TripService tripService,
+            UserService userService) {
         this.invitationRepository = invitationRepository;
         this.tripService = tripService;
         this.userService = userService;
     }
 
+    // Default invitation; no role means VIEWER.
     @Transactional
     public TripInvitationResponse sendInvitation(String tripId, String senderId, String receiverEmail) {
-        return sendInvitation(tripId, senderId, receiverEmail, TripRole.VIEWER);
+        return sendInvitation(tripId, senderId, receiverEmail, null);
     }
 
     @Transactional
     public TripInvitationResponse sendInvitation(String tripId, String senderId, String receiverEmail, TripRole role) {
+        // Checked first so a bad request never touches the database.
+        if (role == TripRole.OWNER) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A trip can only have one owner");
+        }
+        TripRole assigned = (role == null) ? TripRole.VIEWER : role;
+
         Trip trip = tripService.getTrip(tripId);
         requireCanManageInvitations(trip, senderId);
-        TripRole inviteRole = role == null ? TripRole.VIEWER : role;
-        if (inviteRole == TripRole.OWNER) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Role must be VIEWER or EDITOR");
-        }
         // Looked up (not trip.getOwner()) so it stays correct when non-owners can invite.
         User sender = userService.getUserById(senderId);
         User receiver = userService.getUserByEmail(receiverEmail);
@@ -59,12 +63,13 @@ public class TripInvitationService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "User already has a pending invite to this trip");
         }
 
-        // Before trip.invite(): existsById auto-flushes, which would cascade-persist an id-less invite.
+
         String id = ID.generateUniqueID(invitationRepository::existsById);
-        TripInvitation invitation = trip.invite(sender, receiver, inviteRole);
+        TripInvitation invitation = trip.invite(sender, receiver, assigned);
         invitation.setId(id);
         TripInvitation saved = invitationRepository.save(invitation);
-        log.info("User id={} invited user id={} to trip id={} as {} (invite {})", senderId, receiver.getId(), tripId, inviteRole, saved.getId());
+        log.info("User id={} invited user id={} to trip id={} as {} (invite {})",
+                senderId, receiver.getId(), tripId, assigned, saved.getId());
         return TripInvitationResponse.from(saved);
     }
 
@@ -95,10 +100,13 @@ public class TripInvitationService {
         switch (decision) {
             case ACCEPTED -> {
                 transition(invitation::accept);
+                // The role the owner picked when inviting, not always VIEWER.
                 invitation.getTrip().addMember(invitation.getReceiver(), invitation.getRole());
             }
-            case DECLINED -> transition(invitation::decline);
-            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status must be ACCEPTED or DECLINED");
+            case DECLINED ->
+                transition(invitation::decline);
+            default ->
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status must be ACCEPTED or DECLINED");
         }
         log.info("User id={} {} invite {}", userId, decision, invitationId);
         return TripInvitationResponse.from(invitation);

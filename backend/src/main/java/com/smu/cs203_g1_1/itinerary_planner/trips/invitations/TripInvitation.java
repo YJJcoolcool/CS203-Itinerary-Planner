@@ -35,9 +35,8 @@ public class TripInvitation implements Persistable<String> {
     @Column(nullable = false)
     private InvitationStatus status = InvitationStatus.PENDING;
 
-    // Role the receiver gets on acceptance. OWNER is never valid here (see Trip#invite).
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "varchar(255) default 'VIEWER'")
     private TripRole role = TripRole.VIEWER;
 
     @Column(nullable = false, updatable = false)
@@ -51,14 +50,14 @@ public class TripInvitation implements Persistable<String> {
 
     // Use Trip#invite(...) instead; public only because Trip is in another package.
     public TripInvitation(Trip trip, User sender, User receiver) {
-        this(trip, sender, receiver, TripRole.VIEWER);
-    }
-
-    public TripInvitation(Trip trip, User sender, User receiver, TripRole role) {
         this.trip = trip;
         this.sender = sender;
         this.receiver = receiver;
-        this.role = role == null ? TripRole.VIEWER : role;
+    }
+
+    public TripInvitation(Trip trip, User sender, User receiver, TripRole role) {
+        this(trip, sender, receiver);
+        setRole(role);
     }
 
     @PrePersist
@@ -121,6 +120,14 @@ public class TripInvitation implements Persistable<String> {
 
     public TripRole getRole() {
         return role;
+    }
+
+    // A null role means "use the default" (VIEWER). OWNER can never be granted by invitation.
+    public void setRole(TripRole role) {
+        if (role == TripRole.OWNER) {
+            throw new IllegalArgumentException("A trip can only have one owner");
+        }
+        this.role = (role == null) ? TripRole.VIEWER : role;
     }
 
     public Instant getCreatedAt() {

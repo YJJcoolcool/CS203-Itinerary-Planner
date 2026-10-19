@@ -165,8 +165,14 @@ public class ActivityService {
         activity.setEndDateTime(
                 updatedActivity.getEndDateTime());
 
-        activity.setStatus(
-                updatedActivity.getStatus());
+        /*
+         * The edit form doesn't send a status, so keep the current one
+         * instead of wiping it to null.
+         */
+        if (updatedActivity.getStatus() != null) {
+            activity.setStatus(
+                    updatedActivity.getStatus());
+        }
 
         activity.setLocations(locations);
 

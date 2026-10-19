@@ -135,7 +135,10 @@ function TripDetailsContent({ tripId }: { tripId: string }) {
               endDate={displayedTrip.endDate}
             />
 
-            <TripItinerary tripId={displayedTrip.id} />
+            <TripItinerary
+              tripId={displayedTrip.id}
+              canEdit={myRole === 'OWNER' || myRole === 'EDITOR'}
+            />
           </>
         ) : null}
       </section>

@@ -99,7 +99,8 @@ class TripRoleTest {
 
     @Test
     void createTrip_creatorBecomesOwnerMember() {
-        Trip created = tripService.createTrip("New", LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 2), OWNER);
+        List<String> countries = List.of("sg");
+        Trip created = tripService.createTrip("New", LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 2), OWNER, countries);
 
         assertTrue(created.isOwner(owner));
         assertEquals(TripRole.OWNER, created.findRole(OWNER).orElseThrow());
@@ -185,8 +186,9 @@ class TripRoleTest {
 
     @Test
     void owner_canUpdateAndDeleteTrip() {
+        List<String> countries = List.of("my");
         Trip updated = tripService.updateTrip(OWNER, TRIP_ID, "Renamed",
-                LocalDate.of(2026, 10, 2), LocalDate.of(2026, 10, 6));
+                LocalDate.of(2026, 10, 2), LocalDate.of(2026, 10, 6), countries);
         assertEquals("Renamed", updated.getName());
 
         tripService.deleteTrip(OWNER, TRIP_ID);
@@ -207,7 +209,7 @@ class TripRoleTest {
 
     @Test
     void editor_cannotUpdateOrDeleteTrip() {
-        assertStatus(HttpStatus.FORBIDDEN, () -> tripService.updateTrip(EDITOR, TRIP_ID, "x", null, null));
+        assertStatus(HttpStatus.FORBIDDEN, () -> tripService.updateTrip(EDITOR, TRIP_ID, "x", null, null, null));
         assertStatus(HttpStatus.FORBIDDEN, () -> tripService.deleteTrip(EDITOR, TRIP_ID));
         verify(tripRepository, never()).delete(any());
     }
@@ -228,7 +230,7 @@ class TripRoleTest {
 
     @Test
     void viewer_cannotModifyAnything() {
-        assertStatus(HttpStatus.FORBIDDEN, () -> tripService.updateTrip(VIEWER, TRIP_ID, "x", null, null));
+        assertStatus(HttpStatus.FORBIDDEN, () -> tripService.updateTrip(VIEWER, TRIP_ID, "x", null, null, null));
         assertStatus(HttpStatus.FORBIDDEN, () -> tripService.deleteTrip(VIEWER, TRIP_ID));
         assertStatus(HttpStatus.FORBIDDEN, () -> tripService.addMember(VIEWER, TRIP_ID, NEWCOMER, TripRole.VIEWER));
         assertStatus(HttpStatus.FORBIDDEN, () -> tripService.removeMember(VIEWER, TRIP_ID, EDITOR));
@@ -243,7 +245,7 @@ class TripRoleTest {
     @Test
     void nonMember_isForbiddenEverywhere() {
         assertStatus(HttpStatus.FORBIDDEN, () -> tripService.getTripForMember(TRIP_ID, OUTSIDER));
-        assertStatus(HttpStatus.FORBIDDEN, () -> tripService.updateTrip(OUTSIDER, TRIP_ID, "x", null, null));
+        assertStatus(HttpStatus.FORBIDDEN, () -> tripService.updateTrip(OUTSIDER, TRIP_ID, "x", null, null, null));
         assertStatus(HttpStatus.FORBIDDEN, () -> tripService.addMember(OUTSIDER, TRIP_ID, NEWCOMER, null));
     }
 

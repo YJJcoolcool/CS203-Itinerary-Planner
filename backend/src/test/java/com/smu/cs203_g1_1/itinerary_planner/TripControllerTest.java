@@ -19,6 +19,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import com.smu.cs203_g1_1.itinerary_planner.trips.Trip;
 import com.smu.cs203_g1_1.itinerary_planner.trips.TripController;
 import com.smu.cs203_g1_1.itinerary_planner.trips.TripController.TripRequest;
+import com.smu.cs203_g1_1.itinerary_planner.trips.TripController.TripUpdateRequest;
 import com.smu.cs203_g1_1.itinerary_planner.trips.TripService;
 import com.smu.cs203_g1_1.itinerary_planner.user.User;
 import com.smu.cs203_g1_1.itinerary_planner.user.UserService;
@@ -47,11 +48,23 @@ class TripControllerTest {
 
     @Test
     void createTripUsesLoggedInUserAsOwner() {
-        when(userService.getCurrentUserId(jwt)).thenReturn("OwnerUs1");
+        List<String> countries = List.of("sg", "my");
 
-        controller.createTrip(jwt, new TripRequest("Japan", START, END));
+        when(userService.getCurrentUserId(jwt))
+                .thenReturn("OwnerUs1");
 
-        verify(tripService).createTrip("Japan", START, END, "OwnerUs1");
+        controller.createTrip(
+                jwt,
+                new TripRequest("Singapore + KL Trip", START, END, countries)
+        );
+
+        verify(tripService).createTrip(
+                "Singapore + KL Trip",
+                START,
+                END,
+                "OwnerUs1",
+                countries
+        );
     }
 
     @Test
@@ -71,5 +84,33 @@ class TripControllerTest {
 
         assertTrue(controller.getTrips(jwt).isEmpty());
         verify(tripService, never()).getTripsForUser(org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
+    void updateTripPassesCountriesToService() {
+        List<String> countries = List.of("jp", "sg");
+
+        when(userService.getCurrentUserId(jwt))
+                .thenReturn("OwnerUs1");
+
+        controller.updateTrip(
+                jwt,
+                "Trip1234",
+                new TripUpdateRequest(
+                        "Japan and Singapore",
+                        START,
+                        END,
+                        countries
+                )
+        );
+
+        verify(tripService).updateTrip(
+                "OwnerUs1",
+                "Trip1234",
+                "Japan and Singapore",
+                START,
+                END,
+                countries
+        );
     }
 }

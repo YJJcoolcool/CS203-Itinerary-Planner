@@ -200,7 +200,7 @@ class UserAdminTest {
     void deleteRemovesTheUsersMembershipsAndInvitations() {
         Trip trip = new Trip("Japan", START, END, other);
         trip.addMember(regular, TripRole.EDITOR);
-        TripInvitation invite = trip.invite(other, regular);
+        TripInvitation invite = trip.invite(other, regular, TripRole.VIEWER);
         when(tripRepository.findDistinctByOwnerIdOrUsersId("User0001", "User0001")).thenReturn(List.of(trip));
         when(invitationRepository.findBySenderIdOrReceiverId("User0001", "User0001")).thenReturn(List.of(invite));
 

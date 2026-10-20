@@ -32,6 +32,7 @@ import com.smu.cs203_g1_1.itinerary_planner.discovery.PlaceDiscoveryService;
 import com.smu.cs203_g1_1.itinerary_planner.planner.Candidate;
 import com.smu.cs203_g1_1.itinerary_planner.planner.CandidateFinder;
 import com.smu.cs203_g1_1.itinerary_planner.planner.CandidateRequest;
+import com.smu.cs203_g1_1.itinerary_planner.planner.CategoryGoalMapper;
 import com.smu.cs203_g1_1.itinerary_planner.preference.TripPreference;
 import com.smu.cs203_g1_1.itinerary_planner.preference.TripPreferenceRepository;
 import com.smu.cs203_g1_1.itinerary_planner.preference.UserPreferenceRepository;
@@ -158,12 +159,6 @@ public class SuggestionService {
     }
 
     /**
-     * Looks for outdoor stops that rain is expected to affect and creates at
-     * most {@value #MAX_SUGGESTIONS_PER_REPLAN} pending suggestions. A pending
-     * suggestion for a stop suppresses new ones until it is decided.
-     */
-    @Transactional
-    /**
      * Singapore-only scope: a trip with no countries keeps the legacy
      * behaviour, but an explicit list must contain SG for weather-driven
      * replanning to run at all.
@@ -217,6 +212,12 @@ public class SuggestionService {
             .orElse(null);
     }
 
+    /**
+     * Looks for outdoor stops that rain is expected to affect and creates at
+     * most {@value #MAX_SUGGESTIONS_PER_REPLAN} pending suggestions. A pending
+     * suggestion for a stop suppresses new ones until it is decided.
+     */
+    @Transactional
     public List<SuggestionResponse> replan(String tripId, String userId, ZonedDateTime at) {
         Trip trip = tripService.requireTripRole(tripId, userId, TripRole.EDITOR);
         ZonedDateTime now = at != null ? at : ZonedDateTime.now(SG);
@@ -231,6 +232,13 @@ public class SuggestionService {
         TripPreference tripPreference = tripPreferences.findById(tripId).orElse(null);
         Set<String> interests = interests(userId, tripPreference);
 
+        // Raw tags feed the embedder and the LLM prompt; scoring needs the
+        // canonical lowercase groups derived from both tags and trip goals.
+        Set<String> candidateInterests = new TreeSet<>(
+                CategoryGoalMapper.toGroups(interests));
+        candidateInterests.addAll(CategoryGoalMapper.toGroups(
+                tripPreference == null ? List.of() : tripPreference.getGoals()));
+
         String tripGoal = tripPreference == null || tripPreference.getGoals().isEmpty()
                 ? null
                 : String.join(", ", tripPreference.getGoals());
@@ -243,6 +251,7 @@ public class SuggestionService {
         List<SuggestionResponse> created = new ArrayList<>();
         int aiAttempts = 0;
         int aiPicks = 0;
+        boolean semanticPreferredFound = false;
 
         for (int activityIndex = 0; activityIndex < activities.size(); activityIndex++) {
             Activity activity = activities.get(activityIndex);
@@ -296,8 +305,12 @@ public class SuggestionService {
                         SEMANTIC_SHORTLIST);
             }
 
+            if (!preferred.isEmpty()) {
+                semanticPreferredFound = true;
+            }
+
             List<Candidate> candidates = candidateFinder.find(new CandidateRequest(
-                    dropped.getId(), arrival, true, interests, SHORTLIST_LIMIT, excluded, preferred));
+                    dropped.getId(), arrival, true, candidateInterests, SHORTLIST_LIMIT, excluded, preferred));
 
             if (candidates.isEmpty()) {
                 log.info("No indoor candidate for activity id={} on trip id={}",
@@ -394,7 +407,7 @@ public class SuggestionService {
         log.info("replan_metrics trip={} suggestions={} ai_attempts={} ai_picks={} fallbacks={} retrieval={} latency_ms={}",
                 tripId, created.size(), aiAttempts, aiPicks,
                 created.size() - aiPicks,
-                queryVector == null ? "SQL_ONLY" : "SEMANTIC",
+                queryVector == null || !semanticPreferredFound ? "SQL_ONLY" : "SEMANTIC",
                 (System.nanoTime() - startedAt) / 1_000_000);
 
         return created;

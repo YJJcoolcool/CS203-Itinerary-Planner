@@ -30,6 +30,10 @@ import org.springframework.web.server.ResponseStatusException;
 import com.smu.cs203_g1_1.itinerary_planner.ai.PlanChoice;
 import com.smu.cs203_g1_1.itinerary_planner.ai.PlanChooser;
 import com.smu.cs203_g1_1.itinerary_planner.planner.CandidateFinder;
+import com.smu.cs203_g1_1.itinerary_planner.preference.TripPreference;
+import com.smu.cs203_g1_1.itinerary_planner.preference.TripPreferenceRepository;
+import com.smu.cs203_g1_1.itinerary_planner.preference.UserPreference;
+import com.smu.cs203_g1_1.itinerary_planner.preference.UserPreferenceRepository;
 import com.smu.cs203_g1_1.itinerary_planner.trips.Activity;
 import com.smu.cs203_g1_1.itinerary_planner.trips.ActivityRepository;
 import com.smu.cs203_g1_1.itinerary_planner.trips.Location;
@@ -111,6 +115,12 @@ class SuggestionServiceTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private UserPreferenceRepository userPreferenceRepository;
+
+    @Autowired
+    private TripPreferenceRepository tripPreferenceRepository;
 
     @Autowired
     private EntityManager entityManager;
@@ -239,6 +249,28 @@ class SuggestionServiceTest {
         Suggestion stored = suggestionRepository.findById(response.id()).orElseThrow();
         assertNull(stored.getAiChoiceId());
         assertEquals(culture.getId(), stored.getTopScoreChoiceId());
+    }
+
+    @Test
+    void preferencesAndTripGoalsReorderCandidates() {
+        Location shopping = saveLocation("Shop0001", "Indoor Shopping Mall",
+                "shopping", "INDOOR", 1.301, 103.850, "24/7");
+        saveScore(shopping.getId(), "0.900");
+
+        assertEquals(culture.getId(), replan().get(0).proposedLocation().id());
+
+        suggestionRepository.deleteAll();
+        suggestionRepository.flush();
+
+        UserPreference preference = new UserPreference(owner.getId());
+        preference.setTags(List.of("food"));
+        userPreferenceRepository.saveAndFlush(preference);
+
+        TripPreference tripPreference = new TripPreference(trip.getId());
+        tripPreference.setGoals(List.of("SHOPPING"));
+        tripPreferenceRepository.saveAndFlush(tripPreference);
+
+        assertEquals(shopping.getId(), replan().get(0).proposedLocation().id());
     }
 
     @Test

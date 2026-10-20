@@ -14,7 +14,7 @@ import java.util.Set;
 public final class CategorySimilarity {
 
     private static final Set<String> GROUPS = Set.of(
-            "culture", "nature", "attraction", "shopping", "food");
+            "culture", "nature", "attraction", "shopping", "food", "nightlife");
 
     private static final double DEFAULT_UNRELATED = 0.2;
 
@@ -27,7 +27,12 @@ public final class CategorySimilarity {
             Map.entry(pair("nature", "food"), 0.1),
             Map.entry(pair("attraction", "shopping"), 0.2),
             Map.entry(pair("attraction", "food"), 0.3),
-            Map.entry(pair("shopping", "food"), 0.4));
+            Map.entry(pair("shopping", "food"), 0.4),
+            Map.entry(pair("culture", "nightlife"), 0.3),
+            Map.entry(pair("nature", "nightlife"), 0.1),
+            Map.entry(pair("attraction", "nightlife"), 0.4),
+            Map.entry(pair("shopping", "nightlife"), 0.4),
+            Map.entry(pair("food", "nightlife"), 0.5));
 
     private CategorySimilarity() {
     }

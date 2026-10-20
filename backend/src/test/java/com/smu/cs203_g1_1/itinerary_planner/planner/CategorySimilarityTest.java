@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 class CategorySimilarityTest {
 
     private static final List<String> GROUPS = List.of(
-            "culture", "nature", "attraction", "shopping", "food");
+            "culture", "nature", "attraction", "shopping", "food", "nightlife");
 
     @Test
     void diagonalIsOne() {
@@ -32,8 +32,8 @@ class CategorySimilarityTest {
 
     @Test
     void unknownGroupScoresZero() {
-        assertEquals(0.0, CategorySimilarity.similarity("culture", "nightlife"), 1e-9);
-        assertEquals(0.0, CategorySimilarity.similarity("nightlife", "culture"), 1e-9);
+        assertEquals(0.0, CategorySimilarity.similarity("culture", "adventure"), 1e-9);
+        assertEquals(0.0, CategorySimilarity.similarity("adventure", "culture"), 1e-9);
         assertEquals(0.0, CategorySimilarity.similarity(null, "culture"), 1e-9);
         assertEquals(0.0, CategorySimilarity.similarity("culture", null), 1e-9);
         assertEquals(0.0, CategorySimilarity.similarity("  ", "culture"), 1e-9);
@@ -51,14 +51,22 @@ class CategorySimilarityTest {
         assertEquals(0.6, CategorySimilarity.similarity("nature", "attraction"), 1e-9);
         assertEquals(0.1, CategorySimilarity.similarity("shopping", "nature"), 1e-9);
         assertEquals(0.4, CategorySimilarity.similarity("food", "shopping"), 1e-9);
+        assertEquals(0.3, CategorySimilarity.similarity("culture", "nightlife"), 1e-9);
+        assertEquals(0.5, CategorySimilarity.similarity("food", "nightlife"), 1e-9);
     }
 
     @Test
-    void isKnownGroupMatchesTheFiveGroups() {
+    void nightlifeIsAKnownGroup() {
+        assertEquals(1.0, CategorySimilarity.similarity("nightlife", "nightlife"), 1e-9);
+        assertTrue(CategorySimilarity.isKnownGroup("nightlife"));
+    }
+
+    @Test
+    void isKnownGroupMatchesTheTableGroups() {
         for (String group : GROUPS) {
             assertTrue(CategorySimilarity.isKnownGroup(group));
         }
-        assertFalse(CategorySimilarity.isKnownGroup("nightlife"));
+        assertFalse(CategorySimilarity.isKnownGroup("adventure"));
         assertFalse(CategorySimilarity.isKnownGroup(null));
     }
 }

@@ -105,7 +105,7 @@ class PlaceSeederTest {
         assertInvalid(seedWith(place(" ")), "name");
         assertInvalid(seedWith(place("Duplicate"), place("Duplicate")), "duplicate");
         assertInvalid(seedWith(placeWithLatitude(1.99)), "latitude");
-        assertInvalid(seedWith(placeWithGroup("nightlife")), "category_group");
+        assertInvalid(seedWith(placeWithGroup("bowling")), "category_group");
 
         assertEquals(0, locationRepository.count());
         assertEquals(0, placeScoreRepository.count());

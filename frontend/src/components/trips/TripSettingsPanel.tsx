@@ -11,6 +11,7 @@ import { useTripInvitations } from '../../lib/useInvitations'
 import { roleLabel } from '../../types/invitation'
 import type { TripRole } from '../../types/invitation'
 import type { Trip } from '../../types/trip'
+import { CountryMultiSelect } from './CountryMultiSelect'
 import { DeleteTripDialog } from './DeleteTripDialog'
 
 const FOCUS_RING =
@@ -39,6 +40,12 @@ function formatSentDate(iso: string): string {
     month: 'short',
     year: 'numeric',
   })
+}
+
+function normalizeCountries(countries: string[] = []): string[] {
+  return [...new Set(
+    countries.map((country) => country.toLowerCase()),
+  )].sort()
 }
 
 interface InvitationsSectionProps {
@@ -234,11 +241,13 @@ function InvitationsSection({ tripId }: InvitationsSectionProps) {
 
 export function TripSettingsPanel({
   trip,
+  isOwner,
   onClose,
   onUpdated,
   onDeleted,
 }: {
   trip: Trip
+  isOwner: boolean
   onClose: () => void
   onUpdated: (trip: Trip) => void
   onDeleted: () => void
@@ -249,6 +258,9 @@ export function TripSettingsPanel({
   const [name, setName] = useState(trip.name)
   const [startDate, setStartDate] = useState(trip.startDate)
   const [endDate, setEndDate] = useState(trip.endDate)
+  const [countries, setCountries] = useState<string[]>(
+    trip.countries ?? [],
+  )
 
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -261,10 +273,15 @@ export function TripSettingsPanel({
   const titleId = useId()
   const headingRef = useRef<HTMLHeadingElement>(null)
 
+  const countriesChanged =
+    JSON.stringify(normalizeCountries(countries)) !==
+    JSON.stringify(normalizeCountries(trip.countries ?? []))
+
   const dirty =
     name.trim() !== trip.name ||
     startDate !== trip.startDate ||
-    endDate !== trip.endDate
+    endDate !== trip.endDate ||
+    countriesChanged
 
   useEffect(() => {
     headingRef.current?.focus()
@@ -293,6 +310,18 @@ export function TripSettingsPanel({
       return
     }
 
+    const countryCodes = [...new Set(
+      countries
+        .split(',')
+        .map((country) => country.trim().toLowerCase())
+        .filter(Boolean),
+    )]
+
+    if (countryCodes.length === 0) {
+      setSaveError('Enter at least one country code.')
+      return
+    }
+
     setIsSaving(true)
     setSaveError(null)
     setSaveSuccess(false)
@@ -302,9 +331,10 @@ export function TripSettingsPanel({
       if (!token) throw new ApiError(401, 'No active session token is available.')
 
       const updated = await updateTrip(token, trip.id, {
-        name: trimmedName,
+        name: name.trim(),
         startDate,
         endDate,
+        countries: normalizeCountries(countries),
       })
 
       onUpdated(updated)
@@ -462,6 +492,16 @@ export function TripSettingsPanel({
                     />
                   </div>
                 </div>
+
+                <CountryMultiSelect
+                  value={countries}
+                  onChange={(next) => {
+                    setCountries(next)
+                    setSaveSuccess(false)
+                    setSaveError(null)
+                  }}
+                  disabled={isSaving || isDeleting}
+                />
               </div>
 
               {saveError && (
@@ -494,34 +534,36 @@ export function TripSettingsPanel({
 
           <div className="my-7 border-t border-border" />
 
-          <section className="rounded-xl border border-terracotta/40 p-4 sm:p-5">
-            <h3 className="font-semibold text-terracotta">
-              Danger zone
-            </h3>
-            <p className="mt-2 text-sm leading-relaxed text-muted">
-              Permanently delete this trip. This action cannot be undone.
-            </p>
-
-            {deleteError && (
-              <p role="alert" className={`mt-3 ${ERROR_ALERT}`}>
-                {deleteError}
+          {isOwner && ( // Only show for Owner
+            <section className="rounded-xl border border-terracotta/40 p-4 sm:p-5">
+              <h3 className="font-semibold text-terracotta">
+                Danger zone
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted">
+                Permanently delete this trip. This action cannot be undone.
               </p>
-            )}
 
-            <div className="mt-4 flex justify-end">
-              <button
-                type="button"
-                disabled={isSaving || isDeleting}
-                onClick={() => {
-                  setDeleteError(null)
-                  setIsDeleteOpen(true)
-                }}
-                className={`rounded-xl bg-terracotta px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 ${FOCUS_RING}`}
-              >
-                Delete trip
-              </button>
-            </div>
-          </section>
+              {deleteError && (
+                <p role="alert" className={`mt-3 ${ERROR_ALERT}`}>
+                  {deleteError}
+                </p>
+              )}
+
+              <div className="mt-4 flex justify-end">
+                <button
+                  type="button"
+                  disabled={isSaving || isDeleting}
+                  onClick={() => {
+                    setDeleteError(null)
+                    setIsDeleteOpen(true)
+                  }}
+                  className={`rounded-xl bg-terracotta px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 ${FOCUS_RING}`}
+                >
+                  Delete trip
+                </button>
+              </div>
+            </section>
+          )}
         </div>
 
         <footer className="flex justify-end border-t border-border p-4 sm:px-6">

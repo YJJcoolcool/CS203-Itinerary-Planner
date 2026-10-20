@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useCreateTrip } from '../../lib/useTrips'
+import { CountryMultiSelect } from './CountryMultiSelect'
 
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface'
@@ -13,6 +14,7 @@ interface FieldErrors {
   name?: string
   startDate?: string
   endDate?: string
+  countries?: string
   form?: string
 }
 
@@ -36,6 +38,7 @@ export function CreateTripModal({
   const [name, setName] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [countries, setCountries] = useState<string[]>(['sg'])
   const [errors, setErrors] = useState<FieldErrors>({})
   const nameRef = useRef<HTMLInputElement>(null)
   const titleId = useId()
@@ -74,9 +77,26 @@ export function CreateTripModal({
       return
     }
 
+    if (countries.length === 0) {
+      setErrors({
+        ...next,
+        countries: 'Select at least one country.',
+      })
+      return
+    }
+
+    const countryCodes = [...new Set(
+      countries.map((country) => country.toLowerCase()),
+    )]
+
     setErrors({})
     try {
-      await createTrip({ name: name.trim(), startDate, endDate })
+      await createTrip({
+        name: name.trim(),
+        startDate,
+        endDate,
+        countries: countryCodes,
+      })
       onCreated()
       onClose()
     } catch (cause) {
@@ -169,6 +189,30 @@ export function CreateTripModal({
                 </p>
               )}
             </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-muted">
+              Countries visited
+            </label>
+
+            <CountryMultiSelect
+              value={countries}
+              onChange={(next) => {
+                setCountries(next)
+                setErrors((current) => ({
+                  ...current,
+                  countries: undefined,
+                }))
+              }}
+              disabled={isCreating}
+            />
+
+            {errors.countries && (
+              <p role="alert" className="text-xs text-terracotta">
+                {errors.countries}
+              </p>
+            )}
           </div>
 
           {errors.form && (

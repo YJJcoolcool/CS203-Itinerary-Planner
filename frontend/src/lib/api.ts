@@ -149,7 +149,7 @@ export function getTrip(token: string | null, tripId: string): Promise<Trip> {
   return request<Trip>(`/api/trips/${tripId}`, { token })
 }
 
-/** Updates a trip's name and dates. Owner-only. */
+/** Updates a trip's name, dates, and countries. Editor or owner only. */
 export function updateTrip(
   token: string | null,
   tripId: string,
@@ -157,6 +157,7 @@ export function updateTrip(
     name: string
     startDate: string
     endDate: string
+    countries: string[]
   },
 ): Promise<Trip> {
   return request<Trip>(`/api/trips/${tripId}`, {

@@ -100,7 +100,7 @@ function TripDetailsContent({ tripId }: { tripId: string }) {
             ← My Trips
           </Link>
 
-          {isOwner && (
+          {(myRole === 'OWNER' || myRole === 'EDITOR') && (
             <button
               type="button"
               onClick={openSettings}
@@ -143,9 +143,10 @@ function TripDetailsContent({ tripId }: { tripId: string }) {
         ) : null}
       </section>
 
-      {isSettingsOpen && isOwner && displayedTrip && (
+      {isSettingsOpen && (myRole === 'OWNER' || myRole === 'EDITOR') && displayedTrip && (
         <TripSettingsPanel
           trip={displayedTrip}
+          isOwner={isOwner}
           onClose={closeSettings}
           onUpdated={handleUpdated}
           onDeleted={() => {

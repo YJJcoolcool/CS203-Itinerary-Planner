@@ -1,0 +1,65 @@
+{
+  "note": "Golden set for replan evaluation. Set TRIP_ID, or put a real trip id on any scenario. `at` pins the replan clock so runs are comparable. expectIndoor asserts that a rainy swap never proposes an outdoor place.",
+  "scenarios": [
+    {
+      "name": "marina-bay-rainy-afternoon",
+      "tripId": null,
+      "at": "2026-11-02T15:00:00+08:00",
+      "expectIndoor": true
+    },
+    {
+      "name": "hawker-lunch-rain",
+      "tripId": null,
+      "at": "2026-11-02T12:00:00+08:00",
+      "expectIndoor": true
+    },
+    {
+      "name": "family-with-toddler",
+      "tripId": null,
+      "at": "2026-11-02T10:00:00+08:00",
+      "expectIndoor": true
+    },
+    {
+      "name": "museum-goal-conflict",
+      "tripId": null,
+      "at": "2026-11-03T14:00:00+08:00",
+      "expectIndoor": true
+    },
+    {
+      "name": "evening-thundery-showers",
+      "tripId": null,
+      "at": "2026-11-03T18:30:00+08:00",
+      "expectIndoor": true
+    },
+    {
+      "name": "early-morning-drizzle",
+      "tripId": null,
+      "at": "2026-11-04T08:00:00+08:00",
+      "expectIndoor": true
+    },
+    {
+      "name": "sentosa-outdoor-stop",
+      "tripId": null,
+      "at": "2026-11-04T16:00:00+08:00",
+      "expectIndoor": true
+    },
+    {
+      "name": "botanic-gardens-rain",
+      "tripId": null,
+      "at": "2026-11-05T11:00:00+08:00",
+      "expectIndoor": true
+    },
+    {
+      "name": "shopping-goal-rain",
+      "tripId": null,
+      "at": "2026-11-05T15:30:00+08:00",
+      "expectIndoor": true
+    },
+    {
+      "name": "dry-window-no-suggestion",
+      "tripId": null,
+      "at": "2026-11-06T09:00:00+08:00",
+      "expectIndoor": false
+    }
+  ]
+}

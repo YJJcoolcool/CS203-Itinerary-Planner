@@ -134,6 +134,7 @@ function TripDetailsContent({ tripId }: { tripId: string }) {
             <WeatherForecastPanel
               startDate={displayedTrip.startDate}
               endDate={displayedTrip.endDate}
+              countries={displayedTrip.countries ?? []}
             />
 
             <TripItinerary

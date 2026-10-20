@@ -9,6 +9,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -25,11 +26,16 @@ public class QueryEmbedder {
 
     private static final Logger log = LoggerFactory.getLogger(QueryEmbedder.class);
 
+    private static final String NOT_CONFIGURED = "not-configured";
+
     private final EmbeddingModel embeddingModel;
+    private final boolean configured;
     private final Cache<String, float[]> cache;
 
-    public QueryEmbedder(EmbeddingModel embeddingModel) {
+    public QueryEmbedder(EmbeddingModel embeddingModel,
+                         @Value("${spring.ai.openai.api-key:}") String apiKey) {
         this.embeddingModel = embeddingModel;
+        this.configured = embeddingModel != null && isConfigured(apiKey);
         this.cache = Caffeine.newBuilder()
             .maximumSize(1_000)
             .expireAfterWrite(Duration.ofHours(24))
@@ -38,7 +44,7 @@ public class QueryEmbedder {
 
     /** Returns the query vector, or empty when embedding is unavailable. */
     public Optional<float[]> embed(String text) {
-        if (text == null || text.isBlank()) {
+        if (!configured || text == null || text.isBlank()) {
             return Optional.empty();
         }
 
@@ -72,5 +78,12 @@ public class QueryEmbedder {
                                         java.util.Set<String> travellerTags,
                                         String weatherNote) {
         return embed(QueryTextBuilder.build(tripGoal, groupSummary, travellerTags, weatherNote));
+    }
+
+    /** Same "not-configured" semantics as OpenAiPlanChooser. */
+    private static boolean isConfigured(String apiKey) {
+        return apiKey != null
+            && !apiKey.isBlank()
+            && !NOT_CONFIGURED.equalsIgnoreCase(apiKey.trim());
     }
 }

@@ -73,4 +73,33 @@ class SemanticRankerTest {
         assertEquals("place001", ranked.get(0).locationId());
         assertEquals(1.0, ranked.get(0).score(), 1e-6);
     }
+
+    @Test
+    void skipsCorruptBlobsAndRanksTheRest() {
+        List<PlaceEmbedding> embeddings = List.of(
+            new PlaceEmbedding("place001", "test-model", new float[] {1f, 0f}),
+            corrupt("place002"),
+            new PlaceEmbedding("place003", "test-model", new float[] {0f, 1f}));
+
+        List<SemanticRanker.Scored> ranked = SemanticRanker.rank(QUERY, embeddings, 3);
+
+        assertEquals(List.of("place001", "place003"),
+            ranked.stream().map(SemanticRanker.Scored::locationId).toList());
+    }
+
+    @Test
+    void returnsNothingWhenEveryBlobIsCorrupt() {
+        List<PlaceEmbedding> embeddings = List.of(corrupt("place001"), corrupt("place002"));
+
+        assertTrue(SemanticRanker.rank(QUERY, embeddings, 3).isEmpty());
+    }
+
+    private static PlaceEmbedding corrupt(String locationId) {
+        return new PlaceEmbedding(locationId, "test-model", new float[] {1f, 0f}) {
+            @Override
+            public float[] asFloats() {
+                return VectorCodec.decode(new byte[] {1, 2, 3});
+            }
+        };
+    }
 }

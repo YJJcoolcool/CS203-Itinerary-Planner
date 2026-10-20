@@ -22,7 +22,7 @@ class QueryEmbedderTest {
     void returnsTheEmbeddedVector() {
         when(model.embed("museums")).thenReturn(new float[] {1f, 0f});
 
-        Optional<float[]> vector = new QueryEmbedder(model).embed("museums");
+        Optional<float[]> vector = new QueryEmbedder(model, "test-key").embed("museums");
 
         assertTrue(vector.isPresent());
         assertEquals(1f, vector.get()[0]);
@@ -32,7 +32,7 @@ class QueryEmbedderTest {
     void cachesRepeatedQueries() {
         when(model.embed("museums")).thenReturn(new float[] {1f, 0f});
 
-        QueryEmbedder embedder = new QueryEmbedder(model);
+        QueryEmbedder embedder = new QueryEmbedder(model, "test-key");
         embedder.embed("museums");
         embedder.embed("museums");
 
@@ -43,20 +43,34 @@ class QueryEmbedderTest {
     void failureDegradesToEmptyRatherThanThrowing() {
         when(model.embed(anyString())).thenThrow(new IllegalStateException("provider down"));
 
-        assertTrue(new QueryEmbedder(model).embed("museums").isEmpty());
+        assertTrue(new QueryEmbedder(model, "test-key").embed("museums").isEmpty());
     }
 
     @Test
     void blankTextNeverCallsTheProvider() {
-        assertTrue(new QueryEmbedder(model).embed("   ").isEmpty());
+        assertTrue(new QueryEmbedder(model, "test-key").embed("   ").isEmpty());
         verifyNoInteractions(model);
+    }
+
+    @Test
+    void unconfiguredEmbedderNeverCallsTheProvider() {
+        assertTrue(new QueryEmbedder(model, "not-configured").embed("museums").isEmpty());
+        assertTrue(new QueryEmbedder(model, "   ").embed("museums").isEmpty());
+        assertTrue(new QueryEmbedder(model, null).embed("museums").isEmpty());
+
+        verifyNoInteractions(model);
+    }
+
+    @Test
+    void missingEmbeddingModelNeverCallsTheProvider() {
+        assertTrue(new QueryEmbedder(null, "test-key").embed("museums").isEmpty());
     }
 
     @Test
     void buildsTheQueryTextFromContext() {
         when(model.embed(anyString())).thenReturn(new float[] {0.5f, 0.5f});
 
-        QueryEmbedder embedder = new QueryEmbedder(model);
+        QueryEmbedder embedder = new QueryEmbedder(model, "test-key");
         Optional<float[]> vector = embedder.embedQuery(
             "museum", "quiet", Set.of("art"), "rain");
 

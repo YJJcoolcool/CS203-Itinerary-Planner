@@ -1,8 +1,12 @@
 package com.smu.cs203_g1_1.itinerary_planner.rag;
 
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Cosine ranking over a small candidate set.
@@ -13,6 +17,8 @@ import java.util.Map;
  * why there is no vector database here.</p>
  */
 public final class SemanticRanker {
+
+    private static final Logger log = LoggerFactory.getLogger(SemanticRanker.class);
 
     /** A candidate id and its cosine similarity to the query (range -1..1). */
     public record Scored(String locationId, double score) {}
@@ -39,17 +45,31 @@ public final class SemanticRanker {
     public static List<Scored> rank(float[] query,
                                     List<PlaceEmbedding> embeddings,
                                     int topK) {
-        if (embeddings == null || embeddings.isEmpty()) {
+        if (query == null || query.length == 0
+                || embeddings == null || embeddings.isEmpty() || topK <= 0) {
             return List.of();
         }
 
-        return rank(query,
-            embeddings.stream().collect(
-                java.util.stream.Collectors.toMap(
-                    PlaceEmbedding::getLocationId,
-                    PlaceEmbedding::asFloats,
-                    (first, second) -> first)),
-            topK);
+        Map<String, float[]> vectors = new LinkedHashMap<>();
+
+        for (PlaceEmbedding embedding : embeddings) {
+            if (embedding == null || embedding.getLocationId() == null) {
+                continue;
+            }
+
+            try {
+                float[] vector = embedding.asFloats();
+
+                if (vector != null && vector.length > 0) {
+                    vectors.putIfAbsent(embedding.getLocationId(), vector);
+                }
+            } catch (RuntimeException ex) {
+                log.warn("Skipping corrupt embedding for locationId={}: {}",
+                    embedding.getLocationId(), ex.getMessage());
+            }
+        }
+
+        return rank(query, vectors, topK);
     }
 
     /** Cosine similarity; 0 when either vector has no magnitude. */

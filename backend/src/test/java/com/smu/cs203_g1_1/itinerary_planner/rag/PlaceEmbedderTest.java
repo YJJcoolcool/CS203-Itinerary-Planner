@@ -6,6 +6,8 @@ import com.smu.cs203_g1_1.itinerary_planner.trips.Location;
 import com.smu.cs203_g1_1.itinerary_planner.trips.LocationRepository;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.never;
@@ -35,7 +37,7 @@ class PlaceEmbedderTest {
 
     @BeforeEach
     void setUp() {
-        embedder = new PlaceEmbedder(locations, embeddings, embeddingModel);
+        embedder = new PlaceEmbedder(locations, embeddings, embeddingModel, 2);
     }
 
     @Test
@@ -93,6 +95,51 @@ class PlaceEmbedderTest {
 
         assertEquals(1, summary.failedBatches());
         assertEquals(0, summary.embedded());
+    }
+
+    @Test
+    void reEmbedsRowsWrittenByADifferentModel() {
+        when(locations.findAll()).thenReturn(List.of(location("loc00001", "Museum")));
+        when(embeddings.findAll()).thenReturn(List.of(
+            new PlaceEmbedding("loc00001", "old-model", new float[] {1f, 0f})));
+        when(embeddingModel.embed(anyList())).thenReturn(List.of(new float[] {1f, 0f}));
+
+        PlaceEmbedder.EmbedSummary summary = embedder.embedMissing("test-model");
+
+        assertEquals(1, summary.candidates());
+        assertEquals(1, summary.embedded());
+        verify(embeddings).saveAll(any());
+    }
+
+    @Test
+    void reEmbedsRowsWrittenWithDifferentDimensions() {
+        when(locations.findAll()).thenReturn(List.of(location("loc00001", "Museum")));
+        when(embeddings.findAll()).thenReturn(List.of(
+            new PlaceEmbedding("loc00001", "test-model", new float[] {1f, 0f, 0f})));
+        when(embeddingModel.embed(anyList())).thenReturn(List.of(new float[] {1f, 0f}));
+
+        PlaceEmbedder.EmbedSummary summary = embedder.embedMissing("test-model");
+
+        assertEquals(1, summary.candidates());
+        assertEquals(1, summary.embedded());
+        verify(embeddings).saveAll(any());
+    }
+
+    @Test
+    void rejectsVectorsOverTheByteCap() {
+        when(locations.findAll()).thenReturn(List.of(location("loc00001", "Museum")));
+        when(embeddings.findAll()).thenReturn(List.of());
+        when(embeddingModel.embed(anyList())).thenReturn(List.of(new float[2049]));
+
+        PlaceEmbedder oversized =
+            new PlaceEmbedder(locations, embeddings, embeddingModel, 2049);
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+            () -> oversized.embedMissing("test-model"));
+
+        assertTrue(ex.getMessage().contains("test-model"));
+        assertTrue(ex.getMessage().contains("2049"));
+        verify(embeddings, never()).saveAll(any());
     }
 
     private static Location location(String id, String name) {

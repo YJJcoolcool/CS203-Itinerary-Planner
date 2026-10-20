@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,9 +27,11 @@ import com.smu.cs203_g1_1.itinerary_planner.ai.PlanChoice;
 import com.smu.cs203_g1_1.itinerary_planner.ai.PlanChoiceRequest;
 import com.smu.cs203_g1_1.itinerary_planner.ai.PlanChoiceValidator;
 import com.smu.cs203_g1_1.itinerary_planner.ai.PlanChooser;
+import com.smu.cs203_g1_1.itinerary_planner.discovery.PlaceDiscoveryService;
 import com.smu.cs203_g1_1.itinerary_planner.planner.Candidate;
 import com.smu.cs203_g1_1.itinerary_planner.planner.CandidateFinder;
 import com.smu.cs203_g1_1.itinerary_planner.planner.CandidateRequest;
+import com.smu.cs203_g1_1.itinerary_planner.rag.QueryEmbedder;
 import com.smu.cs203_g1_1.itinerary_planner.trips.Activity;
 import com.smu.cs203_g1_1.itinerary_planner.trips.ActivityRepository;
 import com.smu.cs203_g1_1.itinerary_planner.trips.Location;
@@ -58,6 +61,7 @@ public class SuggestionService {
     private static final int WINDOW_HOURS = 24;
     private static final int SHORTLIST_LIMIT = 5;
     private static final int RAIN_WINDOW_FALLBACK_HOURS = 2;
+    private static final int SEMANTIC_SHORTLIST = 8;
 
     private final SuggestionRepository suggestionRepository;
     private final ActivityRepository activityRepository;
@@ -65,6 +69,8 @@ public class SuggestionService {
     private final CandidateFinder candidateFinder;
     private final WeatherSource weatherSource;
     private final PlanChooser planChooser;
+    private final ObjectProvider<QueryEmbedder> queryEmbedder;
+    private final ObjectProvider<PlaceDiscoveryService> discoveryService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public SuggestionService(SuggestionRepository suggestionRepository,
@@ -72,13 +78,17 @@ public class SuggestionService {
                              TripService tripService,
                              CandidateFinder candidateFinder,
                              WeatherSource weatherSource,
-                             PlanChooser planChooser) {
+                             PlanChooser planChooser,
+                             ObjectProvider<QueryEmbedder> queryEmbedder,
+                             ObjectProvider<PlaceDiscoveryService> discoveryService) {
         this.suggestionRepository = suggestionRepository;
         this.activityRepository = activityRepository;
         this.tripService = tripService;
         this.candidateFinder = candidateFinder;
         this.weatherSource = weatherSource;
         this.planChooser = planChooser;
+        this.queryEmbedder = queryEmbedder;
+        this.discoveryService = discoveryService;
     }
 
     @Transactional(readOnly = true)
@@ -143,9 +153,31 @@ public class SuggestionService {
      * suggestion for a stop suppresses new ones until it is decided.
      */
     @Transactional
+    /**
+     * Embeds the trip context once per replan. Returns null when semantic
+     * retrieval is unavailable, in which case discovery stays SQL-only.
+     */
+    private float[] buildQueryVector(Trip trip) {
+        QueryEmbedder embedder = queryEmbedder.getIfAvailable();
+
+        if (embedder == null) {
+            return null;
+        }
+
+        return embedder.embedQuery(
+                trip.getName(),
+                null,
+                Set.of(),
+                "rain expected within the next 24 hours; prefer indoor alternatives")
+            .orElse(null);
+    }
+
     public List<SuggestionResponse> replan(String tripId, String userId, ZonedDateTime at) {
         Trip trip = tripService.requireTripRole(tripId, userId, TripRole.EDITOR);
         ZonedDateTime now = at != null ? at : ZonedDateTime.now(SG);
+
+        // One embedding call per replan; every activity reuses the same vector.
+        float[] queryVector = buildQueryVector(trip);
 
         List<Activity> activities = activityRepository.findByTripIdOrderByStartDateTimeAsc(tripId);
         List<SuggestionResponse> created = new ArrayList<>();
@@ -190,8 +222,20 @@ public class SuggestionService {
                     .filter(Objects::nonNull)
                     .collect(Collectors.toSet());
 
+            Set<String> preferred = Set.of();
+            PlaceDiscoveryService discovery = discoveryService.getIfAvailable();
+
+            if (discovery != null && queryVector != null) {
+                preferred = discovery.preferredIds(
+                        dropped.getLatitude(),
+                        dropped.getLongitude(),
+                        CandidateFinder.RADIUS_KM,
+                        queryVector,
+                        SEMANTIC_SHORTLIST);
+            }
+
             List<Candidate> candidates = candidateFinder.find(new CandidateRequest(
-                    dropped.getId(), arrival, true, Set.of(), SHORTLIST_LIMIT, excluded));
+                    dropped.getId(), arrival, true, Set.of(), SHORTLIST_LIMIT, excluded, preferred));
 
             if (candidates.isEmpty()) {
                 log.info("No indoor candidate for activity id={} on trip id={}",

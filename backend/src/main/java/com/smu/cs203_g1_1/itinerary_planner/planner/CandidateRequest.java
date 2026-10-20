@@ -12,8 +12,11 @@ import java.util.Set;
  * @param interests            user interest groups; may be null
  * @param limit                maximum number of candidates, 1..50
  * @param excludedLocationIds  ids already in the itinerary; may be null
+ * @param preferredLocationIds ids the semantic retriever liked; may be null.
+ *                             They receive a small score bonus, never a filter.
  */
 public record CandidateRequest(String droppedLocationId, ZonedDateTime arrival,
                                boolean requireIndoor, Set<String> interests,
-                               int limit, Set<String> excludedLocationIds) {
+                               int limit, Set<String> excludedLocationIds,
+                               Set<String> preferredLocationIds) {
 }

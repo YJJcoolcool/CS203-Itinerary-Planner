@@ -162,10 +162,30 @@ class CandidateFinderTest {
         assertEquals(List.of("IndexLc1"), ids(result));
     }
 
+    @Test
+    void preferredLocationsGetASemanticBoost() {
+        saveDropped();
+        saveLocation("PlainLc1", 1.3010, 103.8510, "culture", "INDOOR", "24/7");
+        saveLocation("Boosted1", 1.3035, 103.8535, "culture", "INDOOR", "24/7");
+
+        List<Candidate> neutral = candidateFinder.find(request(false, Set.of(), 10, Set.of()));
+        List<Candidate> boosted = candidateFinder.find(
+                request(false, Set.of(), 10, Set.of(), Set.of("Boosted1")));
+
+        assertEquals("PlainLc1", neutral.get(0).location().getId());
+        assertEquals("Boosted1", boosted.get(0).location().getId());
+    }
+
     private CandidateRequest request(boolean requireIndoor, Set<String> interests,
                                      int limit, Set<String> excluded) {
+        return request(requireIndoor, interests, limit, excluded, Set.of());
+    }
+
+    private CandidateRequest request(boolean requireIndoor, Set<String> interests,
+                                     int limit, Set<String> excluded,
+                                     Set<String> preferred) {
         return new CandidateRequest(
-                DROPPED_ID, ARRIVAL, requireIndoor, interests, limit, excluded);
+                DROPPED_ID, ARRIVAL, requireIndoor, interests, limit, excluded, preferred);
     }
 
     private void saveDropped() {

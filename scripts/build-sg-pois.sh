@@ -42,8 +42,9 @@ mkdir -p "$OSM_DIR"
 osmium tags-filter --overwrite "$INPUT" \
   nwr/tourism=attraction,museum,gallery,viewpoint,zoo,theme_park \
   nwr/shop=mall,department_store \
-  nwr/leisure=park,bowling_alley \
-  nwr/amenity=restaurant,cafe,food_court,marketplace,cinema,library \
+  nwr/leisure=park,garden,nature_reserve,bowling_alley \
+  nwr/amenity=restaurant,cafe,food_court,marketplace,cinema,library,bar,nightclub,place_of_worship \
+  nwr/historic \
   -o "$FILTERED"
 
 # Export with stable ids ("@type"/"@id") so the curated seed can reference the

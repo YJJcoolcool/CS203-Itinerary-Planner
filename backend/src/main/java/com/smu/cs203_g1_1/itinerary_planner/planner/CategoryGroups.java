@@ -30,6 +30,9 @@ public final class CategoryGroups {
             Map.entry("food_court", "amenity"),
             Map.entry("marketplace", "amenity"),
             Map.entry("library", "amenity"),
+            Map.entry("bar", "amenity"),
+            Map.entry("nightclub", "amenity"),
+            Map.entry("place_of_worship", "amenity"),
             Map.entry("cinema", "amenity"));
 
     private static final Map<String, String> GROUPS = Map.ofEntries(
@@ -51,6 +54,9 @@ public final class CategoryGroups {
             Map.entry(tag("amenity", "food_court"), "food"),
             Map.entry(tag("amenity", "marketplace"), "food"),
             Map.entry(tag("amenity", "library"), "culture"),
+            Map.entry(tag("amenity", "bar"), "nightlife"),
+            Map.entry(tag("amenity", "nightclub"), "nightlife"),
+            Map.entry(tag("amenity", "place_of_worship"), "culture"),
             Map.entry(tag("amenity", "cinema"), "culture"));
 
     private CategoryGroups() {
@@ -75,7 +81,15 @@ public final class CategoryGroups {
         if (key == null) {
             key = inferKey(value);
         }
-        return key == null ? null : GROUPS.get(tag(key, value));
+        if (key == null) {
+            return null;
+        }
+        // Any historically tagged feature (monument, memorial, ruins, ...) is a
+        // cultural sight, whatever its specific value happens to be.
+        if ("historic".equals(key)) {
+            return "culture";
+        }
+        return GROUPS.get(tag(key, value));
     }
 
     /**

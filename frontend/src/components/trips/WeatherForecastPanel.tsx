@@ -12,6 +12,7 @@ import type {
 interface WeatherForecastPanelProps {
   startDate: string
   endDate: string
+  countries: string[]
 }
 
 function formatForecastDate(date: string): string {
@@ -53,6 +54,7 @@ function formatSingaporeTime(value: string): string {
 export function WeatherForecastPanel({
   startDate,
   endDate,
+  countries,
 }: WeatherForecastPanelProps) {
   const { getToken } = useAuth()
 
@@ -66,9 +68,12 @@ export function WeatherForecastPanel({
   const today = getTodayInSingapore()
   const tripHasEnded = endDate < today
   const tripIncludesToday = startDate <= today && endDate >= today
+  const includesSingapore = countries.some(
+    (country) => country.toLowerCase() === 'sg',
+  )
 
   useEffect(() => {
-    if (tripHasEnded) return
+    if (tripHasEnded || !includesSingapore) return
 
     let cancelled = false
 
@@ -108,9 +113,9 @@ export function WeatherForecastPanel({
     return () => {
       cancelled = true
     }
-  }, [tripHasEnded, tripIncludesToday, getToken])
+  }, [tripHasEnded, tripIncludesToday, includesSingapore, getToken])
 
-  if (tripHasEnded) return null
+  if (tripHasEnded || !includesSingapore) return null
 
   const tripForecasts = forecasts.filter(
     (forecast) =>

@@ -1,9 +1,13 @@
 package com.smu.cs203_g1_1.itinerary_planner.geo;
 
+import java.util.List;
+
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -12,6 +16,10 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import com.smu.cs203_g1_1.itinerary_planner.geo.dto.PlaceDto;
 import com.smu.cs203_g1_1.itinerary_planner.geo.dto.SearchResponse;
 import com.smu.cs203_g1_1.itinerary_planner.geo.dto.SinglePlaceResponse;
+
+import com.smu.cs203_g1_1.itinerary_planner.trips.Trip;
+import com.smu.cs203_g1_1.itinerary_planner.trips.TripService;
+import com.smu.cs203_g1_1.itinerary_planner.user.UserService;
 
 /**
  * REST endpoints for geocoding search, reverse geocoding, and nearby POI discovery.
@@ -25,10 +33,18 @@ public class GeoController {
 
     private final GeoService geoService;
     private final PoiService poiService;
+    private final TripService tripService;
+    private final UserService userService;
 
-    public GeoController(GeoService geoService, PoiService poiService) {
+    public GeoController(
+            GeoService geoService,
+            PoiService poiService,
+            TripService tripService,
+            UserService userService) {
         this.geoService = geoService;
         this.poiService = poiService;
+        this.tripService = tripService;
+        this.userService = userService;
     }
 
     /**
@@ -40,22 +56,64 @@ public class GeoController {
     @Operation(summary = "Search for places by free-text query")
     @GetMapping("/search")
     public SearchResponse search(
-            @Parameter(description = "Free-text place query, e.g. 'Marina Bay Sands'") @RequestParam("q") String q,
-            @Parameter(description = "Maximum number of results (1-10, default 5)") @RequestParam(value = "limit", defaultValue = "5") int limit,
-            @Parameter(description = "Optional comma-separated ISO country codes to restrict results, e.g. 'sg'") @RequestParam(value = "countrycodes", required = false) String countryCodes,
-            @Parameter(description = "Optional bounding box 'minLon,minLat,maxLon,maxLat' used to bias results") @RequestParam(value = "viewbox", required = false) String viewBox,
-            @Parameter(description = "Whether to restrict results to the supplied viewbox") @RequestParam(value = "bounded", defaultValue = "false") boolean bounded) {
+            @Parameter(description = "Free-text place query, e.g. 'Marina Bay Sands'")
+            @RequestParam("q") String q,
+
+            @Parameter(description = "Maximum number of results (1-10, default 5)")
+            @RequestParam(value = "limit", defaultValue = "5") int limit,
+
+            @Parameter(description = "Optional comma-separated ISO country codes, e.g. 'sg'")
+            @RequestParam(value = "countrycodes", required = false) String countryCodes,
+
+            @Parameter(description = "Optional bounding box 'minLon,minLat,maxLon,maxLat'")
+            @RequestParam(value = "viewbox", required = false) String viewBox,
+
+            @Parameter(description = "Restrict results to the supplied viewbox")
+            @RequestParam(value = "bounded", defaultValue = "false") boolean bounded,
+
+            @Parameter(description = "Optional trip ID; uses the trip's saved countries")
+            @RequestParam(value = "tripId", required = false) String tripId,
+
+            @AuthenticationPrincipal Jwt jwt) {
+
         if (q == null || q.isBlank()) {
-            throw new GeoBadRequestException("Query parameter 'q' must not be blank");
+            throw new GeoBadRequestException(
+                "Query parameter 'q' must not be blank"
+            );
         }
-        String normalizedCountryCodes = countryCodes == null ? null : countryCodes.toLowerCase().trim();
-        if (normalizedCountryCodes != null && normalizedCountryCodes.isEmpty()) {
-            normalizedCountryCodes = null;
+
+        String effectiveCountryCodes =
+            countryCodes == null ? null : countryCodes.toLowerCase().trim();
+
+        if (effectiveCountryCodes != null
+                && effectiveCountryCodes.isEmpty()) {
+            effectiveCountryCodes = null;
         }
+
         int clampedLimit = Math.max(1, Math.min(10, limit));
+
+        if (tripId != null && !tripId.isBlank()) {
+            String userId = userService.getCurrentUserId(jwt);
+
+            Trip trip = tripService.getTripForMember(tripId, userId);
+
+            List<String> countries = trip.getCountries();
+
+            effectiveCountryCodes = countries.isEmpty()
+                ? null
+                : String.join(",", countries);
+        }
+
         return new SearchResponse(
-                geoService.search(q.trim(), clampedLimit, normalizedCountryCodes, viewBox, bounded),
-                OsmAttribution.TEXT);
+            geoService.search(
+                q.trim(),
+                clampedLimit,
+                effectiveCountryCodes,
+                viewBox,
+                bounded
+            ),
+            OsmAttribution.TEXT
+        );
     }
 
     /**

@@ -10,9 +10,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import com.smu.cs203_g1_1.itinerary_planner.util.ID;
 import com.smu.cs203_g1_1.itinerary_planner.user.User;
 import com.smu.cs203_g1_1.itinerary_planner.user.UserRepository;
+import com.smu.cs203_g1_1.itinerary_planner.util.ID;
 
 @Service
 public class TripService {
@@ -69,7 +69,12 @@ public class TripService {
     }
 
     @Transactional
-    public Trip createTrip(String name, LocalDate startDate, LocalDate endDate, String ownerId) {
+    public Trip createTrip(
+            String name,
+            LocalDate startDate,
+            LocalDate endDate,
+            String ownerId,
+            List<String> countries) {
 
         validateDates(startDate, endDate);
 
@@ -79,27 +84,48 @@ public class TripService {
 
         Trip trip = new Trip(name, startDate, endDate, owner);
         trip.setId(id);
+        trip.setCountries(countries);
 
-        // The owner is a participant too (with the OWNER role), so owned trips
-        // show up through User.trips (mappedBy = "users").
+        // The owner is also a member of the trip.
         trip.addMember(owner);
 
         Trip saved = tripRepository.save(trip);
         log.info("Created trip id={} (ownerId={})", saved.getId(), ownerId);
+
         return saved;
     }
 
-    // OWNER only
+    // Owner & Editor
     @Transactional
-    public Trip updateTrip(String userId, String tripId, String name, LocalDate startDate, LocalDate endDate) {
+    public Trip updateTrip(
+            String userId,
+            String tripId,
+            String name,
+            LocalDate startDate,
+            LocalDate endDate,
+            List<String> countries) {
 
         validateDates(startDate, endDate);
 
-        Trip trip = requireTripRole(tripId, userId, TripRole.OWNER);
+        // Owner has a higher role than Editor, so they will still have access
+        Trip trip = requireTripRole(tripId, userId, TripRole.EDITOR);
 
         trip.setName(name);
         trip.setStartDate(startDate);
         trip.setEndDate(endDate);
+
+        // Omitted/null means "leave countries unchanged".
+        // An explicitly empty list is rejected by Trip.setCountries().
+        if (countries != null) {
+            try {
+                trip.setCountries(countries);
+            } catch (IllegalArgumentException e) {
+                throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    e.getMessage()
+                );
+            }
+        }
 
         Trip saved = tripRepository.save(trip);
         log.info("Updated trip id={}", tripId);

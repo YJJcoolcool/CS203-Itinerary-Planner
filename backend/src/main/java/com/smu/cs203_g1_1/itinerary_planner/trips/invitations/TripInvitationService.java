@@ -129,10 +129,15 @@ public class TripInvitationService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Invitation not found"));
     }
 
-    // Who may send/view/cancel invites. Currently owner-only; extend here when roles land.
+    // Owner/Editor may send/view/cancel invites
     private void requireCanManageInvitations(Trip trip, String userId) {
-        if (!trip.getOwner().getId().equals(userId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the trip owner can manage invitations");
+        TripRole role = trip.findRole(userId).orElse(null);
+
+        if (role == null || !role.atLeast(TripRole.EDITOR)) {
+            throw new ResponseStatusException(
+                HttpStatus.FORBIDDEN,
+                "Only trip editors and owners can manage invitations"
+            );
         }
     }
 

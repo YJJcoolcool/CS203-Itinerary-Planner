@@ -18,6 +18,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -90,29 +93,71 @@ class NeaWeatherSourceTest {
     }
 
     @Test
-    void missingAreaFallsBackToTheFourDayOutlook() {
+    void missingTwoHourAreaReturnsFalseAndNeverConsultsTheFourDayOutlook() {
         when(client.getTwoHourForecast()).thenReturn(List.of(
             twoHour("Tampines", false)
         ));
+        lenient().when(client.getFourDayForecast()).thenReturn(List.of(
+            new WeatherForecast(LocalDate.of(2026, 10, 20), "Thundery Showers", true)
+        ));
+
+        assertFalse(source.isRainy(
+            1.3200, 103.9230,
+            ACTIVITY_START, ACTIVITY_START.plusMinutes(30)
+        ));
+
+        verify(client, never()).getFourDayForecast();
+    }
+
+    @Test
+    void shortWindowWithoutAnOverlappingForecastReturnsFalse() {
+        when(client.getTwoHourForecast()).thenReturn(List.of(
+            twoHour("Bedok", true)
+        ));
+
+        assertFalse(source.isRainy(
+            1.3200, 103.9230,
+            ACTIVITY_START.plusHours(4), ACTIVITY_START.plusHours(4).plusMinutes(30)
+        ));
+
+        verify(client, never()).getFourDayForecast();
+    }
+
+    @Test
+    void longWindowIgnoresTheTwoHourFeedAndUsesTheFourDayOutlook() {
+        when(client.getFourDayForecast()).thenReturn(List.of(
+            new WeatherForecast(LocalDate.of(2026, 10, 20), "Cloudy", false),
+            new WeatherForecast(LocalDate.of(2026, 10, 21), "Cloudy", false)
+        ));
+
+        assertFalse(source.isRainy(
+            1.3200, 103.9230,
+            ACTIVITY_START, ACTIVITY_START.plusMinutes(150)
+        ));
+
+        verify(client, never()).getTwoHourForecast();
+    }
+
+    @Test
+    void longWindowReturnsTheFourDayAnswerEvenWhenTheTwoHourFeedWouldThrow() {
+        lenient().when(client.getTwoHourForecast())
+            .thenThrow(new IllegalStateException("NEA two-hour unavailable"));
         when(client.getFourDayForecast()).thenReturn(List.of(
             new WeatherForecast(LocalDate.of(2026, 10, 20), "Thundery Showers", true)
         ));
 
         assertTrue(source.isRainy(
             1.3200, 103.9230,
-            ACTIVITY_START, ACTIVITY_START.plusMinutes(30)
+            ACTIVITY_START, ACTIVITY_START.plusMinutes(150)
         ));
+
+        verify(client, never()).getTwoHourForecast();
     }
 
     @Test
-    void longWindowIgnoresTheTwoHourFeedAndUsesTheFourDayOutlook() {
-        when(client.getTwoHourForecast()).thenReturn(List.of(
-            twoHour("Bedok", true)
-        ));
-        when(client.getFourDayForecast()).thenReturn(List.of(
-            new WeatherForecast(LocalDate.of(2026, 10, 20), "Cloudy", false),
-            new WeatherForecast(LocalDate.of(2026, 10, 21), "Cloudy", false)
-        ));
+    void longWindowFourDayFailureIsTreatedAsNoRain() {
+        when(client.getFourDayForecast())
+            .thenThrow(new IllegalStateException("NEA four-day unavailable"));
 
         assertFalse(source.isRainy(
             1.3200, 103.9230,
@@ -129,6 +174,8 @@ class NeaWeatherSourceTest {
             1.3200, 103.9230,
             ACTIVITY_START, ACTIVITY_START.plusMinutes(30)
         ));
+
+        verify(client, never()).getFourDayForecast();
     }
 
     @Test

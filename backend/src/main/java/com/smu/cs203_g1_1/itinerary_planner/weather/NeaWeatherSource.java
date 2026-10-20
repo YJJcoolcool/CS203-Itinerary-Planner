@@ -29,8 +29,25 @@ import org.springframework.stereotype.Component;
  * <p>NEA's two-hour forecast is keyed by area name, not coordinates, so the
  * classpath resource {@code nea/area-centroids.json} (generated from the same
  * feed's {@code area_metadata}) maps a coordinate to the nearest forecast area.
- * A window of up to two hours uses that area-level feed; longer windows fall
- * back to the national four-day outlook, which is keyed by date only.</p>
+ * The feed is chosen by window length alone:</p>
+ *
+ * <ul>
+ *   <li>{@code <= 2 h}: only the area-level two-hour feed. If that area has no
+ *       forecast overlapping the window, the answer is {@code false} (an
+ *       uncovered window is unknown, never assumed wet).</li>
+ *   <li>{@code > 2 h}: only the four-day outlook. The two-hour feed is not
+ *       fetched at all.</li>
+ * </ul>
+ *
+ * <p><strong>Known limitation of the four-day path:</strong> the data.gov.sg
+ * four-day endpoint
+ * ({@code https://api-open.data.gov.sg/v2/real-time/api/four-day-outlook})
+ * publishes a national daily outlook keyed by date only. It contains no
+ * North/South/East/West/Central region breakdown, and no region mapping is
+ * available from this endpoint. The long-window answer is therefore
+ * deliberately coarse and conservative: it reports rain if any forecast day
+ * overlapping the window is wet nationally. It must never be used for short,
+ * imminent windows; those always go through the area-level two-hour feed.</p>
  *
  * <p>Every failure path returns {@code false}: a point outside Singapore, an
  * area missing from the feed, an expired feed, or an upstream error can only
@@ -59,6 +76,10 @@ public class NeaWeatherSource implements WeatherSource {
     private final Clock clock;
     private final List<Area> areas;
 
+    /**
+     * Marks this constructor for injection: the class also has a package-private
+     * constructor for tests, so Spring cannot infer which one to use.
+     */
     @Autowired
     public NeaWeatherSource(NEAWeatherClient client) {
         this(client, loadAreas(), Clock.system(SINGAPORE));
@@ -88,11 +109,11 @@ public class NeaWeatherSource implements WeatherSource {
         Area area = nearestArea(latitude, longitude);
 
         try {
-            List<TwoHourWeatherForecast> overlapping = overlappingTwoHour(area, from, to);
-
-            if (!overlapping.isEmpty()
-                    && Duration.between(from, to).compareTo(TWO_HOUR_WINDOW) <= 0) {
-                return overlapping.stream().anyMatch(TwoHourWeatherForecast::rainExpected);
+            // The feed is selected by window length only: the four-day outlook
+            // exists precisely for windows the two-hour feed does not cover.
+            if (Duration.between(from, to).compareTo(TWO_HOUR_WINDOW) <= 0) {
+                return overlappingTwoHour(area, from, to).stream()
+                    .anyMatch(TwoHourWeatherForecast::rainExpected);
             }
 
             return fourDayHintsRain(from, to);
@@ -118,6 +139,11 @@ public class NeaWeatherSource implements WeatherSource {
             .toList();
     }
 
+    /**
+     * Coarse, national answer for windows longer than two hours. The published
+     * feed has no regional breakdown, so any wet day overlapping the window
+     * counts as rainy. Never used for short, imminent windows.
+     */
     private boolean fourDayHintsRain(ZonedDateTime from, ZonedDateTime to) {
         List<WeatherForecast> forecasts = client.getFourDayForecast();
 

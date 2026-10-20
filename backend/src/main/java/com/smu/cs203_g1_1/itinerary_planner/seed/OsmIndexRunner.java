@@ -36,6 +36,9 @@ public class OsmIndexRunner implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
+        log.info("OSM index import requested (path={}, readable={})",
+            path.toAbsolutePath(), Files.isReadable(path));
+
         if (!Files.isReadable(path)) {
             log.warn("OSM index not found at {}; run scripts/build-sg-pois.sh to generate it", path);
             return;

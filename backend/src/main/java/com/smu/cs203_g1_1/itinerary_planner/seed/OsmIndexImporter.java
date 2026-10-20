@@ -94,9 +94,14 @@ public class OsmIndexImporter {
         }
 
         Set<String> existing = new HashSet<>();
+        Set<String> usedIds = new HashSet<>();
 
         for (Location location : locations.findAll()) {
             existing.add(key(location.getOsmType(), location.getOsmId()));
+
+            if (location.getId() != null) {
+                usedIds.add(location.getId());
+            }
         }
 
         int total = 0;
@@ -156,7 +161,7 @@ public class OsmIndexImporter {
                 continue;
             }
 
-            batch.add(toLocation(name, category, osmType, osmId,
+            batch.add(toLocation(nextId(usedIds), name, category, osmType, osmId,
                 latitude, longitude, tags));
 
             if (batch.size() >= SAVE_BATCH_SIZE) {
@@ -180,7 +185,8 @@ public class OsmIndexImporter {
         return summary;
     }
 
-    private Location toLocation(String name,
+    private Location toLocation(String id,
+                                String name,
                                 MappedCategory category,
                                 String osmType,
                                 long osmId,
@@ -188,7 +194,7 @@ public class OsmIndexImporter {
                                 double longitude,
                                 Map<String, String> tags) {
         Location location = new Location();
-        location.setId(ID.generateUniqueID(locations::existsById));
+        location.setId(id);
         location.setName(name);
         location.setCategory(category.value());
         location.setCategoryGroup(category.group());
@@ -325,6 +331,22 @@ public class OsmIndexImporter {
 
     private static String key(String osmType, Long osmId) {
         return osmType + ":" + osmId;
+    }
+
+    /**
+     * Generates an unused 8-character id from the in-memory set.
+     *
+     * <p>Never queries the database: one round trip per place made a remote
+     * import take roughly an hour over the tunnel.</p>
+     */
+    private static String nextId(Set<String> used) {
+        String id;
+
+        do {
+            id = ID.generateID();
+        } while (!used.add(id));
+
+        return id;
     }
 
     private static String text(JsonNode node, String field) {

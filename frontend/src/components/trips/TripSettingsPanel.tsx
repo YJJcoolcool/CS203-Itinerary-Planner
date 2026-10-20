@@ -310,12 +310,13 @@ export function TripSettingsPanel({
       return
     }
 
-    const countryCodes = [...new Set(
-      countries
-        .split(',')
-        .map((country) => country.trim().toLowerCase())
-        .filter(Boolean),
-    )]
+    const countryCodes = [
+      ...new Set(
+        countries
+          .map((country) => country.trim().toLowerCase())
+          .filter(Boolean)
+      ),
+    ];
 
     if (countryCodes.length === 0) {
       setSaveError('Enter at least one country code.')

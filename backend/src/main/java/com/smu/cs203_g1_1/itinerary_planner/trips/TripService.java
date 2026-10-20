@@ -10,9 +10,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import com.smu.cs203_g1_1.itinerary_planner.util.ID;
 import com.smu.cs203_g1_1.itinerary_planner.user.User;
 import com.smu.cs203_g1_1.itinerary_planner.user.UserRepository;
+import com.smu.cs203_g1_1.itinerary_planner.util.ID;
 
 @Service
 public class TripService {
@@ -95,7 +95,7 @@ public class TripService {
         return saved;
     }
 
-    // OWNER only
+    // Owner & Editor
     @Transactional
     public Trip updateTrip(
             String userId,
@@ -107,7 +107,8 @@ public class TripService {
 
         validateDates(startDate, endDate);
 
-        Trip trip = requireTripRole(tripId, userId, TripRole.OWNER);
+        // Owner has a higher role than Editor, so they will still have access
+        Trip trip = requireTripRole(tripId, userId, TripRole.EDITOR);
 
         trip.setName(name);
         trip.setStartDate(startDate);

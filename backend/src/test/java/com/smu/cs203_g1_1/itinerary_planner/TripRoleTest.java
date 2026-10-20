@@ -208,10 +208,25 @@ class TripRoleTest {
     }
 
     @Test
-    void editor_cannotUpdateOrDeleteTrip() {
-        assertStatus(HttpStatus.FORBIDDEN, () -> tripService.updateTrip(EDITOR, TRIP_ID, "x", null, null, null));
-        assertStatus(HttpStatus.FORBIDDEN, () -> tripService.deleteTrip(EDITOR, TRIP_ID));
-        verify(tripRepository, never()).delete(any());
+    void editor_canUpdateTrip_butCannotDeleteTrip() {
+        Trip updated = tripService.updateTrip(
+                EDITOR,
+                TRIP_ID,
+                "Japan Trip",
+                LocalDate.of(2026, 11, 1),
+                LocalDate.of(2026, 11, 7),
+                List.of("jp")
+        );
+
+        assertEquals("Japan Trip", updated.getName());
+        assertEquals(LocalDate.of(2026, 11, 1), updated.getStartDate());
+        assertEquals(LocalDate.of(2026, 11, 7), updated.getEndDate());
+        assertEquals(List.of("jp"), updated.getCountries());
+
+        assertStatus(
+                HttpStatus.FORBIDDEN,
+                () -> tripService.deleteTrip(EDITOR, TRIP_ID)
+        );
     }
 
     @Test

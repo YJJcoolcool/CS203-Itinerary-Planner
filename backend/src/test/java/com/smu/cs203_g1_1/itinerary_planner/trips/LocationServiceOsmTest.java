@@ -35,13 +35,22 @@ class LocationServiceOsmTest {
 
     @Test
     void returnsExistingLocationWithoutCallingGeoOrSave() {
-        Location existing = new Location("Existing", "cafe", 1.0, 2.0, null);
+        Location existing = new Location("Existing", "cafe", 1.0, 2.0, true);
         existing.setId("loc00001");
+        existing.setCategoryGroup("food");
+        existing.setIndoorClass("INDOOR");
+        existing.setIndoorSource("MANUAL");
+        existing.setIndoorConfidence(0.99);
         when(locationRepository.findByOsmTypeAndOsmId("node", 123L)).thenReturn(Optional.of(existing));
 
         Location result = locationService.findOrCreateFromOsm("node", 123L);
 
         assertThat(result).isSameAs(existing);
+        assertThat(result.getCategoryGroup()).isEqualTo("food");
+        assertThat(result.getIndoorClass()).isEqualTo("INDOOR");
+        assertThat(result.getIndoorSource()).isEqualTo("MANUAL");
+        assertThat(result.getIndoorConfidence()).isEqualTo(0.99);
+        assertThat(result.getIsIndoor()).isTrue();
         verifyNoInteractions(geoService);
         verify(locationRepository, never()).save(any(Location.class));
     }
@@ -69,6 +78,94 @@ class LocationServiceOsmTest {
         assertThat(saved.getOsmId()).isEqualTo(123L);
         assertThat(saved.getAddress()).isEqualTo("Marina Bay Sands, Singapore");
         assertThat(saved.getOpeningHours()).isEqualTo("24/7");
+        assertThat(saved.getCategoryGroup()).isEqualTo("attraction");
+        assertThat(saved.getIndoorClass()).isEqualTo("UNKNOWN");
+        assertThat(saved.getIndoorSource()).isNull();
+        assertThat(saved.getIsIndoor()).isNull();
+    }
+
+    @Test
+    void classifiesMuseumAsCultureIndoor() {
+        Location saved = importPlace("tourism", "museum");
+
+        assertThat(saved.getCategoryGroup()).isEqualTo("culture");
+        assertThat(saved.getIndoorClass()).isEqualTo("INDOOR");
+        assertThat(saved.getIndoorSource()).isEqualTo("OSM_TAG");
+        assertThat(saved.getIndoorConfidence()).isEqualTo(0.9);
+        assertThat(saved.getIsIndoor()).isTrue();
+    }
+
+    @Test
+    void classifiesParkAsNatureOutdoor() {
+        Location saved = importPlace("leisure", "park");
+
+        assertThat(saved.getCategoryGroup()).isEqualTo("nature");
+        assertThat(saved.getIndoorClass()).isEqualTo("OUTDOOR");
+        assertThat(saved.getIndoorSource()).isEqualTo("OSM_TAG");
+        assertThat(saved.getIndoorConfidence()).isEqualTo(0.85);
+        assertThat(saved.getIsIndoor()).isFalse();
+    }
+
+    @Test
+    void classifiesRestaurantAsFoodIndoor() {
+        Location saved = importPlace("amenity", "restaurant");
+
+        assertThat(saved.getCategoryGroup()).isEqualTo("food");
+        assertThat(saved.getIndoorClass()).isEqualTo("INDOOR");
+        assertThat(saved.getIndoorSource()).isEqualTo("OSM_TAG");
+        assertThat(saved.getIsIndoor()).isTrue();
+    }
+
+    @Test
+    void classifiesMallAsShoppingIndoor() {
+        Location saved = importPlace("shop", "mall");
+
+        assertThat(saved.getCategoryGroup()).isEqualTo("shopping");
+        assertThat(saved.getIndoorClass()).isEqualTo("INDOOR");
+        assertThat(saved.getIndoorSource()).isEqualTo("OSM_TAG");
+        assertThat(saved.getIsIndoor()).isTrue();
+    }
+
+    @Test
+    void classifiesAttractionAsUnknownGroupAttraction() {
+        Location saved = importPlace("tourism", "attraction");
+
+        assertThat(saved.getCategoryGroup()).isEqualTo("attraction");
+        assertThat(saved.getIndoorClass()).isEqualTo("UNKNOWN");
+        assertThat(saved.getIndoorSource()).isNull();
+        assertThat(saved.getIndoorConfidence()).isEqualTo(0.3);
+        assertThat(saved.getIsIndoor()).isNull();
+    }
+
+    @Test
+    void infersKeyWhenCategoryIsMissing() {
+        Location saved = importPlace(null, "museum");
+
+        assertThat(saved.getCategoryGroup()).isEqualTo("culture");
+        assertThat(saved.getIndoorClass()).isEqualTo("INDOOR");
+        assertThat(saved.getIndoorSource()).isEqualTo("OSM_TAG");
+        assertThat(saved.getIsIndoor()).isTrue();
+    }
+
+    @Test
+    void leavesUnknownOrMissingTagsUnclassified() {
+        Location saved = importPlace(null, null);
+
+        assertThat(saved.getCategoryGroup()).isNull();
+        assertThat(saved.getIndoorClass()).isEqualTo("UNKNOWN");
+        assertThat(saved.getIndoorSource()).isNull();
+        assertThat(saved.getIndoorConfidence()).isEqualTo(0.0);
+        assertThat(saved.getIsIndoor()).isNull();
+    }
+
+    @Test
+    void leavesUnknownTagPairUnclassified() {
+        Location saved = importPlace("highway", "bus_stop");
+
+        assertThat(saved.getCategoryGroup()).isNull();
+        assertThat(saved.getIndoorClass()).isEqualTo("UNKNOWN");
+        assertThat(saved.getIndoorSource()).isNull();
+        assertThat(saved.getIsIndoor()).isNull();
     }
 
     @Test
@@ -80,5 +177,16 @@ class LocationServiceOsmTest {
                 .isInstanceOf(GeoNotFoundException.class);
 
         verify(locationRepository, never()).save(any(Location.class));
+    }
+
+    private Location importPlace(String category, String type) {
+        when(locationRepository.findByOsmTypeAndOsmId("node", 123L)).thenReturn(Optional.empty());
+        PlaceDto place = new PlaceDto("node", 123L, "Test Place",
+                "Test Place, Singapore", category, type,
+                1.0, 2.0, null, null, null, 0.5);
+        when(geoService.lookup("node", 123L)).thenReturn(Optional.of(place));
+        when(locationRepository.save(any(Location.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        return locationService.findOrCreateFromOsm("node", 123L);
     }
 }

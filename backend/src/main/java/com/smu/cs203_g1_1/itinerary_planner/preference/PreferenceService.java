@@ -69,7 +69,25 @@ public class PreferenceService {
         preference.setSummaryStale(true);
         preference.touch();
 
-        return userPreferences.save(preference);
+        UserPreference saved = userPreferences.save(preference);
+        markTripsSummaryStale(userId);
+
+        return saved;
+    }
+
+    /**
+     * Marks the group summary of every trip the user belongs to as stale.
+     *
+     * <p>Only existing {@code trip_preference} rows are touched: a trip that has
+     * never had a group preference has no cached summary to invalidate.</p>
+     */
+    private void markTripsSummaryStale(String userId) {
+        for (Trip trip : tripService.getTripsForUser(userId)) {
+            tripPreferences.findById(trip.getId()).ifPresent(tripPreference -> {
+                tripPreference.touch(userId);
+                tripPreferences.save(tripPreference);
+            });
+        }
     }
 
     @Transactional

@@ -18,6 +18,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
 import org.mockito.Mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -63,6 +65,7 @@ class PreferenceServiceTest {
     void updateUserStoresPreferencesAndMarksTheSummaryStale() {
         when(userPreferences.findById("user0001")).thenReturn(Optional.empty());
         when(userPreferences.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(tripService.getTripsForUser("user0001")).thenReturn(List.of());
 
         UserPreference updated = service.updateUser(
             "user0001", List.of("art", "food"), new BigDecimal("1.50"), "vegetarian", "ANY", "quiet places");
@@ -70,6 +73,58 @@ class PreferenceServiceTest {
         assertEquals(List.of("art", "food"), updated.getTags());
         assertEquals("vegetarian", updated.getDietary());
         assertTrue(updated.isSummaryStale());
+    }
+
+    @Test
+    void updateUserMarksAnExistingTripSummaryStaleWithoutClearingIt() {
+        TripPreference existing = new TripPreference("trip0001");
+        existing.setSummary("Group likes museums.");
+        existing.setSummaryStale(false);
+
+        when(userPreferences.findById("user0001")).thenReturn(Optional.empty());
+        when(userPreferences.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(tripService.getTripsForUser("user0001")).thenReturn(List.of(trip));
+        when(trip.getId()).thenReturn("trip0001");
+        when(tripPreferences.findById("trip0001")).thenReturn(Optional.of(existing));
+        when(tripPreferences.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.updateUser(
+            "user0001", List.of("art"), new BigDecimal("1.50"), "vegetarian", "ANY", null);
+
+        assertTrue(existing.isSummaryStale());
+        assertEquals("Group likes museums.", existing.getSummary());
+        verify(tripPreferences).save(existing);
+    }
+
+    @Test
+    void updateUserDoesNotCreateATripPreferenceThatDoesNotExist() {
+        when(userPreferences.findById("user0001")).thenReturn(Optional.empty());
+        when(userPreferences.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(tripService.getTripsForUser("user0001")).thenReturn(List.of(trip));
+        when(trip.getId()).thenReturn("trip0001");
+        when(tripPreferences.findById("trip0001")).thenReturn(Optional.empty());
+
+        service.updateUser(
+            "user0001", List.of("art"), BigDecimal.ONE, null, "ANY", null);
+
+        verify(tripPreferences, never()).save(any());
+    }
+
+    @Test
+    void updateTripGoalsStillMarksTheSummaryStale() {
+        TripPreference existing = new TripPreference("trip0001");
+        existing.setSummary("Old summary.");
+        existing.setSummaryStale(false);
+
+        when(tripService.requireTripRole("trip0001", "user0001", TripRole.EDITOR)).thenReturn(trip);
+        when(tripPreferences.findById("trip0001")).thenReturn(Optional.of(existing));
+        when(tripPreferences.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        TripPreference updated = service.updateTrip(
+            "trip0001", "user0001", List.of("MUSEUMS"), List.of("art"));
+
+        assertTrue(updated.isSummaryStale());
+        assertEquals("Old summary.", updated.getSummary());
     }
 
     @Test

@@ -6,6 +6,10 @@ Rules:
 - Rank at most 3 candidates. Prefer, in this order: matches the user's stated
   interests; similar category to the activity being replaced; closer; lower
   cost; open at the arrival time.
+- The trip goal states what the group wants from this trip. The group summary
+  states their shared constraints. Respect both when they apply.
+- previous_activity and next_activity are context only. Do not invent details
+  about them, and do not reward a candidate merely for being near them.
 - You do not know any internal score. Judge only from the supplied facts.
 - If none of the candidates are suitable, return no_suitable_option true.
 

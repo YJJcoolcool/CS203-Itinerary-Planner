@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -31,6 +32,9 @@ import com.smu.cs203_g1_1.itinerary_planner.discovery.PlaceDiscoveryService;
 import com.smu.cs203_g1_1.itinerary_planner.planner.Candidate;
 import com.smu.cs203_g1_1.itinerary_planner.planner.CandidateFinder;
 import com.smu.cs203_g1_1.itinerary_planner.planner.CandidateRequest;
+import com.smu.cs203_g1_1.itinerary_planner.preference.TripPreference;
+import com.smu.cs203_g1_1.itinerary_planner.preference.TripPreferenceRepository;
+import com.smu.cs203_g1_1.itinerary_planner.preference.UserPreferenceRepository;
 import com.smu.cs203_g1_1.itinerary_planner.rag.QueryEmbedder;
 import com.smu.cs203_g1_1.itinerary_planner.trips.Activity;
 import com.smu.cs203_g1_1.itinerary_planner.trips.ActivityRepository;
@@ -71,6 +75,8 @@ public class SuggestionService {
     private final PlanChooser planChooser;
     private final ObjectProvider<QueryEmbedder> queryEmbedder;
     private final ObjectProvider<PlaceDiscoveryService> discoveryService;
+    private final UserPreferenceRepository userPreferences;
+    private final TripPreferenceRepository tripPreferences;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public SuggestionService(SuggestionRepository suggestionRepository,
@@ -80,7 +86,9 @@ public class SuggestionService {
                              WeatherSource weatherSource,
                              PlanChooser planChooser,
                              ObjectProvider<QueryEmbedder> queryEmbedder,
-                             ObjectProvider<PlaceDiscoveryService> discoveryService) {
+                             ObjectProvider<PlaceDiscoveryService> discoveryService,
+                             UserPreferenceRepository userPreferences,
+                             TripPreferenceRepository tripPreferences) {
         this.suggestionRepository = suggestionRepository;
         this.activityRepository = activityRepository;
         this.tripService = tripService;
@@ -89,6 +97,8 @@ public class SuggestionService {
         this.planChooser = planChooser;
         this.queryEmbedder = queryEmbedder;
         this.discoveryService = discoveryService;
+        this.userPreferences = userPreferences;
+        this.tripPreferences = tripPreferences;
     }
 
     @Transactional(readOnly = true)
@@ -168,21 +178,41 @@ public class SuggestionService {
         return countries.stream().anyMatch(code -> "SG".equalsIgnoreCase(code));
     }
 
+    /** Union of the traveller's own tags and the trip's group tags. */
+    private Set<String> interests(String userId, TripPreference tripPreference) {
+        Set<String> tags = new TreeSet<>();
+
+        userPreferences.findById(userId)
+            .ifPresent(preference -> tags.addAll(preference.getTags()));
+
+        if (tripPreference != null) {
+            tags.addAll(tripPreference.getTags());
+        }
+
+        return tags;
+    }
+
     /**
-     * Embeds the trip context once per replan. Returns null when semantic
-     * retrieval is unavailable, in which case discovery stays SQL-only.
+     * Embeds the trip context once per replan, preferring the trip goal and the
+     * group summary over the trip name. Returns null when semantic retrieval is
+     * unavailable, in which case discovery stays SQL-only.
      */
-    private float[] buildQueryVector(Trip trip) {
+    private float[] buildQueryVector(Trip trip, Set<String> interests, TripPreference preference) {
         QueryEmbedder embedder = queryEmbedder.getIfAvailable();
 
         if (embedder == null) {
             return null;
         }
 
+        String goal = preference == null || preference.getGoals().isEmpty()
+            ? trip.getName()
+            : String.join(", ", preference.getGoals());
+        String summary = preference == null ? null : preference.getSummary();
+
         return embedder.embedQuery(
-                trip.getName(),
-                null,
-                Set.of(),
+                goal,
+                summary,
+                interests,
                 "rain expected within the next 24 hours; prefer indoor alternatives")
             .orElse(null);
     }
@@ -190,6 +220,7 @@ public class SuggestionService {
     public List<SuggestionResponse> replan(String tripId, String userId, ZonedDateTime at) {
         Trip trip = tripService.requireTripRole(tripId, userId, TripRole.EDITOR);
         ZonedDateTime now = at != null ? at : ZonedDateTime.now(SG);
+        long startedAt = System.nanoTime();
 
         if (!coversSingapore(trip)) {
             log.info("Skipping replan for trip id={}: countries {} do not include SG",
@@ -197,11 +228,21 @@ public class SuggestionService {
             return List.of();
         }
 
+        TripPreference tripPreference = tripPreferences.findById(tripId).orElse(null);
+        Set<String> interests = interests(userId, tripPreference);
+
+        String tripGoal = tripPreference == null || tripPreference.getGoals().isEmpty()
+                ? null
+                : String.join(", ", tripPreference.getGoals());
+        String groupSummary = tripPreference == null ? null : tripPreference.getSummary();
+
         // One embedding call per replan; every activity reuses the same vector.
-        float[] queryVector = buildQueryVector(trip);
+        float[] queryVector = buildQueryVector(trip, interests, tripPreference);
 
         List<Activity> activities = activityRepository.findByTripIdOrderByStartDateTimeAsc(tripId);
         List<SuggestionResponse> created = new ArrayList<>();
+        int aiAttempts = 0;
+        int aiPicks = 0;
 
         for (int activityIndex = 0; activityIndex < activities.size(); activityIndex++) {
             Activity activity = activities.get(activityIndex);
@@ -256,13 +297,17 @@ public class SuggestionService {
             }
 
             List<Candidate> candidates = candidateFinder.find(new CandidateRequest(
-                    dropped.getId(), arrival, true, Set.of(), SHORTLIST_LIMIT, excluded, preferred));
+                    dropped.getId(), arrival, true, interests, SHORTLIST_LIMIT, excluded, preferred));
 
             if (candidates.isEmpty()) {
                 log.info("No indoor candidate for activity id={} on trip id={}",
                         activity.getId(), tripId);
                 continue;
             }
+
+            String previousActivityName = activityIndex > 0
+                    ? activities.get(activityIndex - 1).getName()
+                    : null;
 
             String nextActivityName = activityIndex + 1 < activities.size()
                     ? activities.get(activityIndex + 1).getName()
@@ -278,13 +323,17 @@ public class SuggestionService {
                     activity.getName(),
                     dropped.getCategoryGroup(),
                     arrival,
-                    Set.of(),
+                    interests,
+                    previousActivityName,
                     nextActivityName,
+                    tripGoal,
+                    groupSummary,
                     candidates.stream()
                             .map(SuggestionService::toPlanCandidate)
                             .toList());
 
             Optional<PlanChoice> choice;
+            aiAttempts++;
             try {
                 choice = planChooser.choose(choiceRequest);
             } catch (RuntimeException e) {
@@ -306,6 +355,7 @@ public class SuggestionService {
             String explanation;
             String aiChoiceId;
             if (selected != null) {
+                aiPicks++;
                 proposed = selected.location();
                 explanation = ranked.reason();
                 aiChoiceId = selected.location().getId();
@@ -340,6 +390,12 @@ public class SuggestionService {
                     response.id(), activity.getId(), tripId,
                     selected != null ? "LLM" : "FALLBACK");
         }
+
+        log.info("replan_metrics trip={} suggestions={} ai_attempts={} ai_picks={} fallbacks={} retrieval={} latency_ms={}",
+                tripId, created.size(), aiAttempts, aiPicks,
+                created.size() - aiPicks,
+                queryVector == null ? "SQL_ONLY" : "SEMANTIC",
+                (System.nanoTime() - startedAt) / 1_000_000);
 
         return created;
     }

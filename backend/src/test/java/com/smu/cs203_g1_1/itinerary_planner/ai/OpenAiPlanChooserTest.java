@@ -54,7 +54,10 @@ class OpenAiPlanChooserTest {
                 "nature",
                 ZonedDateTime.of(2026, 11, 2, 15, 0, 0, 0, ZoneId.of("Asia/Singapore")),
                 Set.of("history"),
+                "Lunch at Maxwell",
                 "Dinner at Lau Pa Sat",
+                "MUSEUMS, FOOD",
+                "Quiet places, no long walks",
                 List.of(new PlanChoiceRequest.PlanCandidate(
                         "Cult0001",
                         "National Museum",

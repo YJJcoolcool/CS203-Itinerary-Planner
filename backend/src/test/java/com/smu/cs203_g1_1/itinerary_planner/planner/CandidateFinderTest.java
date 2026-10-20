@@ -152,6 +152,16 @@ class CandidateFinderTest {
                 find(result, "Unscored").score(), 1e-12);
     }
 
+    @Test
+    void includesIndexedPlacesThatAreNotCurated() {
+        saveDropped();
+        saveIndexedLocation("IndexLc1", 1.30, 103.86, "culture", "INDOOR", "24/7");
+
+        List<Candidate> result = candidateFinder.find(request(false, Set.of(), 10, Set.of()));
+
+        assertEquals(List.of("IndexLc1"), ids(result));
+    }
+
     private CandidateRequest request(boolean requireIndoor, Set<String> interests,
                                      int limit, Set<String> excluded) {
         return new CandidateRequest(
@@ -177,6 +187,14 @@ class CandidateFinderTest {
         location.setCategoryGroup(categoryGroup);
         location.setIndoorClass(indoorClass);
         location.setOpeningHours(openingHours);
+        return locationRepository.saveAndFlush(location);
+    }
+
+    private Location saveIndexedLocation(String id, double latitude, double longitude,
+                                         String categoryGroup, String indoorClass,
+                                         String openingHours) {
+        Location location = saveLocation(id, latitude, longitude, categoryGroup, indoorClass, openingHours);
+        location.setSeeded(false);
         return locationRepository.saveAndFlush(location);
     }
 

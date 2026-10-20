@@ -21,4 +21,16 @@ public interface LocationRepository extends JpaRepository<Location, String> {
             @Param("maxLat") Double maxLat,
             @Param("minLon") Double minLon,
             @Param("maxLon") Double maxLon);
+
+    /**
+     * Every place in the box, curated or imported. Discovery uses this; the
+     * seeded-only query above remains the last-resort fallback when the index
+     * is unavailable.
+     */
+    @Query("select l from Location l where l.latitude between :minLat and :maxLat and l.longitude between :minLon and :maxLon")
+    List<Location> findInBoundingBox(
+            @Param("minLat") Double minLat,
+            @Param("maxLat") Double maxLat,
+            @Param("minLon") Double minLon,
+            @Param("maxLon") Double maxLon);
 }

@@ -71,7 +71,7 @@ public class CandidateFinder {
                 ? 180.0
                 : RADIUS_KM / (KM_PER_DEGREE_LAT * Math.abs(cosLat));
 
-        List<Location> nearby = locationRepository.findSeededInBoundingBox(
+        List<Location> nearby = locationRepository.findInBoundingBox(
                 latitude - latDelta,
                 latitude + latDelta,
                 longitude - lonDelta,

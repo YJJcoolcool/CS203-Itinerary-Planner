@@ -160,6 +160,14 @@ class SuggestionServiceTest {
     }
 
     @Test
+    void replanSkipsTripsThatDoNotIncludeSingapore() {
+        trip.setCountries(List.of("JP"));
+        tripRepository.saveAndFlush(trip);
+
+        assertTrue(replan().isEmpty());
+    }
+
+    @Test
     void replanCreatesOnePendingSuggestionWithIndoorProposal() {
         List<SuggestionResponse> created = replan();
 

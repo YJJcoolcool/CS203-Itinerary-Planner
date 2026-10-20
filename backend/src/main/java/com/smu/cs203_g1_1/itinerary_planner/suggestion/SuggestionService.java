@@ -154,6 +154,21 @@ public class SuggestionService {
      */
     @Transactional
     /**
+     * Singapore-only scope: a trip with no countries keeps the legacy
+     * behaviour, but an explicit list must contain SG for weather-driven
+     * replanning to run at all.
+     */
+    private static boolean coversSingapore(Trip trip) {
+        List<String> countries = trip.getCountries();
+
+        if (countries == null || countries.isEmpty()) {
+            return true;
+        }
+
+        return countries.stream().anyMatch(code -> "SG".equalsIgnoreCase(code));
+    }
+
+    /**
      * Embeds the trip context once per replan. Returns null when semantic
      * retrieval is unavailable, in which case discovery stays SQL-only.
      */
@@ -175,6 +190,12 @@ public class SuggestionService {
     public List<SuggestionResponse> replan(String tripId, String userId, ZonedDateTime at) {
         Trip trip = tripService.requireTripRole(tripId, userId, TripRole.EDITOR);
         ZonedDateTime now = at != null ? at : ZonedDateTime.now(SG);
+
+        if (!coversSingapore(trip)) {
+            log.info("Skipping replan for trip id={}: countries {} do not include SG",
+                    tripId, trip.getCountries());
+            return List.of();
+        }
 
         // One embedding call per replan; every activity reuses the same vector.
         float[] queryVector = buildQueryVector(trip);

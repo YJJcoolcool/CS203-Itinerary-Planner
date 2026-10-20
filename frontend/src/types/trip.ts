@@ -53,7 +53,7 @@ export interface Trip {
   owner: User
   users: User[]
   /** User id -> role. A member missing from this map is a VIEWER (see `roleOf`). */
-  roles: Record<string, MemberRole>
+  roles?: Record<string, MemberRole>
   itinerary: Activity[]
 }
 

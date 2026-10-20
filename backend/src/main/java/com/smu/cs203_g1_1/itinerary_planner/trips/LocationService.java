@@ -1,6 +1,7 @@
 package com.smu.cs203_g1_1.itinerary_planner.trips;
 
 import java.util.List;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.smu.cs203_g1_1.itinerary_planner.geo.GeoNotFoundException;
 import com.smu.cs203_g1_1.itinerary_planner.geo.GeoService;
 import com.smu.cs203_g1_1.itinerary_planner.geo.dto.PlaceDto;
+import com.smu.cs203_g1_1.itinerary_planner.planner.CategoryGroups;
+import com.smu.cs203_g1_1.itinerary_planner.seed.IndoorClassifier;
 import com.smu.cs203_g1_1.itinerary_planner.util.ID;
 
 /**
@@ -21,6 +24,7 @@ public class LocationService {
 
     private final LocationRepository locationRepository;
     private final GeoService geoService;
+    private final IndoorClassifier indoorClassifier = new IndoorClassifier();
 
     /**
      * @param locationRepository persistence for stored locations
@@ -88,6 +92,9 @@ public class LocationService {
                     PlaceDto place = geoService.lookup(osmType, osmId)
                             .orElseThrow(() -> new GeoNotFoundException("No OSM place found for " + osmType + "/" + osmId));
 
+                    IndoorClassifier.IndoorClassification indoor =
+                            indoorClassifier.classify(place.type(), osmTags(place));
+
                     Location location = new Location();
                     location.setId(ID.generateUniqueID(locationRepository::existsById));
                     location.setName(firstNonBlank(place.name(), place.displayName(), osmType + " " + osmId));
@@ -98,6 +105,11 @@ public class LocationService {
                     location.setOsmId(place.osmId() != null ? place.osmId() : osmId);
                     location.setAddress(place.displayName());
                     location.setOpeningHours(place.openingHours());
+                    location.setCategoryGroup(CategoryGroups.from(place.category(), place.type()));
+                    location.setIndoorClass(indoor.indoorClass());
+                    location.setIndoorSource(indoor.source());
+                    location.setIndoorConfidence(indoor.confidence());
+                    location.setIsIndoor(legacyIndoorFlag(indoor.indoorClass()));
 
                     Location saved = locationRepository.save(location);
                     log.info("Imported OSM location id={} osm={}/{}", saved.getId(), saved.getOsmType(), saved.getOsmId());
@@ -113,6 +125,45 @@ public class LocationService {
             }
         }
         return null;
+    }
+
+    /**
+     * Builds the one-entry OSM tag map used by {@link IndoorClassifier}. When
+     * the category is missing, the key is inferred from the value so a
+     * type-only place can still be classified.
+     */
+    private static Map<String, String> osmTags(PlaceDto place) {
+        String category = trimToNull(place.category());
+        String type = trimToNull(place.type());
+
+        if (category != null && type != null) {
+            return Map.of(category, type);
+        }
+        if (type == null) {
+            return Map.of();
+        }
+
+        String inferredKey = CategoryGroups.inferKey(type);
+        return inferredKey == null ? Map.of() : Map.of(inferredKey, type);
+    }
+
+    /** Mirrors the legacy {@code isIndoor} flag, leaving it null when unknown. */
+    private static Boolean legacyIndoorFlag(String indoorClass) {
+        if ("INDOOR".equals(indoorClass)) {
+            return true;
+        }
+        if ("OUTDOOR".equals(indoorClass)) {
+            return false;
+        }
+        return null;
+    }
+
+    private static String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     public boolean deleteLocation(String id) {

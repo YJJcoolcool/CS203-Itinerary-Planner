@@ -1,7 +1,11 @@
 package com.smu.cs203_g1_1.itinerary_planner.trips;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
@@ -52,6 +56,35 @@ public class Location {
     /** Free-form OSM opening_hours value, when known. */
     @Column(name = "opening_hours")
     private String openingHours;
+
+    /** Coarse interest group used for candidate compatibility (e.g. culture, nature, food). */
+    @Column(name = "category_group", length = 32)
+    private String categoryGroup;
+
+    /** INDOOR, OUTDOOR, or UNKNOWN; null when never classified. */
+    @Column(name = "indoor_class", length = 16)
+    private String indoorClass;
+
+    /** Where {@link #indoorClass} came from: OSM_TAG, MANUAL, or AI. */
+    @Column(name = "indoor_source", length = 16)
+    private String indoorSource;
+
+    /** Classifier confidence in {@link #indoorClass}, 0..1. */
+    @JdbcTypeCode(SqlTypes.NUMERIC)
+    @Column(name = "indoor_confidence", precision = 3, scale = 2)
+    private Double indoorConfidence;
+
+    /** Estimated entry/visit cost, in local currency. */
+    @Column(name = "est_cost", precision = 10, scale = 2)
+    private BigDecimal estCost;
+
+    /** Parsed opening intervals, stored as a compact string (never jsonb; H2 tests build from the entity). */
+    @Column(name = "open_intervals", length = 2048)
+    private String openIntervals;
+
+    /** True when the row came from the curated seed set. */
+    @Column(name = "seeded", nullable = false)
+    private boolean seeded = false;
 
     @ManyToOne
     @JoinColumn(name = "parent_location_id")
@@ -171,6 +204,62 @@ public class Location {
 
     public void setOpeningHours(String openingHours) {
         this.openingHours = openingHours;
+    }
+
+    public String getCategoryGroup() {
+        return categoryGroup;
+    }
+
+    public void setCategoryGroup(String categoryGroup) {
+        this.categoryGroup = categoryGroup;
+    }
+
+    public String getIndoorClass() {
+        return indoorClass;
+    }
+
+    public void setIndoorClass(String indoorClass) {
+        this.indoorClass = indoorClass;
+    }
+
+    public String getIndoorSource() {
+        return indoorSource;
+    }
+
+    public void setIndoorSource(String indoorSource) {
+        this.indoorSource = indoorSource;
+    }
+
+    public Double getIndoorConfidence() {
+        return indoorConfidence;
+    }
+
+    public void setIndoorConfidence(Double indoorConfidence) {
+        this.indoorConfidence = indoorConfidence;
+    }
+
+    public BigDecimal getEstCost() {
+        return estCost;
+    }
+
+    public void setEstCost(BigDecimal estCost) {
+        this.estCost = estCost;
+    }
+
+    public String getOpenIntervals() {
+        return openIntervals;
+    }
+
+    public void setOpenIntervals(String openIntervals) {
+        this.openIntervals = openIntervals;
+    }
+
+    public boolean isSeeded() {
+        return seeded;
+    }
+
+    public void setSeeded(boolean seeded) {
+        this.seeded = seeded;
     }
 
     // Utility methods

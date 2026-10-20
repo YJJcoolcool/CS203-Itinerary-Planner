@@ -1,18 +1,17 @@
 import { useCallback, useState } from 'react'
 import { Link, useParams } from 'react-router'
 
-import { NotFoundPage } from './NotFoundPage'
-import { useCurrentUser, useTrip } from '../lib/useTrips'
-
 import { Navbar } from '../components/Navbar'
+import { SuggestionsPanel } from '../components/suggestions/SuggestionsPanel'
 import { TripDetailsCard } from '../components/trips/TripDetailsCard'
 import { TripItinerary } from '../components/trips/TripItinerary'
 import { TripMembersPanel } from '../components/trips/TripMembersPanel'
 import { TripSettingsPanel } from '../components/trips/TripSettingsPanel'
 import { roleOf } from '../components/trips/tripUtils'
 import { WeatherForecastPanel } from '../components/trips/WeatherForecastPanel'
-
+import { useCurrentUser, useTrip } from '../lib/useTrips'
 import type { Trip } from '../types/trip'
+import { NotFoundPage } from './NotFoundPage'
 
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface'
@@ -64,6 +63,7 @@ function TripDetailsContent({ tripId }: { tripId: string }) {
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [updatedTrip, setUpdatedTrip] = useState<Trip | null>(null)
+  const [itineraryRefreshKey, setItineraryRefreshKey] = useState(0)
 
   const closeSettings = useCallback(() => {
     setIsSettingsOpen(false)
@@ -84,6 +84,7 @@ function TripDetailsContent({ tripId }: { tripId: string }) {
     ? updatedTrip
     : trip
   const myRole = displayedTrip ? roleOf(displayedTrip, user?.id) : null
+  const canEdit = myRole === 'OWNER' || myRole === 'EDITOR'
 
   if (errorStatus === 404) return <NotFoundPage />
 
@@ -136,8 +137,15 @@ function TripDetailsContent({ tripId }: { tripId: string }) {
             />
 
             <TripItinerary
+              key={itineraryRefreshKey}
               tripId={displayedTrip.id}
-              canEdit={myRole === 'OWNER' || myRole === 'EDITOR'}
+              canEdit={canEdit}
+            />
+
+            <SuggestionsPanel
+              tripId={displayedTrip.id}
+              canEdit={canEdit}
+              onAccepted={() => setItineraryRefreshKey((key) => key + 1)}
             />
           </>
         ) : null}

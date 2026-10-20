@@ -30,17 +30,36 @@ public class TripController {
         this.userService = userService;
     }
 
-    public record TripRequest(String name, LocalDate startDate, LocalDate endDate) { }
+    public record TripRequest(
+        String name,
+        LocalDate startDate,
+        LocalDate endDate,
+        List<String> countries
+    ) {}
 
-    public record TripUpdateRequest(String name, LocalDate startDate, LocalDate endDate) { }
+    public record TripUpdateRequest(
+        String name,
+        LocalDate startDate,
+        LocalDate endDate,
+        List<String> countries
+    ) {}
 
     // role is optional when adding a member (defaults to VIEWER)
     public record MemberRequest(TripRole role) { }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public Trip createTrip(@AuthenticationPrincipal Jwt jwt, @RequestBody TripRequest request) {
-        return tripService.createTrip(request.name(), request.startDate(), request.endDate(), userService.getCurrentUserId(jwt)); 
+    public Trip createTrip(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestBody TripRequest request) {
+
+        return tripService.createTrip(
+            request.name(),
+            request.startDate(),
+            request.endDate(),
+            userService.getCurrentUserId(jwt),
+            request.countries()
+        );
     }
 
     @GetMapping
@@ -56,8 +75,19 @@ public class TripController {
     }
 
     @PutMapping("/{tripId}")
-    public Trip updateTrip(@AuthenticationPrincipal Jwt jwt, @PathVariable("tripId") String tripId, @RequestBody TripUpdateRequest request) {
-        return tripService.updateTrip(userService.getCurrentUserId(jwt), tripId, request.name(), request.startDate(), request.endDate());
+    public Trip updateTrip(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable("tripId") String tripId,
+            @RequestBody TripUpdateRequest request) {
+
+        return tripService.updateTrip(
+            userService.getCurrentUserId(jwt),
+            tripId,
+            request.name(),
+            request.startDate(),
+            request.endDate(),
+            request.countries()
+        );
     }
 
     @DeleteMapping("/{tripId}")

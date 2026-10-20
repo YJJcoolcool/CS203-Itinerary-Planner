@@ -5,8 +5,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Pattern;
+import java.util.Set;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -83,6 +86,18 @@ public class Trip {
     @Enumerated(EnumType.STRING)
     private Map<String, TripRole> roles = new HashMap<>();
 
+    /**
+     * One trip can have multiple countries.
+     * Trip is the owning side.
+     */
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(
+        name = "trip_countries",
+        joinColumns = @JoinColumn(name = "trip_id")
+    )
+    @Column(name = "country_code", nullable = false, length = 2)
+    private List<String> countries = new ArrayList<>();
+
     /*
      * One trip has many activities. Activity owns the foreign key
      * (activities.trip_id), so this side is mappedBy = "trip".
@@ -154,6 +169,35 @@ public class Trip {
     // userId -> role, so the frontend can show who can do what.
     public Map<String, TripRole> getRoles() {
         return Collections.unmodifiableMap(roles);
+    }
+
+    public List<String> getCountries() {
+        return Collections.unmodifiableList(countries);
+    }
+
+    public void setCountries(List<String> countryCodes) {
+        if (countryCodes == null || countryCodes.isEmpty()) {
+            throw new IllegalArgumentException(
+                "At least one country must be selected"
+            );
+        }
+
+        List<String> normalized = countryCodes.stream()
+            .filter(code -> code != null)
+            .map(code -> code.trim().toLowerCase(Locale.ROOT))
+            .distinct()
+            .toList();
+
+        if (normalized.size() != countryCodes.size()
+                || normalized.stream().anyMatch(
+                    code -> !Pattern.matches("[a-z]{2}", code)
+                )) {
+            throw new IllegalArgumentException(
+                "Country codes must be valid two-letter codes"
+            );
+        }
+
+        this.countries = new ArrayList<>(normalized);
     }
 
     public List<Activity> getItinerary() {

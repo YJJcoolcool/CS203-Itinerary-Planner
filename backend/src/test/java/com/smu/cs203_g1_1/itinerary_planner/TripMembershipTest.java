@@ -1,6 +1,7 @@
 package com.smu.cs203_g1_1.itinerary_planner;
 
 import java.time.LocalDate;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -39,7 +40,8 @@ class TripMembershipTest {
         member = saveUser("MemberU1", "clerk-member");
         outsider = saveUser("Outsidr1", "clerk-outsider");
 
-        trip = tripService.createTrip("Japan", LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 5), owner.getId());
+        List<String> countries = List.of("id");
+        trip = tripService.createTrip("Indonesia", LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 5), owner.getId(), countries);
         tripService.addMember(owner.getId(), trip.getId(), member.getId());
     }
 

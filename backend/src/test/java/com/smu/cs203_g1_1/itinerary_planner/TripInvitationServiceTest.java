@@ -143,17 +143,29 @@ class TripInvitationServiceTest {
     }
 
     @Test
-    void editorAndViewerMembers_cannotInvite() {
+    void editorMember_canInvite() {
         User editor = saveUser("clerk-editor", "Editor", "editor@test.com");
-        User viewer = saveUser("clerk-viewer", "Viewer", "viewer@test.com");
         trip.addMember(editor, TripRole.EDITOR);
+        trip = tripRepository.save(trip);
+
+        TripInvitationResponse res = invitationService.sendInvitation(
+                trip.getId(), editor.getId(), "invitee@test.com", TripRole.VIEWER);
+
+        assertEquals(InvitationStatus.PENDING, res.status());
+        assertEquals(TripRole.VIEWER, res.role());
+        assertEquals(1, invitationRepository.count());
+    }
+
+    @Test
+    void viewerMember_cannotInvite() {
+        User viewer = saveUser("clerk-viewer", "Viewer", "viewer@test.com");
         trip.addMember(viewer, TripRole.VIEWER);
         trip = tripRepository.save(trip);
 
         assertStatus(HttpStatus.FORBIDDEN,
-                () -> invitationService.sendInvitation(trip.getId(), editor.getId(), "invitee@test.com", TripRole.VIEWER));
-        assertStatus(HttpStatus.FORBIDDEN,
-                () -> invitationService.sendInvitation(trip.getId(), viewer.getId(), "invitee@test.com", TripRole.VIEWER));
+                () -> invitationService.sendInvitation(
+                        trip.getId(), viewer.getId(), "invitee@test.com", TripRole.VIEWER));
+
         assertEquals(0, invitationRepository.count());
     }
 

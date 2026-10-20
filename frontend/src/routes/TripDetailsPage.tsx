@@ -5,7 +5,9 @@ import { Navbar } from '../components/Navbar'
 import { SuggestionsPanel } from '../components/suggestions/SuggestionsPanel'
 import { TripDetailsCard } from '../components/trips/TripDetailsCard'
 import { TripItinerary } from '../components/trips/TripItinerary'
+import { TripMembersPanel } from '../components/trips/TripMembersPanel'
 import { TripSettingsPanel } from '../components/trips/TripSettingsPanel'
+import { roleOf } from '../components/trips/tripUtils'
 import { WeatherForecastPanel } from '../components/trips/WeatherForecastPanel'
 import { useCurrentUser, useTrip } from '../lib/useTrips'
 import type { Trip } from '../types/trip'
@@ -81,11 +83,8 @@ function TripDetailsContent({ tripId }: { tripId: string }) {
   const displayedTrip = trip && updatedTrip?.id === trip.id
     ? updatedTrip
     : trip
-  const canEdit = Boolean(
-    user &&
-      displayedTrip &&
-      ['OWNER', 'EDITOR'].includes(displayedTrip.roles?.[user.id] ?? ''),
-  )
+  const myRole = displayedTrip ? roleOf(displayedTrip, user?.id) : null
+  const canEdit = myRole === 'OWNER' || myRole === 'EDITOR'
 
   if (errorStatus === 404) return <NotFoundPage />
 
@@ -122,7 +121,14 @@ function TripDetailsContent({ tripId }: { tripId: string }) {
           <>
             <TripDetailsCard
               trip={displayedTrip}
+              myRole={myRole}
               onInvite={isOwner ? openSettings : undefined}
+            />
+
+            <TripMembersPanel
+              trip={displayedTrip}
+              myRole={myRole}
+              onUpdated={handleUpdated}
             />
 
             <WeatherForecastPanel
@@ -130,7 +136,11 @@ function TripDetailsContent({ tripId }: { tripId: string }) {
               endDate={displayedTrip.endDate}
             />
 
-            <TripItinerary key={itineraryRefreshKey} tripId={displayedTrip.id} />
+            <TripItinerary
+              key={itineraryRefreshKey}
+              tripId={displayedTrip.id}
+              canEdit={canEdit}
+            />
 
             <SuggestionsPanel
               tripId={displayedTrip.id}

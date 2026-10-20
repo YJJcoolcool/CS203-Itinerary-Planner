@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useAuth } from '@clerk/react'
+import { ApiError, deleteActivity } from '../../lib/api'
 import { useTripItinerary } from '../../lib/useTrips'
 import { CreateActivityModal } from './CreateActivityModal'
 import type { Activity, Location } from '../../types/trip'
@@ -61,10 +63,18 @@ function ActivityItem({
   activity,
   locations,
   isLoadingLocations,
+  onEdit,
+  onDelete,
+  isDeleting = false,
 }: {
   activity: Activity
   locations: Location[] | undefined
   isLoadingLocations: boolean
+  /** Only passed for editors and the owner, so viewers never see the Edit button. */
+  onEdit?: () => void
+  /** Same rule as onEdit. */
+  onDelete?: () => void
+  isDeleting?: boolean
 }) {
   return (
     <li className="animate-rise flex flex-col gap-3 rounded-2xl border border-border bg-surface-raised p-5">
@@ -75,7 +85,33 @@ function ActivityItem({
           </p>
           <h3 className="mt-1 text-lg font-medium text-foreground">{activity.name}</h3>
         </div>
-        {activity.status && <span className={PILL}>{activity.status}</span>}
+        <div className="flex items-center gap-2">
+          {activity.status && <span className={PILL}>{activity.status}</span>}
+          {onEdit && (
+            <button
+              type="button"
+              onClick={onEdit}
+              // The form needs the current locations, so wait until they have loaded.
+              disabled={locations === undefined}
+              aria-label={`Edit ${activity.name}`}
+              className={`rounded-lg border border-border px-3 py-1 text-xs text-muted transition-colors hover:border-border-strong hover:text-foreground disabled:opacity-50 ${FOCUS_RING}`}
+            >
+              Edit
+            </button>
+          )}
+
+          {onDelete && (
+            <button
+              type="button"
+              onClick={onDelete}
+              disabled={isDeleting}
+              aria-label={`Delete ${activity.name}`}
+              className={`rounded-lg border border-terracotta/40 px-3 py-1 text-xs text-terracotta transition-colors hover:bg-terracotta/10 disabled:opacity-50 ${FOCUS_RING}`}
+            >
+              {isDeleting ? 'Deleting…' : 'Delete'}
+            </button>
+          )}
+        </div>
       </div>
       <LocationList locations={locations} isLoading={isLoadingLocations} />
     </li>
@@ -86,11 +122,34 @@ function ActivityItem({
  * Itinerary for a trip. Loads the activities first, then each activity's
  * locations (see `useTripItinerary`).
  */
-export function TripItinerary({ tripId }: { tripId: string }) {
+export function TripItinerary({ tripId, canEdit }: { tripId: string; canEdit: boolean }) {
   const { activities, locationsByActivity, isLoading, isLoadingLocations, error, refresh } =
     useTripItinerary(tripId)
   
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [editingActivity, setEditingActivity] = useState<Activity | null>(null)
+  const { getToken } = useAuth()
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  async function handleDelete(activity: Activity) {
+    if (!window.confirm(`Delete "${activity.name}" from the itinerary?`)) return
+
+    setDeletingId(activity.id)
+    setDeleteError(null)
+
+    try {
+      const token = await getToken()
+      if (!token) throw new ApiError(401, 'No active session token is available.')
+
+      await deleteActivity(token, tripId, activity.id)
+      refresh()
+    } catch (cause) {
+      setDeleteError(cause instanceof Error && cause.message ? cause.message : 'Could not delete this activity.')
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   return (
     <section className="mt-10" aria-labelledby="itinerary-heading">
@@ -102,16 +161,27 @@ export function TripItinerary({ tripId }: { tripId: string }) {
           Itinerary
         </h2>
 
-        <button
-          type="button"
-          onClick={() => setIsCreateModalOpen(true)}
-          className={`rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-contrast transition-colors hover:bg-accent-strong ${FOCUS_RING}`}
-        >
-          + Add activity
-        </button>
+        {canEdit && (
+          <button
+            type="button"
+            onClick={() => setIsCreateModalOpen(true)}
+            className={`rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-contrast transition-colors hover:bg-accent-strong ${FOCUS_RING}`}
+          >
+            + Add activity
+          </button>
+        )}
       </div>
 
       <div className="mt-4">
+        {deleteError && (
+          <p
+            role="alert"
+            className="mb-3 rounded-xl border border-terracotta/40 bg-terracotta/10 px-3 py-2 text-sm text-terracotta"
+          >
+            {deleteError}
+          </p>
+        )}
+
         {isLoading ? (
           <div
             aria-hidden="true"
@@ -143,6 +213,9 @@ export function TripItinerary({ tripId }: { tripId: string }) {
                 activity={activity}
                 locations={locationsByActivity[activity.id]}
                 isLoadingLocations={isLoadingLocations}
+                onEdit={canEdit ? () => setEditingActivity(activity) : undefined}
+                onDelete={canEdit ? () => void handleDelete(activity) : undefined}
+                isDeleting={deletingId === activity.id}
               />
             ))}
           </ol>
@@ -153,6 +226,16 @@ export function TripItinerary({ tripId }: { tripId: string }) {
         <CreateActivityModal
           tripId={tripId}
           onClose={() => setIsCreateModalOpen(false)}
+          onCreated={refresh}
+        />
+      )}
+
+      {editingActivity && (
+        <CreateActivityModal
+          tripId={tripId}
+          activity={editingActivity}
+          activityLocations={locationsByActivity[editingActivity.id]}
+          onClose={() => setEditingActivity(null)}
           onCreated={refresh}
         />
       )}

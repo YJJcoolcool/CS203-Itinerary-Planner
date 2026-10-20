@@ -178,6 +178,32 @@ export function deleteTrip(
   })
 }
 
+/** Changes a member's role to Editor or Viewer. Owner-only. Returns the updated trip. */
+export function changeMemberRole(
+  token: string | null,
+  tripId: string,
+  userId: string,
+  role: TripRole,
+): Promise<Trip> {
+  return request<Trip>(`/api/trips/${tripId}/members/${userId}`, {
+    method: 'PUT',
+    body: { role },
+    token,
+  })
+}
+
+/** Removes a member from a trip. Owner-only; the owner can't be removed. Returns the updated trip. */
+export function removeMember(
+  token: string | null,
+  tripId: string,
+  userId: string,
+): Promise<Trip> {
+  return request<Trip>(`/api/trips/${tripId}/members/${userId}`, {
+    method: 'DELETE',
+    token,
+  })
+}
+
 /** Fetches a trip's activities, ordered by start time. */
 export function getActivities(token: string | null, tripId: string): Promise<Activity[]> {
   return request<Activity[]>(`/api/trips/${tripId}/activities`, { token })
@@ -192,6 +218,32 @@ export function createActivity(
   return request<Activity>(`/api/trips/${tripId}/activities`, {
     method: 'POST',
     body: input,
+    token,
+  })
+}
+
+/** Updates an activity's name, times and locations. Editor or owner only. */
+export function updateActivity(
+  token: string | null,
+  tripId: string,
+  activityId: string,
+  input: CreateActivityInput,
+): Promise<Activity> {
+  return request<Activity>(`/api/trips/${tripId}/activities/${activityId}`, {
+    method: 'PUT',
+    body: input,
+    token,
+  })
+}
+
+/** Deletes an activity from a trip. Editor or owner only. */
+export function deleteActivity(
+  token: string | null,
+  tripId: string,
+  activityId: string,
+): Promise<void> {
+  return request<void>(`/api/trips/${tripId}/activities/${activityId}`, {
+    method: 'DELETE',
     token,
   })
 }

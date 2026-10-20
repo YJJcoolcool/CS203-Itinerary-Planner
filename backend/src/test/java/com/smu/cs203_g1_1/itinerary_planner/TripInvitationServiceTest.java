@@ -143,6 +143,30 @@ class TripInvitationServiceTest {
     }
 
     @Test
+    void editorAndViewerMembers_cannotInvite() {
+        User editor = saveUser("clerk-editor", "Editor", "editor@test.com");
+        User viewer = saveUser("clerk-viewer", "Viewer", "viewer@test.com");
+        trip.addMember(editor, TripRole.EDITOR);
+        trip.addMember(viewer, TripRole.VIEWER);
+        trip = tripRepository.save(trip);
+
+        assertStatus(HttpStatus.FORBIDDEN,
+                () -> invitationService.sendInvitation(trip.getId(), editor.getId(), "invitee@test.com", TripRole.VIEWER));
+        assertStatus(HttpStatus.FORBIDDEN,
+                () -> invitationService.sendInvitation(trip.getId(), viewer.getId(), "invitee@test.com", TripRole.VIEWER));
+        assertEquals(0, invitationRepository.count());
+    }
+
+    @Test
+    void accept_withoutRole_joinsAsViewer() {
+        String id = invitationService.sendInvitation(trip.getId(), owner.getId(), "invitee@test.com", null).id();
+
+        invitationService.respond(id, invitee.getId(), InvitationStatus.ACCEPTED);
+
+        assertEquals(TripRole.VIEWER, roleOf(invitee));
+    }
+
+    @Test
     void sendInvitation_toSelf_is400() {
         assertStatus(HttpStatus.BAD_REQUEST,
                 () -> invitationService.sendInvitation(trip.getId(), owner.getId(), "owner@test.com"));

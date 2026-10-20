@@ -39,6 +39,9 @@ export interface Activity {
   status: string | null
 }
 
+/** A member's access level on a trip. Mirrors backend TripRole. */
+export type MemberRole = 'OWNER' | 'EDITOR' | 'VIEWER'
+
 /** A trip as returned by `GET /api/trips` and `POST /api/trips`. */
 export interface Trip {
   id: string
@@ -49,9 +52,9 @@ export interface Trip {
   endDate: string
   owner: User
   users: User[]
+  /** User id -> role. A member missing from this map is a VIEWER (see `roleOf`). */
+  roles?: Record<string, MemberRole>
   itinerary: Activity[]
-  /** Access level per backend user id, when the backend includes it. */
-  roles?: Record<string, 'VIEWER' | 'EDITOR' | 'OWNER'>
 }
 
 /** Client-supplied fields for creating a trip. The backend sets the owner from the login token. */

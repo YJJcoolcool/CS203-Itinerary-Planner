@@ -1,0 +1,45 @@
+# Must stay "app": the existing Postgres data lives in volume app_pgdata.
+name: app
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:5432:5432"   # localhost only, for the team's SSH tunnel
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  backend:
+    image: itinerary-backend:latest
+    build: ./backend
+    environment:
+      DB_PASSWORD: ${DB_PASSWORD}
+      # Required: if unset, SecurityConfig starts the API with NO auth.
+      CLERK_ISSUER_URI: ${CLERK_ISSUER_URI:?set CLERK_ISSUER_URI in .env}
+      ADMIN_CLERK_USER_IDS: ${ADMIN_CLERK_USER_IDS:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-not-configured}
+    volumes:
+      - backend-logs:/app/logs
+    depends_on:
+      - db
+    mem_limit: 768m             # t3.small (2 GB) shared with Postgres + nginx
+    restart: unless-stopped
+
+  web:
+    image: itinerary-web:latest
+    build:
+      context: ./frontend
+      args:
+        VITE_CLERK_PUBLISHABLE_KEY: ${VITE_CLERK_PUBLISHABLE_KEY:-}
+    ports:
+      - "80:80"                 # the only public port
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  backend-logs:

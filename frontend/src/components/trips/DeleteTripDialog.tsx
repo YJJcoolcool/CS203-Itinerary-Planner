@@ -7,15 +7,16 @@ const FOCUS_RING =
 export function DeleteTripDialog({
   tripId,
   tripName,
-  isDeleting,
-  error,
+  isDeleting = false,
+  error = null,
   onClose,
   onConfirm,
 }: {
   tripId: string
   tripName: string
-  isDeleting: boolean
-  error: string | null
+  /** Optional: the trip settings panel hands the delete to My Trips instead of waiting here. */
+  isDeleting?: boolean
+  error?: string | null
   onClose: () => void
   onConfirm: () => void
 }) {

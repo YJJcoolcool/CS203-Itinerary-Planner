@@ -65,7 +65,6 @@ function ActivityItem({
   isLoadingLocations,
   onEdit,
   onDelete,
-  isDeleting = false,
 }: {
   activity: Activity
   locations: Location[] | undefined
@@ -74,7 +73,6 @@ function ActivityItem({
   onEdit?: () => void
   /** Same rule as onEdit. */
   onDelete?: () => void
-  isDeleting?: boolean
 }) {
   return (
     <li className="animate-rise flex flex-col gap-3 rounded-2xl border border-border bg-surface-raised p-5">
@@ -104,11 +102,10 @@ function ActivityItem({
             <button
               type="button"
               onClick={onDelete}
-              disabled={isDeleting}
               aria-label={`Delete ${activity.name}`}
-              className={`rounded-lg border border-terracotta/40 px-3 py-1 text-xs text-terracotta transition-colors hover:bg-terracotta/10 disabled:opacity-50 ${FOCUS_RING}`}
+              className={`rounded-lg border border-terracotta/40 px-3 py-1 text-xs text-terracotta transition-colors hover:bg-terracotta/10 ${FOCUS_RING}`}
             >
-              {isDeleting ? 'Deleting…' : 'Delete'}
+              Delete
             </button>
           )}
         </div>
@@ -129,13 +126,21 @@ export function TripItinerary({ tripId, canEdit }: { tripId: string; canEdit: bo
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null)
   const { getToken } = useAuth()
-  const [deletingId, setDeletingId] = useState<string | null>(null)
+  // Activities hidden while (or after) their delete request runs.
+  const [hiddenIds, setHiddenIds] = useState<string[]>([])
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
+  const visibleActivities = activities.filter((activity) => !hiddenIds.includes(activity.id))
+
+  /*
+   * Hides the card straight away, then deletes in the background (CGT-136).
+   * On success the card stays hidden, so there is no need to reload the list.
+   * On failure it comes back with an error message.
+   */
   async function handleDelete(activity: Activity) {
     if (!window.confirm(`Delete "${activity.name}" from the itinerary?`)) return
 
-    setDeletingId(activity.id)
+    setHiddenIds((ids) => [...ids, activity.id])
     setDeleteError(null)
 
     try {
@@ -143,11 +148,10 @@ export function TripItinerary({ tripId, canEdit }: { tripId: string; canEdit: bo
       if (!token) throw new ApiError(401, 'No active session token is available.')
 
       await deleteActivity(token, tripId, activity.id)
-      refresh()
     } catch (cause) {
-      setDeleteError(cause instanceof Error && cause.message ? cause.message : 'Could not delete this activity.')
-    } finally {
-      setDeletingId(null)
+      setHiddenIds((ids) => ids.filter((id) => id !== activity.id))
+      const reason = cause instanceof Error && cause.message ? cause.message : 'Please try again.'
+      setDeleteError(`Couldn't delete "${activity.name}": ${reason}`)
     }
   }
 
@@ -201,13 +205,13 @@ export function TripItinerary({ tripId, canEdit }: { tripId: string; canEdit: bo
               Retry
             </button>
           </div>
-        ) : activities.length === 0 ? (
+        ) : visibleActivities.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted">
             No activities yet.
           </p>
         ) : (
           <ol className="flex flex-col gap-3">
-            {activities.map((activity) => (
+            {visibleActivities.map((activity) => (
               <ActivityItem
                 key={activity.id}
                 activity={activity}
@@ -215,7 +219,6 @@ export function TripItinerary({ tripId, canEdit }: { tripId: string; canEdit: bo
                 isLoadingLocations={isLoadingLocations}
                 onEdit={canEdit ? () => setEditingActivity(activity) : undefined}
                 onDelete={canEdit ? () => void handleDelete(activity) : undefined}
-                isDeleting={deletingId === activity.id}
               />
             ))}
           </ol>

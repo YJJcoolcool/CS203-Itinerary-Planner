@@ -1,6 +1,7 @@
 package com.smu.cs203_g1_1.itinerary_planner.suggestion;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -8,7 +9,6 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -30,6 +30,10 @@ import org.springframework.web.server.ResponseStatusException;
 import com.smu.cs203_g1_1.itinerary_planner.ai.PlanChoice;
 import com.smu.cs203_g1_1.itinerary_planner.ai.PlanChooser;
 import com.smu.cs203_g1_1.itinerary_planner.planner.CandidateFinder;
+import com.smu.cs203_g1_1.itinerary_planner.preference.TripPreference;
+import com.smu.cs203_g1_1.itinerary_planner.preference.TripPreferenceRepository;
+import com.smu.cs203_g1_1.itinerary_planner.preference.UserPreference;
+import com.smu.cs203_g1_1.itinerary_planner.preference.UserPreferenceRepository;
 import com.smu.cs203_g1_1.itinerary_planner.trips.Activity;
 import com.smu.cs203_g1_1.itinerary_planner.trips.ActivityRepository;
 import com.smu.cs203_g1_1.itinerary_planner.trips.Location;
@@ -40,9 +44,11 @@ import com.smu.cs203_g1_1.itinerary_planner.trips.Trip;
 import com.smu.cs203_g1_1.itinerary_planner.trips.TripRepository;
 import com.smu.cs203_g1_1.itinerary_planner.trips.TripRole;
 import com.smu.cs203_g1_1.itinerary_planner.trips.TripService;
+import com.smu.cs203_g1_1.itinerary_planner.testutil.MutableClock;
 import com.smu.cs203_g1_1.itinerary_planner.user.User;
 import com.smu.cs203_g1_1.itinerary_planner.user.UserRepository;
 import com.smu.cs203_g1_1.itinerary_planner.util.ID;
+import com.smu.cs203_g1_1.itinerary_planner.weather.ProgrammableWeatherSource;
 import com.smu.cs203_g1_1.itinerary_planner.weather.WeatherSource;
 
 import jakarta.persistence.EntityManager;
@@ -52,7 +58,8 @@ import jakarta.persistence.EntityManager;
 @DataJpaTest
 @Import({SuggestionService.class, TripService.class, CandidateFinder.class,
         SuggestionServiceTest.TestWeatherConfig.class,
-        SuggestionServiceTest.TestPlanChooserConfig.class})
+        SuggestionServiceTest.TestPlanChooserConfig.class,
+        SuggestionServiceTest.TestClockConfig.class})
 class SuggestionServiceTest {
 
     private static final ZoneId ZONE = ZoneId.of("Asia/Singapore");
@@ -64,11 +71,11 @@ class SuggestionServiceTest {
     @TestConfiguration
     static class TestWeatherConfig {
 
-        static final AtomicBoolean RAIN = new AtomicBoolean(true);
+        static final ProgrammableWeatherSource WEATHER = new ProgrammableWeatherSource();
 
         @Bean
         WeatherSource weatherSource() {
-            return (latitude, longitude, from, to) -> RAIN.get();
+            return WEATHER;
         }
     }
 
@@ -88,6 +95,17 @@ class SuggestionServiceTest {
                 }
                 return CHOICE.get();
             };
+        }
+    }
+
+    @TestConfiguration
+    static class TestClockConfig {
+
+        static final MutableClock CLOCK = new MutableClock(AT.toInstant(), ZONE);
+
+        @Bean
+        Clock clock() {
+            return CLOCK;
         }
     }
 
@@ -113,6 +131,12 @@ class SuggestionServiceTest {
     private UserRepository userRepository;
 
     @Autowired
+    private UserPreferenceRepository userPreferenceRepository;
+
+    @Autowired
+    private TripPreferenceRepository tripPreferenceRepository;
+
+    @Autowired
     private EntityManager entityManager;
 
     private User owner;
@@ -126,9 +150,11 @@ class SuggestionServiceTest {
 
     @BeforeEach
     void setUp() {
-        TestWeatherConfig.RAIN.set(true);
+        TestWeatherConfig.WEATHER.reset();
+        TestWeatherConfig.WEATHER.setRainy(true);
         TestPlanChooserConfig.CHOICE.set(Optional.empty());
         TestPlanChooserConfig.FAILURE.set(null);
+        TestClockConfig.CLOCK.setInstant(AT.toInstant());
 
         owner = saveUser("clerk-owner", "Owner", "owner@test.com");
         viewer = saveUser("clerk-viewer", "Viewer", "viewer@test.com");
@@ -157,6 +183,14 @@ class SuggestionServiceTest {
         activity.setId("Act00001");
         activity.setTrip(trip);
         activity = activityRepository.saveAndFlush(activity);
+    }
+
+    @Test
+    void replanSkipsTripsThatDoNotIncludeSingapore() {
+        trip.setCountries(List.of("JP"));
+        tripRepository.saveAndFlush(trip);
+
+        assertTrue(replan().isEmpty());
     }
 
     @Test
@@ -234,8 +268,30 @@ class SuggestionServiceTest {
     }
 
     @Test
+    void preferencesAndTripGoalsReorderCandidates() {
+        Location shopping = saveLocation("Shop0001", "Indoor Shopping Mall",
+                "shopping", "INDOOR", 1.301, 103.850, "24/7");
+        saveScore(shopping.getId(), "0.900");
+
+        assertEquals(culture.getId(), replan().get(0).proposedLocation().id());
+
+        suggestionRepository.deleteAll();
+        suggestionRepository.flush();
+
+        UserPreference preference = new UserPreference(owner.getId());
+        preference.setTags(List.of("food"));
+        userPreferenceRepository.saveAndFlush(preference);
+
+        TripPreference tripPreference = new TripPreference(trip.getId());
+        tripPreference.setGoals(List.of("SHOPPING"));
+        tripPreferenceRepository.saveAndFlush(tripPreference);
+
+        assertEquals(shopping.getId(), replan().get(0).proposedLocation().id());
+    }
+
+    @Test
     void noRainCreatesNoSuggestion() {
-        TestWeatherConfig.RAIN.set(false);
+        TestWeatherConfig.WEATHER.setRainy(false);
 
         assertTrue(replan().isEmpty());
         assertEquals(0, suggestionRepository.count());
@@ -291,6 +347,78 @@ class SuggestionServiceTest {
 
         assertStatus(HttpStatus.CONFLICT,
                 () -> suggestionService.reject(created.id(), owner.getId()));
+    }
+
+    @Test
+    void manualReplanStampsTriggerSourceManual() {
+        SuggestionResponse response = replan().get(0);
+
+        assertEquals(TriggerSource.MANUAL, response.triggerSource());
+        Suggestion stored = suggestionRepository.findById(response.id()).orElseThrow();
+        assertEquals(TriggerSource.MANUAL, stored.getTriggerSource());
+    }
+
+    @Test
+    void replanForSystemStampsPollTrigger() {
+        List<SuggestionResponse> created = suggestionService.replanForSystem(
+                trip.getId(), owner.getId(), AT, TriggerSource.POLL_IMMINENT);
+
+        assertEquals(1, created.size());
+        assertEquals(TriggerSource.POLL_IMMINENT, created.get(0).triggerSource());
+        Suggestion stored = suggestionRepository.findById(created.get(0).id()).orElseThrow();
+        assertEquals(TriggerSource.POLL_IMMINENT, stored.getTriggerSource());
+    }
+
+    @Test
+    void manualReplanAfterRejectCreatesANewSuggestion() {
+        SuggestionResponse created = replan().get(0);
+        suggestionService.reject(created.id(), owner.getId());
+
+        List<SuggestionResponse> afterReject = replan();
+
+        assertEquals(1, afterReject.size());
+        assertTrue(!created.id().equals(afterReject.get(0).id()));
+        assertEquals(2, suggestionRepository.count());
+    }
+
+    @Test
+    void pollerNeverReproposesARejectedStop() {
+        SuggestionResponse created = replan().get(0);
+        suggestionService.reject(created.id(), owner.getId());
+
+        assertTrue(suggestionService.replanForSystem(
+                trip.getId(), owner.getId(), AT, TriggerSource.POLL_IMMINENT).isEmpty());
+        assertEquals(1, suggestionRepository.count());
+    }
+
+    @Test
+    void createdAtUsesTheClockNotTheClientSuppliedAt() {
+        activity.setStartDateTime(AT.plusHours(11));
+        activity.setEndDateTime(AT.plusHours(12));
+        activityRepository.saveAndFlush(activity);
+
+        List<SuggestionResponse> created =
+                suggestionService.replan(trip.getId(), owner.getId(), AT.plusHours(10));
+
+        assertEquals(1, created.size());
+        assertEquals(AT.toInstant(), suggestionRepository
+                .findById(created.get(0).id()).orElseThrow().getCreatedAt());
+    }
+
+    @Test
+    void missingEndUsesStartPlusFallbackWindow() {
+        activity.setStartDateTime(AT.plusHours(4));
+        activity.setEndDateTime(null);
+        activityRepository.saveAndFlush(activity);
+
+        assertEquals(1, replan().size());
+
+        ProgrammableWeatherSource.Call call = TestWeatherConfig.WEATHER.calls()
+                .stream()
+                .findFirst()
+                .orElseThrow();
+        assertEquals(AT.plusHours(4), call.from());
+        assertEquals(AT.plusHours(6), call.to());
     }
 
     @Test

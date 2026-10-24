@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Navbar } from '../components/Navbar'
+import { TravelPreferencesModal } from '../components/preferences/TravelPreferencesModal'
 import { CreateTripModal } from '../components/trips/CreateTripModal'
 import { TripCard, TripCardSkeleton } from '../components/trips/TripCard'
 import { useCurrentUser, useTrips } from '../lib/useTrips'
@@ -9,6 +10,8 @@ const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface'
 
 const PRIMARY_BUTTON = `inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-5 py-3 text-sm font-semibold text-accent-contrast transition-colors hover:bg-accent-strong ${FOCUS_RING}`
+
+const SECONDARY_BUTTON = `inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-surface-subtle px-5 py-3 text-sm font-medium text-foreground transition-colors hover:bg-surface-raised ${FOCUS_RING}`
 
 const SHOWCASE_SKELETONS = [0, 1, 2]
 
@@ -24,6 +27,24 @@ function PlusIcon() {
       aria-hidden="true"
     >
       <path d="M12 5v14M5 12h14" />
+    </svg>
+  )
+}
+
+function SlidersIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      className="h-4 w-4"
+      aria-hidden="true"
+    >
+      <path d="M4 7h8M18 7h2M4 17h4M14 17h6" />
+      <circle cx="15" cy="7" r="2.25" />
+      <circle cx="11" cy="17" r="2.25" />
     </svg>
   )
 }
@@ -123,6 +144,7 @@ export function TripsPage() {
   const { isLoading: isUserLoading } = useCurrentUser()
   const { trips: myTrips, isLoading: isTripsLoading, error, refresh } = useTrips()
   const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const [isPreferencesOpen, setIsPreferencesOpen] = useState(false)
 
   const isLoading = isTripsLoading || isUserLoading
   const hasTrips = !isLoading && !error && myTrips.length > 0
@@ -155,12 +177,23 @@ export function TripsPage() {
             <p className="mt-2 text-sm text-muted">{subtitle}</p>
           </div>
 
-          {hasTrips && (
-            <button type="button" onClick={() => setIsCreateOpen(true)} className={PRIMARY_BUTTON}>
-              <PlusIcon />
-              New trip
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsPreferencesOpen(true)}
+              className={SECONDARY_BUTTON}
+            >
+              <SlidersIcon />
+              Travel preferences
             </button>
-          )}
+
+            {hasTrips && (
+              <button type="button" onClick={() => setIsCreateOpen(true)} className={PRIMARY_BUTTON}>
+                <PlusIcon />
+                New trip
+              </button>
+            )}
+          </div>
         </header>
 
         <div className="mt-8">
@@ -190,6 +223,10 @@ export function TripsPage() {
 
       {isCreateOpen && (
         <CreateTripModal onClose={() => setIsCreateOpen(false)} onCreated={refresh} />
+      )}
+
+      {isPreferencesOpen && (
+        <TravelPreferencesModal onClose={() => setIsPreferencesOpen(false)} />
       )}
     </main>
   )

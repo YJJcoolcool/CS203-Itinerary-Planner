@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { Link, useParams } from 'react-router'
 
 import { Navbar } from '../components/Navbar'
+import { TripPreferencesPanel } from '../components/preferences/TripPreferencesPanel'
 import { SuggestionsPanel } from '../components/suggestions/SuggestionsPanel'
 import { TripDetailsCard } from '../components/trips/TripDetailsCard'
 import { TripItinerary } from '../components/trips/TripItinerary'
@@ -130,6 +131,8 @@ function TripDetailsContent({ tripId }: { tripId: string }) {
               myRole={myRole}
               onUpdated={handleUpdated}
             />
+
+            <TripPreferencesPanel trip={displayedTrip} canEdit={canEdit} />
 
             <WeatherForecastPanel
               startDate={displayedTrip.startDate}

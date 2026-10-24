@@ -70,6 +70,11 @@ public class LocationService {
             );
         }
 
+        // Trust fields are server-owned: a client-made place must never pass as curated or OSM.
+        location.setSeeded(false);
+        location.setOsmType(null);
+        location.setOsmId(null);
+
         // Generate ID and save
         location.setId(ID.generateUniqueID(locationRepository::existsById));
         Location saved = locationRepository.save(location);

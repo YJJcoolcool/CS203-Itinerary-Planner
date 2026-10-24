@@ -21,4 +21,18 @@ public interface LocationRepository extends JpaRepository<Location, String> {
             @Param("maxLat") Double maxLat,
             @Param("minLon") Double minLon,
             @Param("maxLon") Double maxLon);
+
+    /** Curated or OSM-sourced places; the same trust rule as the bounding-box query below. */
+    @Query("select l from Location l where l.seeded = true or l.osmId is not null")
+    List<Location> findTrusted();
+
+    /**
+     * Curated or OSM-sourced places in the box; user-created rows (no OSM id) are never candidates.
+     */
+    @Query("select l from Location l where (l.seeded = true or l.osmId is not null) and l.latitude between :minLat and :maxLat and l.longitude between :minLon and :maxLon")
+    List<Location> findTrustedInBoundingBox(
+            @Param("minLat") Double minLat,
+            @Param("maxLat") Double maxLat,
+            @Param("minLon") Double minLon,
+            @Param("maxLon") Double maxLon);
 }

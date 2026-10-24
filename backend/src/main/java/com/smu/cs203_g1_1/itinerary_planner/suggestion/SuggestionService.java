@@ -1,7 +1,7 @@
 package com.smu.cs203_g1_1.itinerary_planner.suggestion;
 
+import java.time.Clock;
 import java.time.Instant;
-import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -11,10 +11,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,9 +28,15 @@ import com.smu.cs203_g1_1.itinerary_planner.ai.PlanChoice;
 import com.smu.cs203_g1_1.itinerary_planner.ai.PlanChoiceRequest;
 import com.smu.cs203_g1_1.itinerary_planner.ai.PlanChoiceValidator;
 import com.smu.cs203_g1_1.itinerary_planner.ai.PlanChooser;
+import com.smu.cs203_g1_1.itinerary_planner.discovery.PlaceDiscoveryService;
 import com.smu.cs203_g1_1.itinerary_planner.planner.Candidate;
 import com.smu.cs203_g1_1.itinerary_planner.planner.CandidateFinder;
 import com.smu.cs203_g1_1.itinerary_planner.planner.CandidateRequest;
+import com.smu.cs203_g1_1.itinerary_planner.planner.CategoryGoalMapper;
+import com.smu.cs203_g1_1.itinerary_planner.preference.TripPreference;
+import com.smu.cs203_g1_1.itinerary_planner.preference.TripPreferenceRepository;
+import com.smu.cs203_g1_1.itinerary_planner.preference.UserPreferenceRepository;
+import com.smu.cs203_g1_1.itinerary_planner.rag.QueryEmbedder;
 import com.smu.cs203_g1_1.itinerary_planner.trips.Activity;
 import com.smu.cs203_g1_1.itinerary_planner.trips.ActivityRepository;
 import com.smu.cs203_g1_1.itinerary_planner.trips.Location;
@@ -53,11 +61,11 @@ public class SuggestionService {
 
     private static final Logger log = LoggerFactory.getLogger(SuggestionService.class);
 
-    private static final ZoneId SG = ZoneId.of("Asia/Singapore");
     private static final int MAX_SUGGESTIONS_PER_REPLAN = 3;
     private static final int WINDOW_HOURS = 24;
     private static final int SHORTLIST_LIMIT = 5;
     private static final int RAIN_WINDOW_FALLBACK_HOURS = 2;
+    private static final int SEMANTIC_SHORTLIST = 8;
 
     private final SuggestionRepository suggestionRepository;
     private final ActivityRepository activityRepository;
@@ -65,6 +73,11 @@ public class SuggestionService {
     private final CandidateFinder candidateFinder;
     private final WeatherSource weatherSource;
     private final PlanChooser planChooser;
+    private final ObjectProvider<QueryEmbedder> queryEmbedder;
+    private final ObjectProvider<PlaceDiscoveryService> discoveryService;
+    private final UserPreferenceRepository userPreferences;
+    private final TripPreferenceRepository tripPreferences;
+    private final Clock clock;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public SuggestionService(SuggestionRepository suggestionRepository,
@@ -72,13 +85,23 @@ public class SuggestionService {
                              TripService tripService,
                              CandidateFinder candidateFinder,
                              WeatherSource weatherSource,
-                             PlanChooser planChooser) {
+                             PlanChooser planChooser,
+                             ObjectProvider<QueryEmbedder> queryEmbedder,
+                             ObjectProvider<PlaceDiscoveryService> discoveryService,
+                             UserPreferenceRepository userPreferences,
+                             TripPreferenceRepository tripPreferences,
+                             Clock clock) {
         this.suggestionRepository = suggestionRepository;
         this.activityRepository = activityRepository;
         this.tripService = tripService;
         this.candidateFinder = candidateFinder;
         this.weatherSource = weatherSource;
         this.planChooser = planChooser;
+        this.queryEmbedder = queryEmbedder;
+        this.discoveryService = discoveryService;
+        this.userPreferences = userPreferences;
+        this.tripPreferences = tripPreferences;
+        this.clock = clock;
     }
 
     @Transactional(readOnly = true)
@@ -114,7 +137,7 @@ public class SuggestionService {
         activityRepository.save(activity);
 
         suggestion.setStatus(SuggestionStatus.ACCEPTED);
-        suggestion.setRespondedAt(Instant.now());
+        suggestion.setRespondedAt(Instant.now(clock));
         Suggestion saved = suggestionRepository.save(suggestion);
 
         log.info("Accepted suggestion id={} for activity id={} on trip id={}",
@@ -129,12 +152,66 @@ public class SuggestionService {
         requirePending(suggestion);
 
         suggestion.setStatus(SuggestionStatus.REJECTED);
-        suggestion.setRespondedAt(Instant.now());
+        suggestion.setRespondedAt(Instant.now(clock));
         Suggestion saved = suggestionRepository.save(suggestion);
 
         log.info("Rejected suggestion id={} for activity id={} on trip id={}",
                 suggestionId, suggestion.getActivity().getId(), suggestion.getTrip().getId());
         return SuggestionResponse.from(saved);
+    }
+
+    /**
+     * Singapore-only scope: a trip with no countries keeps the legacy
+     * behaviour, but an explicit list must contain SG for weather-driven
+     * replanning to run at all.
+     */
+    private static boolean coversSingapore(Trip trip) {
+        List<String> countries = trip.getCountries();
+
+        if (countries == null || countries.isEmpty()) {
+            return true;
+        }
+
+        return countries.stream().anyMatch(code -> "SG".equalsIgnoreCase(code));
+    }
+
+    /** Union of the traveller's own tags and the trip's group tags. */
+    private Set<String> interests(String userId, TripPreference tripPreference) {
+        Set<String> tags = new TreeSet<>();
+
+        userPreferences.findById(userId)
+            .ifPresent(preference -> tags.addAll(preference.getTags()));
+
+        if (tripPreference != null) {
+            tags.addAll(tripPreference.getTags());
+        }
+
+        return tags;
+    }
+
+    /**
+     * Embeds the trip context once per replan, preferring the trip goal and the
+     * group summary over the trip name. Returns null when semantic retrieval is
+     * unavailable, in which case discovery stays SQL-only.
+     */
+    private float[] buildQueryVector(Trip trip, Set<String> interests, TripPreference preference) {
+        QueryEmbedder embedder = queryEmbedder.getIfAvailable();
+
+        if (embedder == null) {
+            return null;
+        }
+
+        String goal = preference == null || preference.getGoals().isEmpty()
+            ? trip.getName()
+            : String.join(", ", preference.getGoals());
+        String summary = preference == null ? null : preference.getSummary();
+
+        return embedder.embedQuery(
+                goal,
+                summary,
+                interests,
+                "rain expected within the next 24 hours; prefer indoor alternatives")
+            .orElse(null);
     }
 
     /**
@@ -145,10 +222,62 @@ public class SuggestionService {
     @Transactional
     public List<SuggestionResponse> replan(String tripId, String userId, ZonedDateTime at) {
         Trip trip = tripService.requireTripRole(tripId, userId, TripRole.EDITOR);
-        ZonedDateTime now = at != null ? at : ZonedDateTime.now(SG);
+        return replanInternal(trip, userId, at, TriggerSource.MANUAL);
+    }
+
+    /**
+     * Poller entry point. Authorization comes from the caller's trust boundary
+     * (the scheduler), so only the EDITOR check is skipped; every other rule is
+     * shared with the manual path.
+     */
+    @Transactional
+    public List<SuggestionResponse> replanForSystem(String tripId, String userId,
+                                                    ZonedDateTime at, TriggerSource trigger) {
+        Objects.requireNonNull(userId, "userId");
+        Objects.requireNonNull(trigger, "trigger");
+        if (trigger == TriggerSource.MANUAL) {
+            throw new IllegalArgumentException("replanForSystem requires a poll trigger");
+        }
+
+        Trip trip = tripService.getTrip(tripId);
+        return replanInternal(trip, userId, at, trigger);
+    }
+
+    private List<SuggestionResponse> replanInternal(Trip trip, String userId,
+                                                    ZonedDateTime at, TriggerSource trigger) {
+        String tripId = trip.getId();
+        ZonedDateTime now = at != null ? at : ZonedDateTime.now(clock);
+        long startedAt = System.nanoTime();
+
+        if (!coversSingapore(trip)) {
+            log.info("Skipping replan for trip id={}: countries {} do not include SG",
+                    tripId, trip.getCountries());
+            return List.of();
+        }
+
+        TripPreference tripPreference = tripPreferences.findById(tripId).orElse(null);
+        Set<String> interests = interests(userId, tripPreference);
+
+        // Raw tags feed the embedder and the LLM prompt; scoring needs the
+        // canonical lowercase groups derived from both tags and trip goals.
+        Set<String> candidateInterests = new TreeSet<>(
+                CategoryGoalMapper.toGroups(interests));
+        candidateInterests.addAll(CategoryGoalMapper.toGroups(
+                tripPreference == null ? List.of() : tripPreference.getGoals()));
+
+        String tripGoal = tripPreference == null || tripPreference.getGoals().isEmpty()
+                ? null
+                : String.join(", ", tripPreference.getGoals());
+        String groupSummary = tripPreference == null ? null : tripPreference.getSummary();
+
+        // One embedding call per replan; every activity reuses the same vector.
+        float[] queryVector = buildQueryVector(trip, interests, tripPreference);
 
         List<Activity> activities = activityRepository.findByTripIdOrderByStartDateTimeAsc(tripId);
         List<SuggestionResponse> created = new ArrayList<>();
+        int aiAttempts = 0;
+        int aiPicks = 0;
+        boolean semanticPreferredFound = false;
 
         for (int activityIndex = 0; activityIndex < activities.size(); activityIndex++) {
             Activity activity = activities.get(activityIndex);
@@ -176,9 +305,19 @@ public class SuggestionService {
                 continue;
             }
 
+            // Automated ticks must not nag about a stop the traveller already
+            // rejected; the manual path stays free to ask again.
+            if (trigger != TriggerSource.MANUAL
+                    && suggestionRepository.existsByActivityIdAndStatus(
+                            activity.getId(), SuggestionStatus.REJECTED)) {
+                continue;
+            }
+
             ZonedDateTime arrival = start != null && start.isAfter(now) ? start : now;
             ZonedDateTime fromWindow = start != null ? start : now;
-            ZonedDateTime toWindow = end != null ? end : now.plusHours(RAIN_WINDOW_FALLBACK_HOURS);
+            ZonedDateTime toWindow = end != null
+                    ? end
+                    : fromWindow.plusHours(RAIN_WINDOW_FALLBACK_HOURS);
 
             if (!weatherSource.isRainy(
                     dropped.getLatitude(), dropped.getLongitude(), fromWindow, toWindow)) {
@@ -190,14 +329,34 @@ public class SuggestionService {
                     .filter(Objects::nonNull)
                     .collect(Collectors.toSet());
 
+            Set<String> preferred = Set.of();
+            PlaceDiscoveryService discovery = discoveryService.getIfAvailable();
+
+            if (discovery != null && queryVector != null) {
+                preferred = discovery.preferredIds(
+                        dropped.getLatitude(),
+                        dropped.getLongitude(),
+                        CandidateFinder.RADIUS_KM,
+                        queryVector,
+                        SEMANTIC_SHORTLIST);
+            }
+
+            if (!preferred.isEmpty()) {
+                semanticPreferredFound = true;
+            }
+
             List<Candidate> candidates = candidateFinder.find(new CandidateRequest(
-                    dropped.getId(), arrival, true, Set.of(), SHORTLIST_LIMIT, excluded));
+                    dropped.getId(), arrival, true, candidateInterests, SHORTLIST_LIMIT, excluded, preferred));
 
             if (candidates.isEmpty()) {
                 log.info("No indoor candidate for activity id={} on trip id={}",
                         activity.getId(), tripId);
                 continue;
             }
+
+            String previousActivityName = activityIndex > 0
+                    ? activities.get(activityIndex - 1).getName()
+                    : null;
 
             String nextActivityName = activityIndex + 1 < activities.size()
                     ? activities.get(activityIndex + 1).getName()
@@ -213,13 +372,17 @@ public class SuggestionService {
                     activity.getName(),
                     dropped.getCategoryGroup(),
                     arrival,
-                    Set.of(),
+                    interests,
+                    previousActivityName,
                     nextActivityName,
+                    tripGoal,
+                    groupSummary,
                     candidates.stream()
                             .map(SuggestionService::toPlanCandidate)
                             .toList());
 
             Optional<PlanChoice> choice;
+            aiAttempts++;
             try {
                 choice = planChooser.choose(choiceRequest);
             } catch (RuntimeException e) {
@@ -241,6 +404,7 @@ public class SuggestionService {
             String explanation;
             String aiChoiceId;
             if (selected != null) {
+                aiPicks++;
                 proposed = selected.location();
                 explanation = ranked.reason();
                 aiChoiceId = selected.location().getId();
@@ -265,7 +429,8 @@ public class SuggestionService {
             suggestion.setCandidatesJson(serialiseCandidates(candidates));
             suggestion.setTopScoreChoiceId(top.location().getId());
             suggestion.setAiChoiceId(aiChoiceId);
-            suggestion.setCreatedAt(now.toInstant());
+            suggestion.setCreatedAt(Instant.now(clock));
+            suggestion.setTriggerSource(trigger);
 
             SuggestionResponse response = SuggestionResponse.from(
                     suggestionRepository.save(suggestion));
@@ -275,6 +440,12 @@ public class SuggestionService {
                     response.id(), activity.getId(), tripId,
                     selected != null ? "LLM" : "FALLBACK");
         }
+
+        log.info("replan_metrics trip={} suggestions={} ai_attempts={} ai_picks={} fallbacks={} retrieval={} latency_ms={}",
+                tripId, created.size(), aiAttempts, aiPicks,
+                created.size() - aiPicks,
+                queryVector == null || !semanticPreferredFound ? "SQL_ONLY" : "SEMANTIC",
+                (System.nanoTime() - startedAt) / 1_000_000);
 
         return created;
     }
@@ -297,7 +468,7 @@ public class SuggestionService {
 
     private static Location firstOutdoor(Activity activity) {
         return activity.getLocations().stream()
-                .filter(location -> "OUTDOOR".equalsIgnoreCase(location.getIndoorClass()))
+                .filter(Location::isOutdoor)
                 .findFirst()
                 .orElse(null);
     }

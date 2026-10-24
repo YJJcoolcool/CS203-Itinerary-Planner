@@ -1,4 +1,10 @@
 import type { TripInvitation, TripRole } from '../types/invitation'
+import type {
+  TripPreferences,
+  UpdateTripPreferencesInput,
+  UpdateUserPreferencesInput,
+  UserPreferences,
+} from '../types/preference'
 import type { Suggestion } from '../types/suggestion'
 import type {
   Activity,
@@ -384,6 +390,66 @@ export function rejectSuggestion(
   suggestionId: string,
 ): Promise<Suggestion> {
   return request<Suggestion>(`/api/suggestions/${suggestionId}/reject`, {
+    method: 'POST',
+    token,
+  })
+}
+
+/** Fetches the signed-in user's travel preferences. */
+export function getMyPreferences(token: string | null): Promise<UserPreferences> {
+  return request<UserPreferences>('/api/users/me/preferences', { token })
+}
+
+/** Saves the signed-in user's travel preferences. */
+export function updateMyPreferences(
+  token: string | null,
+  input: UpdateUserPreferencesInput,
+): Promise<UserPreferences> {
+  return request<UserPreferences>('/api/users/me/preferences', {
+    method: 'PUT',
+    body: input,
+    token,
+  })
+}
+
+/**
+ * Fetches another user's preferences. Structured fields only: the backend
+ * always returns `notes: null` on this view.
+ */
+export function getUserPreferences(
+  token: string | null,
+  userId: string,
+): Promise<UserPreferences> {
+  return request<UserPreferences>(`/api/users/${userId}/preferences`, { token })
+}
+
+/** Fetches a trip's shared group preference. Every member can read it. */
+export function getTripPreferences(
+  token: string | null,
+  tripId: string,
+): Promise<TripPreferences> {
+  return request<TripPreferences>(`/api/trips/${tripId}/preferences`, { token })
+}
+
+/** Saves a trip's group goals. Owner or editor only. */
+export function updateTripPreferences(
+  token: string | null,
+  tripId: string,
+  input: UpdateTripPreferencesInput,
+): Promise<TripPreferences> {
+  return request<TripPreferences>(`/api/trips/${tripId}/preferences`, {
+    method: 'PUT',
+    body: input,
+    token,
+  })
+}
+
+/** Regenerates a trip's group summary from its goals and members. Owner or editor only. */
+export function summariseTripPreferences(
+  token: string | null,
+  tripId: string,
+): Promise<TripPreferences> {
+  return request<TripPreferences>(`/api/trips/${tripId}/preferences/summarise`, {
     method: 'POST',
     token,
   })

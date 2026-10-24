@@ -29,6 +29,13 @@ public class CandidateFinder {
 
     public static final double RADIUS_KM = 3.0;
 
+    /**
+     * Score lift for a semantic match. Large enough to break ties and pull a
+     * place into the top five, small enough that category, distance, hours and
+     * cost still dominate.
+     */
+    static final double SEMANTIC_BONUS = 0.15;
+
     private static final double KM_PER_DEGREE_LAT = 111.0;
     private static final double EARTH_RADIUS_KM = 6371.0088;
     private static final double MIN_COS_LAT = 1e-6;
@@ -71,7 +78,7 @@ public class CandidateFinder {
                 ? 180.0
                 : RADIUS_KM / (KM_PER_DEGREE_LAT * Math.abs(cosLat));
 
-        List<Location> nearby = locationRepository.findSeededInBoundingBox(
+        List<Location> nearby = locationRepository.findTrustedInBoundingBox(
                 latitude - latDelta,
                 latitude + latDelta,
                 longitude - lonDelta,
@@ -141,6 +148,11 @@ public class CandidateFinder {
                     candidate.getEstCost(),
                     item.unknownHours(),
                     quality);
+
+            if (request.preferredLocationIds() != null
+                    && request.preferredLocationIds().contains(candidate.getId())) {
+                score += SEMANTIC_BONUS;
+            }
 
             candidates.add(new Candidate(
                     candidate,

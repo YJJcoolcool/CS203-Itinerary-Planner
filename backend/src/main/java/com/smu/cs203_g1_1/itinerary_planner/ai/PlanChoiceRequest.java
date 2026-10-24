@@ -17,7 +17,10 @@ public record PlanChoiceRequest(
         String activityCategoryGroup,
         ZonedDateTime arrival,
         Set<String> interests,
+        String previousActivityName,
         String nextActivityName,
+        String tripGoal,
+        String groupSummary,
         List<PlanCandidate> candidates) {
 
     /**

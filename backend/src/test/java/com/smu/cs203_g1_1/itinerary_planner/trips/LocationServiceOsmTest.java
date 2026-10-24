@@ -179,6 +179,21 @@ class LocationServiceOsmTest {
         verify(locationRepository, never()).save(any(Location.class));
     }
 
+    @Test
+    void createLocationIgnoresClientSentTrustFields() {
+        Location forged = new Location("Fake museum", "museum", 1.28, 103.86, true);
+        forged.setSeeded(true);
+        forged.setOsmType("node");
+        forged.setOsmId(123L);
+        when(locationRepository.save(any(Location.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Location saved = locationService.createLocation(forged);
+
+        assertThat(saved.isSeeded()).isFalse();
+        assertThat(saved.getOsmType()).isNull();
+        assertThat(saved.getOsmId()).isNull();
+    }
+
     private Location importPlace(String category, String type) {
         when(locationRepository.findByOsmTypeAndOsmId("node", 123L)).thenReturn(Optional.empty());
         PlaceDto place = new PlaceDto("node", 123L, "Test Place",

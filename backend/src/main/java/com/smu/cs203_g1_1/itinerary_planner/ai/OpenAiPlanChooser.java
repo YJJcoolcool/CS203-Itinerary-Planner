@@ -106,7 +106,10 @@ public class OpenAiPlanChooser implements PlanChooser {
         Set<String> interests = request.interests() == null ? Set.of() : request.interests();
         payload.put("interests", new ArrayList<>(interests));
 
+        payload.put("previous_activity", request.previousActivityName());
         payload.put("next_activity", request.nextActivityName());
+        payload.put("trip_goal", request.tripGoal());
+        payload.put("group_summary", request.groupSummary());
 
         // Shuffle a copy so position does not bias the model. Scores and our
         // ranking order stay internal.

@@ -21,6 +21,8 @@ services:
       CLERK_ISSUER_URI: ${CLERK_ISSUER_URI:?set CLERK_ISSUER_URI in .env}
       ADMIN_CLERK_USER_IDS: ${ADMIN_CLERK_USER_IDS:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-not-configured}
+      APP_POLLING_ENABLED: ${APP_POLLING_ENABLED:-true}
+      APP_POLLING_ACTIVITY_DELAY_MS: ${APP_POLLING_ACTIVITY_DELAY_MS:-600000}
     volumes:
       - backend-logs:/app/logs
     depends_on:

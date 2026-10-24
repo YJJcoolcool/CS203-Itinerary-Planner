@@ -10,6 +10,9 @@
 #   ./run.sh backend        # backend only
 #   ./run.sh frontend       # frontend only
 #   ./run.sh --install      # force a dependency reinstall first
+#   ./run.sh --rainy        # dev weather fixture: always rainy
+#   ./run.sh --rainy --poll # rainy + proactive polling (first tick in ~5s)
+#   ./run.sh --no-ai        # no OpenAI key needed; deterministic fallback
 #   ./run.sh --help
 #
 set -euo pipefail
@@ -23,6 +26,9 @@ FRONTEND_PORT="${FRONTEND_PORT:-5173}"
 RUN_BACKEND=1
 RUN_FRONTEND=1
 FORCE_INSTALL=0
+RAIN_MODE=""
+POLL_ENABLED=0
+NO_AI=0
 
 log()  { printf '\033[1;34m[run]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[run]\033[0m %s\n' "$*" >&2; }
@@ -36,12 +42,18 @@ Usage: ./run.sh [backend|frontend] [--install]
   backend       Start the Spring Boot backend only  (http://localhost:8080)
   frontend      Start the Vite frontend only        (http://localhost:5173)
   --install     Force reinstall of dependencies before starting
+  --rainy       Dev weather fixture: always rainy (no NEA calls)
+  --dry         Dev weather fixture: never rainy (no NEA calls)
+  --poll        Enable proactive polling (first tick in ~5s)
+  --no-ai       Unset OPENAI_API_KEY; SQL-only discovery + deterministic ranking
   -h, --help    Show this help
 
 Environment overrides:
   BACKEND_PORT   Backend port  (default 8080)
   FRONTEND_PORT  Frontend port (default 5173)
   SPRING_PROFILES_ACTIVE  Backend profile (default dev; needs the SSH tunnel and DB_PASSWORD)
+  APP_POLLING_ENABLED     Enable the poller (default false; --poll sets true)
+  APP_WEATHER_FIXTURE_RAINY  Fixture answer (--rainy/--dry set true/false)
 EOF
 }
 
@@ -52,6 +64,10 @@ for arg in "$@"; do
     frontend)   RUN_BACKEND=0 ;;
     all)        RUN_BACKEND=1; RUN_FRONTEND=1 ;;
     --install)  FORCE_INSTALL=1 ;;
+    --rainy)    RAIN_MODE=rainy ;;
+    --dry)      RAIN_MODE=dry ;;
+    --poll)     POLL_ENABLED=1 ;;
+    --no-ai)    NO_AI=1 ;;
     -h|--help)  usage; exit 0 ;;
     *)          die "Unknown argument: $arg (try --help)" ;;
   esac
@@ -105,6 +121,41 @@ if [ "$RUN_BACKEND" -eq 1 ]; then
       unset CLERK_ISSUER_URI
       warn "No real Clerk issuer configured. Starting the backend WITHOUT authentication; JWT-protected endpoints are open until backend/.env is filled in." ;;
   esac
+fi
+
+# ------------------------------------------------- simulation / AI flags
+# This block runs after backend/.env is sourced, so command-line flags win.
+if [ -n "$RAIN_MODE" ]; then
+  export APP_WEATHER_FIXTURE_ENABLED=true
+  export APP_WEATHER_SOURCE=none
+  case "$RAIN_MODE" in
+    rainy)
+      export APP_WEATHER_FIXTURE_RAINY=true
+      log "Weather fixture: rainy (no NEA calls)." ;;
+    dry)
+      export APP_WEATHER_FIXTURE_RAINY=false
+      log "Weather fixture: dry (no NEA calls)." ;;
+  esac
+  if [ "${SPRING_PROFILES_ACTIVE:-}" != "dev" ]; then
+    warn "--rainy/--dry expect the dev profile; current profile is '${SPRING_PROFILES_ACTIVE:-}'."
+  fi
+fi
+
+if [ "$POLL_ENABLED" -eq 1 ]; then
+  export APP_POLLING_ENABLED=true
+  export APP_POLLING_INITIAL_DELAY_MS="${APP_POLLING_INITIAL_DELAY_MS:-5000}"
+  log "Proactive polling enabled (first tick in ~5s)."
+fi
+
+if [ "$NO_AI" -eq 1 ]; then
+  unset OPENAI_API_KEY SPRING_AI_OPENAI_API_KEY
+  export APP_RAG_ENABLED=false
+  export APP_RAG_EMBED_ON_STARTUP=false
+  log "AI disabled: SQL-only discovery and deterministic ranking (no OpenAI calls)."
+elif [ -z "${OPENAI_API_KEY:-}" ] || [ "${OPENAI_API_KEY:-}" = "not-configured" ]; then
+  export APP_RAG_ENABLED=false
+  export APP_RAG_EMBED_ON_STARTUP=false
+  warn "OPENAI_API_KEY is not set. Using deterministic ranking and SQL-only discovery."
 fi
 
 # ------------------------------------------------------------- install deps

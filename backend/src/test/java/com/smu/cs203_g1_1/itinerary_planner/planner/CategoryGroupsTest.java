@@ -47,7 +47,7 @@ class CategoryGroupsTest {
         assertNull(CategoryGroups.from("tourism", null));
         assertNull(CategoryGroups.from("tourism", "hotel"));
         assertNull(CategoryGroups.from(null, "hotel"));
-        assertNull(CategoryGroups.from("amenity", "nightclub"));
+        assertNull(CategoryGroups.from("amenity", "bench"));
         assertNull(CategoryGroups.from("  ", "  "));
         assertNull(CategoryGroups.inferKey(null));
         assertNull(CategoryGroups.inferKey("hotel"));
@@ -74,6 +74,9 @@ class CategoryGroupsTest {
         expected.put("amenity:marketplace", "food");
         expected.put("amenity:library", "culture");
         expected.put("amenity:cinema", "culture");
+        expected.put("amenity:bar", "nightlife");
+        expected.put("amenity:nightclub", "nightlife");
+        expected.put("amenity:place_of_worship", "culture");
         return expected;
     }
 }

@@ -221,7 +221,8 @@ public class PlaceSeeder {
 
             if (!CategorySimilarity.isKnownGroup(place.categoryGroup())) {
                 throw new IllegalStateException(prefix
-                        + "field 'category_group' must be one of culture, nature, attraction, shopping, food");
+                        + "field 'category_group' must be one of culture, nature, attraction, "
+                        + "shopping, food, nightlife");
             }
 
             requireCoordinate(place.latitude(), MIN_LATITUDE, MAX_LATITUDE,

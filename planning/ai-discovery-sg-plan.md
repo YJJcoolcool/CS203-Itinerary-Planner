@@ -1,7 +1,7 @@
 # AI Discovery (Singapore) — Implementation Plan
 
-Status: draft for review. Supersedes `ai-integration-implementation-plan.md` for discovery, preferences, and retrieval.
-Branch: new branch `feature/ai-discovery` cut from `main` after `feature/ai_integration` merges.
+Status: implemented on `feature/ai-discovery`. Supersedes `ai-integration-implementation-plan.md` for discovery, preferences, and retrieval.
+Branch: `feature/ai-discovery`, merged with `origin/main` (deploy lane: Docker/compose/CI) and pushed. Milestone state and remaining gaps are in §14.
 Scope: Singapore only. Global weather, country, timezone, and currency are out of scope.
 Retrieval approach: **lightweight semantic ranking (option B)** — no pgvector, no vector-store extension, no new artifact.
 
@@ -144,28 +144,83 @@ Estimates are person-days. Lanes marked ∥ can run in parallel.
 
 ### M4b — Proactive polling (1.5 d, owned by a group mate) ∥
 
-Depends on M1 (weather adapter) and M4 (shared discovery pool). Do **not** start before both land.
+Depends on M1 (weather adapter) and M4 (shared discovery pool) — both have landed. Re-verified against the code on 2026-10-22; **three assumptions in the original draft were wrong** and are corrected before the work breakdown.
 
-- `SuggestionService.replanForSystem(String tripId, ZonedDateTime at, TriggerSource trigger)` — the system path. It skips the EDITOR check but keeps every other rule (24 h window, PENDING suppression, reject cooldown, max 3). The existing EDITOR-gated `replan` is **not** relaxed.
-- `polling/WeatherPoller`:
-  - 24 h pass (`@Scheduled(cron = "0 0 * * * *")`): trips starting in `[now+20h, now+28h]`, four-day outlook (region-level).
-  - 2 h pass (`@Scheduled(fixedDelay = 10 min)`): activities starting in `[now+90m, now+150m]`, two-hour forecast (area-level).
-  - Gate on weather **first**: if `isRainy` is false, skip discovery and the LLM entirely. One NEA fetch per cycle (the client already caches for 15 min, so a 10-minute poll reuses the cache half the time).
-- Idempotency: a `PENDING` suggestion suppresses repeats; `ACCEPTED`/`REJECTED` re-open the activity for the next check; the existing reject cooldown still applies.
-- Add `Clock` injection to the time-dependent code — `ZonedDateTime.now(Asia/Singapore)` is currently hardcoded, which makes scheduler tests non-deterministic.
-- Tests: window selection (in/out), no-rain → zero discovery calls, PENDING suppression across two cycles, ACCEPTED re-opens, cooldown honoured, clock fixed at a known instant.
+**What the code actually has today**
 
-**Done when:** with a fixed rainy clock, one scheduler tick creates exactly one suggestion; a second tick creates none; a dry tick creates none and makes no discovery/LLM call.
+| Original claim | Reality (verified) |
+| --- | --- |
+| `V5` already has `trigger_source` + `notified_at` | No. `V5__trip_countries.sql` only creates `trip_countries`; no migration defines either column and `Suggestion` has neither field. Polling needs a new **`V8__polling.sql`** (V6 = embeddings, V7 = preferences). |
+| "the existing reject cooldown still applies" | No cooldown exists anywhere. `reject` only writes `REJECTED` (`SuggestionService.java:147-153`); the sole suppression is `existsByActivityIdAndStatus(..., PENDING)` at `:277-280`. Without one, a rejected suggestion returns on the very next tick. This must be built in M4b.1, not assumed. |
+| `@Scheduled` infrastructure exists | No scheduler at all: no `@EnableScheduling`, no `@Scheduled`, no scheduling properties. This lane introduces them. |
+| Clock injection needed | Partly present: `NeaWeatherSource` holds a `Clock` field (`:76`, `:95`) but never reads it; `SuggestionService.replan` hardcodes `ZonedDateTime.now(SG)` at `:223`. |
+
+No frontend work: `useSuggestions.ts:14` already polls `GET /api/trips/{id}/suggestions` every 30 s, so a scheduler-created row appears by itself.
+
+**M4b.1 — Migration, entity fields, cooldown predicate (0.25 d)**
+- `V8__polling.sql`: `ALTER TABLE suggestions ADD COLUMN trigger_source varchar(16) NOT NULL DEFAULT 'MANUAL', ADD COLUMN notified_at timestamptz;` plus an index on `(activity_id, status, responded_at)` to serve the dedupe and cooldown queries.
+- `Suggestion`: add `triggerSource` (`MANUAL | POLL_24H | POLL_2H`) and `notifiedAt` (`Instant`). Additive fields only, no renames.
+- Repository: `boolean existsByActivityIdAndStatusAndRespondedAtAfter(String activityId, SuggestionStatus status, Instant after)`.
+- Cooldown rule (new, and required for the feature to behave): skip an activity when a `REJECTED` suggestion exists in the last `REJECT_COOLDOWN = Duration.ofHours(6)`. Apply it in the shared rule body so the manual path and the poller agree.
+- Expose `triggerSource` on `SuggestionResponse` so the card can badge automated suggestions. `discoverySource` stays **out of scope** — it does not exist in code today and belongs to M4/M8.
+
+**M4b.2 — Clock plumbing (0.25 d)**
+- One `@Bean Clock clock()` (`Clock.system(SINGAPORE)`), injected into `SuggestionService` and `WeatherPoller`.
+- Replace the hardcoded `now()` at `SuggestionService:223` with `ZonedDateTime.now(clock)`; use the same clock for `respondedAt` (`:138`, `:153`).
+- Delete the dead `Clock` field in `NeaWeatherSource` or actually read it — one time source, not two.
+
+**M4b.3 — `replanForSystem` (0.25 d)**
+- `List<SuggestionResponse> replanForSystem(String tripId, String userId, ZonedDateTime at, TriggerSource trigger)`. `userId` may be null for scheduled runs — the trip's owner is not authenticated, so authorization must come from the caller's trust boundary (the poller), never from a fabricated user.
+- Refactor `replan` (`:221-330`) by extracting the rule body into a private `replanInternal(..., boolean requireEditor)`; `replan` keeps its EDITOR check, `replanForSystem` skips only that check. Do **not** relax the manual path.
+- All other rules unchanged: 24 h window (`:265-270`), max 3 (`:258-260`), PENDING suppression (`:277-280`), and the new cooldown from M4b.1.
+- Stamps `triggerSource`; leaves `notifiedAt` null (nothing consumes it yet).
+
+**M4b.4 — `WeatherPoller` (0.5 d)**
+- New `polling/WeatherPoller`, annotation-gated: `@ConditionalOnProperty(prefix="app.polling", name="enabled", havingValue="true")`, with `@EnableScheduling` on a matching `@Configuration` so dev boots and the test suite never start a scheduler. Default `false` in `application.properties`.
+- **24 h pass** — `@Scheduled(cron = "0 0 * * * *")`. Target trips whose `startDate` is tomorrow. Caveat: `Trip.startDate` is a `LocalDate` (`Trip.java:45`), so the original "`[now+20h, now+28h]`" band is not representable; "tomorrow in Asia/Singapore" is the honest equivalent. Record it as an accepted simplification rather than inventing a start time.
+- **2 h pass** — `@Scheduled(fixedDelay = 10 min)`. Target activities with `startDateTime` in `[now+90m, now+150m]`.
+- Weather gate **before** discovery and the LLM. Trip-based pass: derive the point from the trip's activity locations (the centroid, or the first activity if there is only one) because `Trip` carries no location; skip a trip with no activities. Activity pass: use that activity's `Location` lat/lon. Pass the matching window to `WeatherSource.isRainy(lat, lon, from, to)` — a >2 h window selects the four-day outlook, `<= 2 h` selects the two-hour feed (`NeaWeatherSource:114-117`), so the window choice *is* the feed choice. Do not add a new weather interface.
+- Failure isolation: wrap each trip/activity in its own try/catch and log; one bad row must never abort the tick. NEA already swallows its own errors and returns `false` (`:120-123`).
+- Repositories needed: `TripRepository.findByStartDate(LocalDate)` and `ActivityRepository.findByStartDateTimeBetween(ZonedDateTime, ZonedDateTime)`. Neither exists today.
+- Accept that `replanForSystem` is trip-scoped: a 2 h tick can also propose for other eligible activities in that trip. Document it; do not add a per-activity filter unless the demo needs it.
+
+**M4b.5 — Tests (0.25 d)**
+- Fixed `Clock` at a known instant via a test `@Bean`; never rely on wall time.
+- Window selection: activity at +100 min is picked, +80 min and +160 min are not; trip starting tomorrow is picked, today and +2 days are not.
+- Dry weather → zero discovery calls and zero LLM calls (assert on mocks, not just on empty results).
+- First rainy tick creates exactly one suggestion; second tick creates none (PENDING suppression).
+- Reject → subsequent poller ticks never re-propose the stop; the manual `POST /replan` still can.
+- Accept → activity re-opens for the next check.
+- Clock injection test: `SuggestionService` produces the injected instant, not wall time.
+- Scheduler disabled by default: context loads with no `@Scheduled` bean when `app.polling.enabled` is absent.
+
+**Done when:** with a fixed rainy clock, one scheduler tick creates exactly one suggestion; an immediate second tick creates none; a dry tick creates none and makes no discovery/LLM call; a poller-triggered suggestion is not re-proposed after a rejection; a green `./mvnw test` on H2.
+
+**Post-review amendments (2026-10-24):**
+- `NeaWeatherSource` chooses the feed by **lead time**: two-hour feed when the window starts within 2 h, four-day outlook otherwise. A 1–3 h stop tomorrow now gets a forecast instead of a silent `false`.
+- Both poller passes gate on the first **OUTDOOR** stop; the 24 h centroid averages outdoor stops only. Indoor-only activities make no weather call.
+- A null `endDateTime` uses `start + 2 h` for the weather window (previously `now + 2 h`, which could invert the window).
+- Rejection policy: poller triggers skip any activity that already has a `REJECTED` suggestion; the manual `POST /replan` is not suppressed. The 6 h cooldown was removed (it was bypassable via the client-supplied `at` and caused a re-propose loop).
+- `TriggerSource` values are `MANUAL | POLL_TOMORROW | POLL_IMMINENT`.
+- `createdAt` comes from the injected `Clock`; the client's `at` only drives window math.
+- `notified_at` was dropped (V9); V10 adds the Postgres-only partial unique index on PENDING activity ids.
+- `NeaWeatherSource` now reads the shared `Clock` bean instead of constructing its own; the NEA client's 15-minute cache still uses wall time.
+
+**Risks / limits**
+- Multi-instance duplication: fine on the single EC2 container; if the stack is ever scaled, add ShedLock or a DB advisory lock before enabling the poller on both.
+- `NEAWeatherClient` caches for 15 min using `System.currentTimeMillis()`, so a 10-minute poll reuses the cache roughly every other tick. Harmless, but the cache ignores the injected `Clock` — do not assert cache TTL behaviour in tests.
+- The poller writes suggestions without a human in the loop; if the demo expects only user-triggered suggestions, keep `app.polling.enabled=false` and show the manual `POST /replan` instead.
 
 **Coordination contract (avoid lane collisions):**
 
 | Touch point | Owner | Rule |
 | --- | --- | --- |
-| `SuggestionService.replan` restructure (M4) | plan lane | Lands **first**; polling builds on it |
-| `SuggestionService.replanForSystem` | polling lane | Additive only — no edits to the manual path |
-| `V5` migration | plan lane | Already contains `trigger_source` + `notified_at`; polling must **not** add a second `V5` |
-| `Suggestion` entity | polling lane | Add fields only; no renaming |
-| Frontend suggestion surface | plan lane | Polling shows up through the existing `GET /suggestions` |
+| `SuggestionService.replan` restructure (M4) | plan lane | Already landed; polling extracts from it, keeps behaviour |
+| `SuggestionService.replanForSystem` + `triggerSource` | polling lane | Additive; no relaxation of the manual EDITOR path |
+| Migrations `V1`–`V7` | plan lane | Frozen. Polling adds `V8__polling.sql` + `V9__polling_cleanup.sql` (common) and `V10__suggestions_pending_unique.sql` (Postgres-only, `db/migration-postgresql`) |
+| `Suggestion` entity | polling lane | Add fields only; no renames |
+| Rejection policy | polling lane | Pollers never re-propose a rejected stop; the manual path is not suppressed — announce before editing `SuggestionService` |
+| Frontend suggestion surface | plan lane | No change; existing `GET /suggestions` polling surfaces new rows |
 
 ### M5 — Preferences, group summary, and trip goal (3 d) ∥
 
@@ -211,6 +266,13 @@ Depends on M1 (weather adapter) and M4 (shared discovery pool). Do **not** start
 
 ## 6. Data migrations
 
+> **As built (2026-10-24):** the single `V5` draft below did not land as written. The schema lives in `V5__trip_countries.sql`, `V6__place_embeddings.sql`, and `V7__preferences.sql`. Polling added:
+> - `V8__polling.sql` (common): `trigger_source` (NOT NULL DEFAULT `MANUAL`), `notified_at`, and the wider `(activity_id, status, responded_at)` index.
+> - `V9__polling_cleanup.sql` (common): drops the superseded V4 index, drops `notified_at`, and renames `POLL_2H`/`POLL_24H` history rows.
+> - `V10__suggestions_pending_unique.sql` (Postgres-only, `db/migration-postgresql`): dedupes PENDING rows per activity and adds a partial unique index. H2 cannot express partial indexes.
+>
+> `V3` was moved to `db/migration-postgresql` with byte-identical content (checksums preserved); the H2 migration test uses a syntax-only split copy in `src/test/resources/db/migration-h2`. Treat the block below as the original design intent, not current DDL.
+
 `V5__preferences_and_embeddings.sql`:
 
 ```sql
@@ -243,7 +305,7 @@ ALTER TABLE suggestions
   ADD COLUMN notified_at timestamptz;
 ```
 
-`trigger` is a reserved word in Postgres — use `trigger_source`. Both polling columns live in `V5` (owned by the plan lane) so the polling lane does not create a competing `V5`.
+`trigger` is a reserved word in Postgres — use `trigger_source`. The polling columns land in `V8__polling.sql`; `V9__polling_cleanup.sql` removes `notified_at` and renames the trigger values, and Postgres-only `V10` adds the partial unique index.
 
 No extension, no vector type, no HNSW index. `bytea` maps to `VARBINARY` on H2, so the test profile needs no special handling. Store floats as little-endian `float32`; validate `dims * 4 == vector.length` on read.
 
@@ -269,7 +331,7 @@ No extension, no vector type, no HNSW index. `bytea` maps to `VARBINARY` on H2, 
 | Discovery | `PlaceDiscoveryServiceTest` — union/dedupe, semantic-arm failure → SQL-only, empty, pool reuse |
 | Planner | `CandidateFinderTest` (+non-seeded rows), `ScoreCalculatorTest` (hours exemption) |
 | Suggestion | `SuggestionServiceTest` — fallback ladder, real interests, one discovery per replan |
-| Polling | `WeatherPollerTest` — window in/out, dry tick makes no discovery/LLM call, two consecutive rainy ticks → one suggestion, ACCEPTED re-opens, cooldown honoured, fixed `Clock` |
+| Polling | `WeatherPollerTest` + `PollingSimulationTest` — window in/out, outdoor-only gate, dry tick makes no discovery/LLM call, two consecutive rainy ticks → one suggestion, ACCEPTED re-opens, poller rejection suppression (manual still re-proposes), fixed `Clock` |
 | AI | `OpenAiPlanChooserTest` (goal/summary/prev-next in payload), `PlanChoiceValidatorTest` (unchanged) |
 | Preferences | converter round-trip, visibility, editor-only writes, summarisation fallback |
 | Eval | golden set, three-way comparison |
@@ -365,16 +427,22 @@ Suggested split: lane A M1 (weather/NEA); lane B M2→M3→M4 (index/semantic/di
 
 ## 14. Progress
 
-| Milestone | State |
-| --- | --- |
-| M0 branch hygiene | not started |
-| M1 NEA adapter | not started |
-| M2 SG index | not started |
-| M3 semantic ranking | not started |
-| M4 discovery | not started |
-| M4b polling | not started (group mate) |
-| M5 preferences + goal | not started |
-| M6 prompt | not started |
-| M7 eval | not started |
-| M8 frontend | not started |
-| M9 stretch | not started |
+Last updated: 2026-10-24, after the P0/P1/P2 review of the polling lane (feed selection, poller gate, rejection policy, migrations V9/V10, Flyway smoke test).
+
+Previous update: 2026-10-22, after merging `origin/main` into `feature/ai-discovery`.
+
+| Milestone | State | Evidence / remaining work |
+| --- | --- | --- |
+| M0 branch hygiene | partial | Branch merged with `origin/main` (deploy lane) and pushed. Still open: `backend/.env.example` has no `APP_RAG_MODEL`/`APP_RAG_DIMENSIONS` entry; five local branches keep `[gone]` upstreams (`bugfixes`, `feature/activity-creation`, `feature/ai_integration`, `feature/invite-role-selection`, `planning-docs`); CGT-122/123 still both open. |
+| M1 NEA adapter | done | `weather/NeaWeatherSource` + `NeaWeatherSourceTest`, `nea/area-centroids.json`; feed chosen by lead time (two-hour within 2 h, four-day beyond it), no assumed rain. |
+| M2 SG index | done | `seed/OsmIndexImporter`, `OsmIndexRunner` + test, `scripts/build-sg-pois.sh` made practical. |
+| M3 semantic ranking | done | `rag/` package (document builder, embedder, codec, ranker, runner), `V6__place_embeddings.sql`; degrades to SQL-only on bad keys or corrupt vectors. |
+| M4 discovery | done | `discovery/PlaceDiscoveryService` + test; `CandidateFinder`/`CandidateRequest` rewired; `CategoryGoalMapper` maps goals to categories. |
+| M4b polling | done | `polling/WeatherPoller` + `PollingConfig` gated by `app.polling.enabled` (false in dev/tests, true in the prod profile); `V8`/`V9`/`V10` migrations; NEA feed selected by lead time; both passes gate on the first OUTDOOR stop; `replanForSystem` rejects `MANUAL` and requires a user; pollers never re-propose a rejected stop while the manual path stays free; `createdAt` comes from the Clock, not the client's `at`. `PollingSimulationTest` + `WeatherPollerTest` + `FlywayMigrationTest` cover the path offline. 331 backend tests green (2026-10-24). |
+| M5 preferences + goal | done | `preference/` package (entities, repositories, service, controller, summaries), `V7__preferences.sql`; trip summaries marked stale on member change. |
+| M6 prompt | done | `prompts/choose-alternative.txt`; chooser receives trip context and emits decision metrics. |
+| M7 eval | done | `scripts/eval/run-eval.sh`, `scripts/eval/scenarios.json`; replan harness added. Not yet run against a live key. |
+| M8 frontend | done | `PreferenceChip`, `TravelPreferencesModal`, `TripPreferencesPanel`, `usePreferences`, wired into trip pages. |
+| M9 stretch | not started | No day-level re-sequencing code. |
+
+Verification: backend suite green on this branch — `./mvnw test` ran 331 tests, 0 failures, 0 errors, 0 skipped (2026-10-24), including `PollingSimulationTest`, `WeatherPollerTest`, and `FlywayMigrationTest` (V1–V9 on H2 with `ddl-auto=validate`). The frontend build and the eval harness against a live key were not run.

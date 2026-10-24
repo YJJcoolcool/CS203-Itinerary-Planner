@@ -77,6 +77,11 @@ public class Suggestion {
     @Column(name = "responded_at")
     private Instant respondedAt;
 
+    /** Whether a user asked for this suggestion or a poller created it. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "trigger_source", nullable = false, length = 16)
+    private TriggerSource triggerSource = TriggerSource.MANUAL;
+
     // Required by JPA.
     public Suggestion() {
     }
@@ -183,5 +188,13 @@ public class Suggestion {
 
     public void setRespondedAt(Instant respondedAt) {
         this.respondedAt = respondedAt;
+    }
+
+    public TriggerSource getTriggerSource() {
+        return triggerSource;
+    }
+
+    public void setTriggerSource(TriggerSource triggerSource) {
+        this.triggerSource = triggerSource;
     }
 }

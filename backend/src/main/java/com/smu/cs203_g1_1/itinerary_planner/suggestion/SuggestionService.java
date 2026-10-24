@@ -1,7 +1,7 @@
 package com.smu.cs203_g1_1.itinerary_planner.suggestion;
 
+import java.time.Clock;
 import java.time.Instant;
-import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -61,7 +61,6 @@ public class SuggestionService {
 
     private static final Logger log = LoggerFactory.getLogger(SuggestionService.class);
 
-    private static final ZoneId SG = ZoneId.of("Asia/Singapore");
     private static final int MAX_SUGGESTIONS_PER_REPLAN = 3;
     private static final int WINDOW_HOURS = 24;
     private static final int SHORTLIST_LIMIT = 5;
@@ -78,6 +77,7 @@ public class SuggestionService {
     private final ObjectProvider<PlaceDiscoveryService> discoveryService;
     private final UserPreferenceRepository userPreferences;
     private final TripPreferenceRepository tripPreferences;
+    private final Clock clock;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public SuggestionService(SuggestionRepository suggestionRepository,
@@ -89,7 +89,8 @@ public class SuggestionService {
                              ObjectProvider<QueryEmbedder> queryEmbedder,
                              ObjectProvider<PlaceDiscoveryService> discoveryService,
                              UserPreferenceRepository userPreferences,
-                             TripPreferenceRepository tripPreferences) {
+                             TripPreferenceRepository tripPreferences,
+                             Clock clock) {
         this.suggestionRepository = suggestionRepository;
         this.activityRepository = activityRepository;
         this.tripService = tripService;
@@ -100,6 +101,7 @@ public class SuggestionService {
         this.discoveryService = discoveryService;
         this.userPreferences = userPreferences;
         this.tripPreferences = tripPreferences;
+        this.clock = clock;
     }
 
     @Transactional(readOnly = true)
@@ -135,7 +137,7 @@ public class SuggestionService {
         activityRepository.save(activity);
 
         suggestion.setStatus(SuggestionStatus.ACCEPTED);
-        suggestion.setRespondedAt(Instant.now());
+        suggestion.setRespondedAt(Instant.now(clock));
         Suggestion saved = suggestionRepository.save(suggestion);
 
         log.info("Accepted suggestion id={} for activity id={} on trip id={}",
@@ -150,7 +152,7 @@ public class SuggestionService {
         requirePending(suggestion);
 
         suggestion.setStatus(SuggestionStatus.REJECTED);
-        suggestion.setRespondedAt(Instant.now());
+        suggestion.setRespondedAt(Instant.now(clock));
         Suggestion saved = suggestionRepository.save(suggestion);
 
         log.info("Rejected suggestion id={} for activity id={} on trip id={}",
@@ -220,7 +222,31 @@ public class SuggestionService {
     @Transactional
     public List<SuggestionResponse> replan(String tripId, String userId, ZonedDateTime at) {
         Trip trip = tripService.requireTripRole(tripId, userId, TripRole.EDITOR);
-        ZonedDateTime now = at != null ? at : ZonedDateTime.now(SG);
+        return replanInternal(trip, userId, at, TriggerSource.MANUAL);
+    }
+
+    /**
+     * Poller entry point. Authorization comes from the caller's trust boundary
+     * (the scheduler), so only the EDITOR check is skipped; every other rule is
+     * shared with the manual path.
+     */
+    @Transactional
+    public List<SuggestionResponse> replanForSystem(String tripId, String userId,
+                                                    ZonedDateTime at, TriggerSource trigger) {
+        Objects.requireNonNull(userId, "userId");
+        Objects.requireNonNull(trigger, "trigger");
+        if (trigger == TriggerSource.MANUAL) {
+            throw new IllegalArgumentException("replanForSystem requires a poll trigger");
+        }
+
+        Trip trip = tripService.getTrip(tripId);
+        return replanInternal(trip, userId, at, trigger);
+    }
+
+    private List<SuggestionResponse> replanInternal(Trip trip, String userId,
+                                                    ZonedDateTime at, TriggerSource trigger) {
+        String tripId = trip.getId();
+        ZonedDateTime now = at != null ? at : ZonedDateTime.now(clock);
         long startedAt = System.nanoTime();
 
         if (!coversSingapore(trip)) {
@@ -279,9 +305,19 @@ public class SuggestionService {
                 continue;
             }
 
+            // Automated ticks must not nag about a stop the traveller already
+            // rejected; the manual path stays free to ask again.
+            if (trigger != TriggerSource.MANUAL
+                    && suggestionRepository.existsByActivityIdAndStatus(
+                            activity.getId(), SuggestionStatus.REJECTED)) {
+                continue;
+            }
+
             ZonedDateTime arrival = start != null && start.isAfter(now) ? start : now;
             ZonedDateTime fromWindow = start != null ? start : now;
-            ZonedDateTime toWindow = end != null ? end : now.plusHours(RAIN_WINDOW_FALLBACK_HOURS);
+            ZonedDateTime toWindow = end != null
+                    ? end
+                    : fromWindow.plusHours(RAIN_WINDOW_FALLBACK_HOURS);
 
             if (!weatherSource.isRainy(
                     dropped.getLatitude(), dropped.getLongitude(), fromWindow, toWindow)) {
@@ -393,7 +429,8 @@ public class SuggestionService {
             suggestion.setCandidatesJson(serialiseCandidates(candidates));
             suggestion.setTopScoreChoiceId(top.location().getId());
             suggestion.setAiChoiceId(aiChoiceId);
-            suggestion.setCreatedAt(now.toInstant());
+            suggestion.setCreatedAt(Instant.now(clock));
+            suggestion.setTriggerSource(trigger);
 
             SuggestionResponse response = SuggestionResponse.from(
                     suggestionRepository.save(suggestion));
@@ -431,7 +468,7 @@ public class SuggestionService {
 
     private static Location firstOutdoor(Activity activity) {
         return activity.getLocations().stream()
-                .filter(location -> "OUTDOOR".equalsIgnoreCase(location.getIndoorClass()))
+                .filter(Location::isOutdoor)
                 .findFirst()
                 .orElse(null);
     }

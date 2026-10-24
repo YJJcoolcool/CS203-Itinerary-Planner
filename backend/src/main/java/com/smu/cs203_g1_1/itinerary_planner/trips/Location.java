@@ -222,6 +222,11 @@ public class Location {
         this.indoorClass = indoorClass;
     }
 
+    /** True when the classifier (or a human) marked this place as an outdoor stop. */
+    public boolean isOutdoor() {
+        return "OUTDOOR".equalsIgnoreCase(indoorClass);
+    }
+
     public String getIndoorSource() {
         return indoorSource;
     }

@@ -40,8 +40,13 @@ class NeaWeatherSourceTest {
     private static final OffsetDateTime FEED_TO =
         OffsetDateTime.parse("2026-10-21T00:30:00+08:00");
 
-    private static final ZonedDateTime ACTIVITY_START =
-        ZonedDateTime.of(2026, 10, 20, 23, 0, 0, 0, SINGAPORE);
+    private static final ZonedDateTime NOW =
+        ZonedDateTime.of(2026, 10, 20, 22, 30, 0, 0, SINGAPORE);
+
+    private static final ZonedDateTime ACTIVITY_START = NOW.plusMinutes(30);
+
+    /** Short stop, but no two-hour coverage exists four hours from now. */
+    private static final ZonedDateTime FOUR_HOURS_OUT = NOW.plusHours(4);
 
     @Mock
     private NEAWeatherClient client;
@@ -53,7 +58,7 @@ class NeaWeatherSourceTest {
         source = new NeaWeatherSource(
             client,
             List.of(BEDOK, TAMPINES),
-            Clock.system(SINGAPORE)
+            Clock.fixed(NOW.toInstant(), SINGAPORE)
         );
     }
 
@@ -110,58 +115,100 @@ class NeaWeatherSourceTest {
     }
 
     @Test
-    void shortWindowWithoutAnOverlappingForecastReturnsFalse() {
+    void shortWindowFourHoursOutUsesTheFourDayOutlook() {
+        when(client.getFourDayForecast()).thenReturn(List.of(
+            new WeatherForecast(LocalDate.of(2026, 10, 21), "Thundery Showers", true)
+        ));
+
+        assertTrue(source.isRainy(
+            1.3200, 103.9230,
+            FOUR_HOURS_OUT, FOUR_HOURS_OUT.plusMinutes(30)
+        ));
+
+        verify(client).getFourDayForecast();
+        verify(client, never()).getTwoHourForecast();
+    }
+
+    @Test
+    void imminentShortWindowWithoutOverlapReturnsFalse() {
+        // An entry exists for the area, but it covers an earlier period, so the
+        // two-hour feed cannot answer this imminent window.
         when(client.getTwoHourForecast()).thenReturn(List.of(
-            twoHour("Bedok", true)
+            new TwoHourWeatherForecast(
+                "Bedok",
+                "Cloudy",
+                FEED_FROM.minusHours(5),
+                FEED_FROM.minusHours(3),
+                FEED_FROM.minusHours(5),
+                false)
         ));
 
         assertFalse(source.isRainy(
             1.3200, 103.9230,
-            ACTIVITY_START.plusHours(4), ACTIVITY_START.plusHours(4).plusMinutes(30)
+            ACTIVITY_START, ACTIVITY_START.plusMinutes(30)
         ));
 
         verify(client, never()).getFourDayForecast();
     }
 
     @Test
-    void longWindowIgnoresTheTwoHourFeedAndUsesTheFourDayOutlook() {
+    void shortWindowTomorrowUsesTheFourDayOutlook() {
+        ZonedDateTime tomorrow = NOW.plusDays(1)
+            .withHour(10)
+            .withMinute(0)
+            .withSecond(0)
+            .withNano(0);
         when(client.getFourDayForecast()).thenReturn(List.of(
-            new WeatherForecast(LocalDate.of(2026, 10, 20), "Cloudy", false),
             new WeatherForecast(LocalDate.of(2026, 10, 21), "Cloudy", false)
         ));
 
         assertFalse(source.isRainy(
             1.3200, 103.9230,
-            ACTIVITY_START, ACTIVITY_START.plusMinutes(150)
+            tomorrow, tomorrow.plusMinutes(30)
+        ));
+
+        verify(client).getFourDayForecast();
+        verify(client, never()).getTwoHourForecast();
+    }
+
+    @Test
+    void nonImminentWindowIgnoresTheTwoHourFeedAndUsesTheFourDayOutlook() {
+        when(client.getFourDayForecast()).thenReturn(List.of(
+            new WeatherForecast(LocalDate.of(2026, 10, 21), "Cloudy", false)
+        ));
+
+        assertFalse(source.isRainy(
+            1.3200, 103.9230,
+            FOUR_HOURS_OUT, FOUR_HOURS_OUT.plusMinutes(150)
         ));
 
         verify(client, never()).getTwoHourForecast();
     }
 
     @Test
-    void longWindowReturnsTheFourDayAnswerEvenWhenTheTwoHourFeedWouldThrow() {
+    void nonImminentWindowReturnsTheFourDayAnswerEvenWhenTheTwoHourFeedWouldThrow() {
         lenient().when(client.getTwoHourForecast())
             .thenThrow(new IllegalStateException("NEA two-hour unavailable"));
         when(client.getFourDayForecast()).thenReturn(List.of(
-            new WeatherForecast(LocalDate.of(2026, 10, 20), "Thundery Showers", true)
+            new WeatherForecast(LocalDate.of(2026, 10, 21), "Thundery Showers", true)
         ));
 
         assertTrue(source.isRainy(
             1.3200, 103.9230,
-            ACTIVITY_START, ACTIVITY_START.plusMinutes(150)
+            FOUR_HOURS_OUT, FOUR_HOURS_OUT.plusMinutes(150)
         ));
 
         verify(client, never()).getTwoHourForecast();
     }
 
     @Test
-    void longWindowFourDayFailureIsTreatedAsNoRain() {
+    void nonImminentFourDayFailureIsTreatedAsNoRain() {
         when(client.getFourDayForecast())
             .thenThrow(new IllegalStateException("NEA four-day unavailable"));
 
         assertFalse(source.isRainy(
             1.3200, 103.9230,
-            ACTIVITY_START, ACTIVITY_START.plusMinutes(150)
+            FOUR_HOURS_OUT, FOUR_HOURS_OUT.plusMinutes(150)
         ));
     }
 
@@ -195,7 +242,8 @@ class NeaWeatherSourceTest {
 
     @Test
     void classpathAreaTableLoadsAndMapsAKnownPlace() {
-        NeaWeatherSource fromResource = new NeaWeatherSource(client);
+        NeaWeatherSource fromResource = new NeaWeatherSource(client,
+                Clock.fixed(NOW.toInstant(), SINGAPORE));
 
         assertEquals("Tampines", fromResource.nearestArea(1.3450, 103.9440).name());
         assertEquals("Bedok", fromResource.nearestArea(1.3210, 103.9240).name());

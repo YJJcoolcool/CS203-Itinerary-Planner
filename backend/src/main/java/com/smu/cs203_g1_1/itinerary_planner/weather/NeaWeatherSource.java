@@ -3,7 +3,6 @@ package com.smu.cs203_g1_1.itinerary_planner.weather;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -29,15 +28,20 @@ import org.springframework.stereotype.Component;
  * <p>NEA's two-hour forecast is keyed by area name, not coordinates, so the
  * classpath resource {@code nea/area-centroids.json} (generated from the same
  * feed's {@code area_metadata}) maps a coordinate to the nearest forecast area.
- * The feed is chosen by window length alone:</p>
+ * The feed is chosen by <em>lead time</em>, not window duration:</p>
  *
  * <ul>
- *   <li>{@code <= 2 h}: only the area-level two-hour feed. If that area has no
- *       forecast overlapping the window, the answer is {@code false} (an
- *       uncovered window is unknown, never assumed wet).</li>
- *   <li>{@code > 2 h}: only the four-day outlook. The two-hour feed is not
- *       fetched at all.</li>
+ *   <li>starts within two hours: only the area-level two-hour feed. If that
+ *       area has no forecast overlapping the window, the answer is
+ *       {@code false} (an uncovered window is unknown, never assumed wet).</li>
+ *   <li>starts later than two hours: only the four-day outlook. The two-hour
+ *       feed is not fetched at all, even for a short stop.</li>
  * </ul>
+ *
+ * <p>This matters for a 1–3 h stop tomorrow: it is short but has no two-hour
+ * coverage, so duration-based selection would return {@code false} and make the
+ * 24 h pass inert. Imminent windows that the two-hour feed does not cover still
+ * return {@code false}.</p>
  *
  * <p><strong>Known limitation of the four-day path:</strong> the data.gov.sg
  * four-day endpoint
@@ -69,9 +73,6 @@ public class NeaWeatherSource implements WeatherSource {
     static final double MIN_LONGITUDE = 103.60;
     static final double MAX_LONGITUDE = 104.10;
 
-    /** The two-hour feed is only meaningful for windows up to this length. */
-    private static final Duration TWO_HOUR_WINDOW = Duration.ofHours(2);
-
     private final NEAWeatherClient client;
     private final Clock clock;
     private final List<Area> areas;
@@ -81,8 +82,8 @@ public class NeaWeatherSource implements WeatherSource {
      * constructor for tests, so Spring cannot infer which one to use.
      */
     @Autowired
-    public NeaWeatherSource(NEAWeatherClient client) {
-        this(client, loadAreas(), Clock.system(SINGAPORE));
+    public NeaWeatherSource(NEAWeatherClient client, Clock clock) {
+        this(client, loadAreas(), clock);
     }
 
     NeaWeatherSource(NEAWeatherClient client, List<Area> areas, Clock clock) {
@@ -107,11 +108,12 @@ public class NeaWeatherSource implements WeatherSource {
         }
 
         Area area = nearestArea(latitude, longitude);
+        ZonedDateTime now = ZonedDateTime.now(clock);
 
         try {
-            // The feed is selected by window length only: the four-day outlook
-            // exists precisely for windows the two-hour feed does not cover.
-            if (Duration.between(from, to).compareTo(TWO_HOUR_WINDOW) <= 0) {
+            // The two-hour feed only covers imminent windows; a short stop
+            // tomorrow must go to the four-day outlook instead.
+            if (!from.isAfter(now.plusHours(2))) {
                 return overlappingTwoHour(area, from, to).stream()
                     .anyMatch(TwoHourWeatherForecast::rainExpected);
             }
@@ -140,9 +142,9 @@ public class NeaWeatherSource implements WeatherSource {
     }
 
     /**
-     * Coarse, national answer for windows longer than two hours. The published
-     * feed has no regional breakdown, so any wet day overlapping the window
-     * counts as rainy. Never used for short, imminent windows.
+     * Coarse, national answer for windows starting later than two hours. The
+     * published feed has no regional breakdown, so any wet day overlapping the
+     * window counts as rainy. Never used for imminent windows.
      */
     private boolean fourDayHintsRain(ZonedDateTime from, ZonedDateTime to) {
         List<WeatherForecast> forecasts = client.getFourDayForecast();

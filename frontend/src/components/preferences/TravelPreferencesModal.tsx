@@ -86,7 +86,10 @@ export function TravelPreferencesModal({ onClose }: { onClose: () => void }) {
   const titleId = useId()
   const headingRef = useRef<HTMLHeadingElement>(null)
 
-  // Fill the form once the server copy arrives (and after a save).
+  // Fill the form once the server copy arrives (and after a save). Copying an
+  // external server value into editable form state is intentional; the rule
+  // cannot tell it apart from a cascading render, so suppress it for this block.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!preferences) return
 
@@ -100,6 +103,7 @@ export function TravelPreferencesModal({ onClose }: { onClose: () => void }) {
     setIndoor(normalizeIndoor(preferences.indoorPreference))
     setNotes(preferences.notes ?? '')
   }, [preferences])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     headingRef.current?.focus()

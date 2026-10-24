@@ -61,7 +61,7 @@ public class PlaceDiscoveryService {
             ? 180.0
             : radiusKm / (KM_PER_DEGREE_LAT * Math.abs(cosLat));
 
-        List<Location> nearby = locations.findInBoundingBox(
+        List<Location> nearby = locations.findTrustedInBoundingBox(
             latitude - latDelta,
             latitude + latDelta,
             longitude - lonDelta,

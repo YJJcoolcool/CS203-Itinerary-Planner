@@ -93,6 +93,35 @@ class PlaceSeedRepositoryTest {
     }
 
     @Test
+    void trustedQueriesKeepCuratedAndOsmRowsButDropUserCreatedOnes() {
+
+        Location curated = seededLocation("SeedLocA", 1.30, 103.85);
+
+        Location indexed = new Location("Indexed museum", "museum", 1.31, 103.86, true);
+        indexed.setId("SeedLocB");
+        indexed.setOsmType("node");
+        indexed.setOsmId(42L);
+
+        Location userCreated = new Location("My Airbnb", "home", 1.31, 103.86, true);
+        userCreated.setId("SeedLocC");
+
+        Location trustedOutOfBox = seededLocation("SeedLocD", 1.45, 103.85);
+
+        locationRepository.saveAllAndFlush(List.of(curated, indexed, userCreated, trustedOutOfBox));
+        entityManager.clear();
+
+        List<String> inBox = locationRepository.findTrustedInBoundingBox(
+            MIN_LAT, MAX_LAT, MIN_LON, MAX_LON
+        ).stream().map(Location::getId).sorted().toList();
+
+        List<String> all = locationRepository.findTrusted()
+            .stream().map(Location::getId).sorted().toList();
+
+        assertEquals(List.of("SeedLocA", "SeedLocB"), inBox);
+        assertEquals(List.of("SeedLocA", "SeedLocB", "SeedLocD"), all);
+    }
+
+    @Test
     void placeScoresRoundTripWithCompositeKey() {
 
         locationRepository.saveAndFlush(seededLocation("SeedLocA", 1.30, 103.85));

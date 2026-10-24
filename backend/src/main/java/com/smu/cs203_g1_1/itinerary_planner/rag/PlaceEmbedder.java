@@ -65,7 +65,7 @@ public class PlaceEmbedder {
             }
         }
 
-        List<Location> pending = locations.findAll().stream()
+        List<Location> pending = locations.findTrusted().stream()
             .filter(location -> location.getId() != null)
             .filter(location -> location.getName() != null && !location.getName().isBlank())
             .filter(location -> needsEmbedding(alreadyEmbedded.get(location.getId()), model))

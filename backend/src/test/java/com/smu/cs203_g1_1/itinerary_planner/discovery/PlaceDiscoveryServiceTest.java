@@ -72,7 +72,7 @@ class PlaceDiscoveryServiceTest {
     }
 
     private void stubNearby(List<Location> nearby) {
-        when(locations.findInBoundingBox(
+        when(locations.findTrustedInBoundingBox(
             anyDouble(), anyDouble(), anyDouble(), anyDouble())).thenReturn(nearby);
     }
 

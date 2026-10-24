@@ -42,7 +42,7 @@ class PlaceEmbedderTest {
 
     @Test
     void embedsOnlyPlacesWithoutAVector() {
-        when(locations.findAll()).thenReturn(List.of(
+        when(locations.findTrusted()).thenReturn(List.of(
             location("loc00001", "Museum"),
             location("loc00002", "Park")));
         when(embeddings.findAll()).thenReturn(List.of(
@@ -59,7 +59,7 @@ class PlaceEmbedderTest {
 
     @Test
     void doesNothingWhenEverythingIsAlreadyEmbedded() {
-        when(locations.findAll()).thenReturn(List.of(location("loc00001", "Museum")));
+        when(locations.findTrusted()).thenReturn(List.of(location("loc00001", "Museum")));
         when(embeddings.findAll()).thenReturn(List.of(
             new PlaceEmbedding("loc00001", "test-model", new float[] {1f, 0f})));
 
@@ -72,7 +72,7 @@ class PlaceEmbedderTest {
 
     @Test
     void aFailedBatchIsCountedAndDoesNotAbortTheRun() {
-        when(locations.findAll()).thenReturn(List.of(location("loc00001", "Museum")));
+        when(locations.findTrusted()).thenReturn(List.of(location("loc00001", "Museum")));
         when(embeddings.findAll()).thenReturn(List.of());
         when(embeddingModel.embed(anyList())).thenThrow(new IllegalStateException("provider down"));
 
@@ -85,7 +85,7 @@ class PlaceEmbedderTest {
 
     @Test
     void aVectorCountMismatchIsTreatedAsAFailedBatch() {
-        when(locations.findAll()).thenReturn(List.of(
+        when(locations.findTrusted()).thenReturn(List.of(
             location("loc00001", "Museum"),
             location("loc00002", "Park")));
         when(embeddings.findAll()).thenReturn(List.of());
@@ -99,7 +99,7 @@ class PlaceEmbedderTest {
 
     @Test
     void reEmbedsRowsWrittenByADifferentModel() {
-        when(locations.findAll()).thenReturn(List.of(location("loc00001", "Museum")));
+        when(locations.findTrusted()).thenReturn(List.of(location("loc00001", "Museum")));
         when(embeddings.findAll()).thenReturn(List.of(
             new PlaceEmbedding("loc00001", "old-model", new float[] {1f, 0f})));
         when(embeddingModel.embed(anyList())).thenReturn(List.of(new float[] {1f, 0f}));
@@ -113,7 +113,7 @@ class PlaceEmbedderTest {
 
     @Test
     void reEmbedsRowsWrittenWithDifferentDimensions() {
-        when(locations.findAll()).thenReturn(List.of(location("loc00001", "Museum")));
+        when(locations.findTrusted()).thenReturn(List.of(location("loc00001", "Museum")));
         when(embeddings.findAll()).thenReturn(List.of(
             new PlaceEmbedding("loc00001", "test-model", new float[] {1f, 0f, 0f})));
         when(embeddingModel.embed(anyList())).thenReturn(List.of(new float[] {1f, 0f}));
@@ -127,7 +127,7 @@ class PlaceEmbedderTest {
 
     @Test
     void rejectsVectorsOverTheByteCap() {
-        when(locations.findAll()).thenReturn(List.of(location("loc00001", "Museum")));
+        when(locations.findTrusted()).thenReturn(List.of(location("loc00001", "Museum")));
         when(embeddings.findAll()).thenReturn(List.of());
         when(embeddingModel.embed(anyList())).thenReturn(List.of(new float[2049]));
 

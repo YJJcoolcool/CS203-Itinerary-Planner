@@ -163,6 +163,17 @@ class CandidateFinderTest {
     }
 
     @Test
+    void excludesUserCreatedPlacesEvenWhenTheyClaimToBeIndoorAndOpen() {
+        saveDropped();
+        saveIndexedLocation("IndexLc1", 1.30, 103.86, "culture", "INDOOR", "24/7");
+        saveUserCreatedLocation("UserLc01", 1.30, 103.86, "culture", "INDOOR", "24/7");
+
+        List<Candidate> result = candidateFinder.find(request(false, Set.of(), 10, Set.of()));
+
+        assertEquals(List.of("IndexLc1"), ids(result));
+    }
+
+    @Test
     void preferredLocationsGetASemanticBoost() {
         saveDropped();
         saveLocation("PlainLc1", 1.3010, 103.8510, "culture", "INDOOR", "24/7");
@@ -213,6 +224,16 @@ class CandidateFinderTest {
     private Location saveIndexedLocation(String id, double latitude, double longitude,
                                          String categoryGroup, String indoorClass,
                                          String openingHours) {
+        Location location = saveLocation(id, latitude, longitude, categoryGroup, indoorClass, openingHours);
+        location.setSeeded(false);
+        location.setOsmType("node");
+        location.setOsmId((long) id.hashCode());
+        return locationRepository.saveAndFlush(location);
+    }
+
+    private Location saveUserCreatedLocation(String id, double latitude, double longitude,
+                                             String categoryGroup, String indoorClass,
+                                             String openingHours) {
         Location location = saveLocation(id, latitude, longitude, categoryGroup, indoorClass, openingHours);
         location.setSeeded(false);
         return locationRepository.saveAndFlush(location);

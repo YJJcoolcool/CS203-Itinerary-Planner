@@ -22,13 +22,15 @@ public interface LocationRepository extends JpaRepository<Location, String> {
             @Param("minLon") Double minLon,
             @Param("maxLon") Double maxLon);
 
+    /** Curated or OSM-sourced places; the same trust rule as the bounding-box query below. */
+    @Query("select l from Location l where l.seeded = true or l.osmId is not null")
+    List<Location> findTrusted();
+
     /**
-     * Every place in the box, curated or imported. Discovery uses this; the
-     * seeded-only query above remains the last-resort fallback when the index
-     * is unavailable.
+     * Curated or OSM-sourced places in the box; user-created rows (no OSM id) are never candidates.
      */
-    @Query("select l from Location l where l.latitude between :minLat and :maxLat and l.longitude between :minLon and :maxLon")
-    List<Location> findInBoundingBox(
+    @Query("select l from Location l where (l.seeded = true or l.osmId is not null) and l.latitude between :minLat and :maxLat and l.longitude between :minLon and :maxLon")
+    List<Location> findTrustedInBoundingBox(
             @Param("minLat") Double minLat,
             @Param("maxLat") Double maxLat,
             @Param("minLon") Double minLon,

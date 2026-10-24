@@ -136,6 +136,92 @@ class PreferenceServiceTest {
     }
 
     @Test
+    void rejectsFieldsLongerThanTheirColumnsBeforeTouchingTheDatabase() {
+        String longTag = "x".repeat(PreferenceService.MAX_LIST_CHARS + 1);
+
+        assertThrows(IllegalArgumentException.class, () -> service.updateUser(
+            "user0001", List.of(longTag), null, null, "ANY", null));
+        assertThrows(IllegalArgumentException.class, () -> service.updateUser(
+            "user0001", List.of(), null, "d".repeat(PreferenceService.MAX_DIETARY_CHARS + 1), "ANY", null));
+        assertThrows(IllegalArgumentException.class, () -> service.updateUser(
+            "user0001", List.of(), null, null, "ANY", "n".repeat(PreferenceService.MAX_TEXT_CHARS + 1)));
+
+        verifyNoInteractions(userPreferences);
+    }
+
+    @Test
+    void tagLimitCountsTheCommaJoinedColumnNotEachTag() {
+        // 26 tags of 9 chars + 25 commas = 259 chars: each tag is short, the column is not.
+        List<String> tags = java.util.stream.IntStream.range(0, 26)
+            .mapToObj(i -> String.format("tag%06d", i))
+            .toList();
+
+        assertThrows(IllegalArgumentException.class, () -> service.updateUser(
+            "user0001", tags, null, null, "ANY", null));
+    }
+
+    @Test
+    void maxWalkMustFitNumericFourTwoAfterRounding() {
+        assertThrows(IllegalArgumentException.class, () -> service.updateUser(
+            "user0001", List.of(), new BigDecimal("-0.5"), null, "ANY", null));
+        assertThrows(IllegalArgumentException.class, () -> service.updateUser(
+            "user0001", List.of(), new BigDecimal("100"), null, "ANY", null));
+        // Rounds to 100.00, which numeric(4,2) cannot hold.
+        assertThrows(IllegalArgumentException.class, () -> service.updateUser(
+            "user0001", List.of(), new BigDecimal("99.995"), null, "ANY", null));
+
+        verifyNoInteractions(userPreferences);
+    }
+
+    @Test
+    void acceptsTheLargestWalkThatFits() {
+        when(userPreferences.findById("user0001")).thenReturn(Optional.empty());
+        when(userPreferences.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(tripService.getTripsForUser("user0001")).thenReturn(List.of());
+
+        UserPreference updated = service.updateUser(
+            "user0001", List.of(), new BigDecimal("99.99"), null, "ANY", null);
+
+        assertEquals(new BigDecimal("99.99"), updated.getMaxWalkKm());
+    }
+
+    @Test
+    void updateTripRejectsGoalsLongerThanTheColumn() {
+        when(tripService.requireTripRole("trip0001", "user0001", TripRole.EDITOR)).thenReturn(trip);
+
+        assertThrows(IllegalArgumentException.class, () -> service.updateTrip(
+            "trip0001", "user0001", List.of("g".repeat(PreferenceService.MAX_LIST_CHARS + 1)), List.of()));
+
+        verify(tripPreferences, never()).save(any());
+    }
+
+    @Test
+    void anOverlongModelSummaryIsTruncatedToFitTheColumn() {
+        PreferenceSummaryGenerator verbose = new PreferenceSummaryGenerator() {
+            @Override
+            public Optional<String> summariseGroup(List<UserPreference> members, TripPreference trip) {
+                return Optional.of("s".repeat(PreferenceService.MAX_TEXT_CHARS + 500));
+            }
+
+            @Override
+            public Optional<String> summariseUser(UserPreference preference) {
+                return Optional.empty();
+            }
+        };
+        service = new PreferenceService(userPreferences, tripPreferences, tripService, verbose);
+
+        when(tripService.requireTripRole("trip0001", "user0001", TripRole.EDITOR)).thenReturn(trip);
+        when(trip.getUsers()).thenReturn(List.of());
+        when(tripPreferences.findById("trip0001")).thenReturn(Optional.of(new TripPreference("trip0001")));
+        when(tripPreferences.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        TripPreference summarised = service.summariseTrip("trip0001", "user0001");
+
+        assertEquals(PreferenceService.MAX_TEXT_CHARS, summarised.getSummary().length());
+        assertTrue(summarised.getSummary().endsWith("…"));
+    }
+
+    @Test
     void unknownUserReadsAsAnEmptyPreference() {
         when(userPreferences.findById("ghost")).thenReturn(Optional.empty());
 

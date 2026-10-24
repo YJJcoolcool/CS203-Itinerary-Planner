@@ -1,6 +1,7 @@
 package com.smu.cs203_g1_1.itinerary_planner.preference;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -24,6 +25,14 @@ import org.springframework.transaction.annotation.Transactional;
 public class PreferenceService {
 
     private static final Set<String> INDOOR_PREFERENCES = Set.of("INDOOR", "OUTDOOR", "ANY");
+
+    // Column limits from V7__preferences.sql; checked here so bad input is a 400, not a DB 500.
+    static final int MAX_LIST_CHARS = 255;
+    static final int MAX_DIETARY_CHARS = 64;
+    static final int MAX_TEXT_CHARS = 1024;
+    static final BigDecimal MAX_WALK_KM = new BigDecimal("99.99");
+
+    private static final CsvListConverter CSV = new CsvListConverter();
 
     private final UserPreferenceRepository userPreferences;
     private final TripPreferenceRepository tripPreferences;
@@ -59,6 +68,10 @@ public class PreferenceService {
                                      String indoorPreference,
                                      String notes) {
         validateIndoorPreference(indoorPreference);
+        validateList("tags", tags);
+        validateLength("dietary", dietary, MAX_DIETARY_CHARS);
+        validateLength("notes", notes, MAX_TEXT_CHARS);
+        validateMaxWalk(maxWalkKm);
 
         UserPreference preference = getOrCreateUser(userId);
         preference.setTags(tags);
@@ -104,6 +117,8 @@ public class PreferenceService {
                                      List<String> goals,
                                      List<String> tags) {
         Trip trip = tripService.requireTripRole(tripId, userId, TripRole.EDITOR);
+        validateList("goals", goals);
+        validateList("tags", tags);
 
         TripPreference preference = tripPreferences.findById(tripId)
             .orElseGet(() -> new TripPreference(trip.getId()));
@@ -135,7 +150,7 @@ public class PreferenceService {
         String summary = summaryGenerator.summariseGroup(members, preference)
             .orElseGet(() -> fallbackSummary(members, preference));
 
-        preference.setSummary(summary);
+        preference.setSummary(truncate(summary));
         preference.touch(userId);
         preference.setSummaryStale(false);
 
@@ -150,7 +165,7 @@ public class PreferenceService {
         String summary = summaryGenerator.summariseUser(preference)
             .orElseGet(() -> fallbackUserSummary(preference));
 
-        preference.setSummary(summary);
+        preference.setSummary(truncate(summary));
         preference.setSummaryStale(false);
         preference.touch();
 
@@ -180,6 +195,44 @@ public class PreferenceService {
             : String.join(", ", preference.getTags());
 
         return "Interests: " + tags + ".";
+    }
+
+    /** Lists are stored as one comma-joined column, so the joined length is what counts. */
+    private static void validateList(String field, List<String> values) {
+        String joined = CSV.convertToDatabaseColumn(values);
+
+        if (joined != null && joined.length() > MAX_LIST_CHARS) {
+            throw new IllegalArgumentException(
+                field + " must be at most " + MAX_LIST_CHARS + " characters in total");
+        }
+    }
+
+    private static void validateLength(String field, String value, int max) {
+        if (value != null && value.length() > max) {
+            throw new IllegalArgumentException(field + " must be at most " + max + " characters");
+        }
+    }
+
+    /** numeric(4,2) rounds to 2 dp first, so 99.995 would overflow; compare the rounded value. */
+    private static void validateMaxWalk(BigDecimal maxWalkKm) {
+        if (maxWalkKm == null) {
+            return;
+        }
+
+        BigDecimal rounded = maxWalkKm.setScale(2, RoundingMode.HALF_UP);
+
+        if (rounded.signum() < 0 || rounded.compareTo(MAX_WALK_KM) > 0) {
+            throw new IllegalArgumentException("maxWalkKm must be between 0 and " + MAX_WALK_KM);
+        }
+    }
+
+    /** LLM output length is not guaranteed, and the fallback grows with group size. */
+    static String truncate(String summary) {
+        if (summary == null || summary.length() <= MAX_TEXT_CHARS) {
+            return summary;
+        }
+
+        return summary.substring(0, MAX_TEXT_CHARS - 1) + "…";
     }
 
     private static void validateIndoorPreference(String indoorPreference) {

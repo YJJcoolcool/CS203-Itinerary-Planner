@@ -71,6 +71,8 @@ export function TravelPreferencesModal({ onClose }: { onClose: () => void }) {
     isSaving,
     saveError,
     save,
+    saveSummary,
+    summarise,
     refresh,
   } = useMyPreferences()
 
@@ -79,6 +81,7 @@ export function TravelPreferencesModal({ onClose }: { onClose: () => void }) {
   const [dietary, setDietary] = useState('')
   const [indoor, setIndoor] = useState<IndoorPreference>('ANY')
   const [notes, setNotes] = useState('')
+  const [summaryDraft, setSummaryDraft] = useState('')
   const [customInterest, setCustomInterest] = useState('')
   const [walkError, setWalkError] = useState<string | null>(null)
   const [isSaved, setIsSaved] = useState(false)
@@ -102,6 +105,7 @@ export function TravelPreferencesModal({ onClose }: { onClose: () => void }) {
     setDietary(preferences.dietary ?? '')
     setIndoor(normalizeIndoor(preferences.indoorPreference))
     setNotes(preferences.notes ?? '')
+    setSummaryDraft(preferences.summary ?? '')
   }, [preferences])
   /* eslint-enable react-hooks/set-state-in-effect */
 
@@ -150,14 +154,22 @@ export function TravelPreferencesModal({ onClose }: { onClose: () => void }) {
     setWalkError(null)
     setIsSaved(false)
 
+    // Read before saving: a save refreshes `preferences`, which refills the form.
+    const summaryToSave = summaryDraft.trim() || null
+
     try {
-      await save({
-        tags: normalizeTags(interests),
-        maxWalkKm: walkValue,
-        dietary: dietary.trim() || null,
-        indoorPreference: indoor,
-        notes: notes.trim() || null,
-      })
+      if (fieldsDirty) {
+        await save({
+          tags: normalizeTags(interests),
+          maxWalkKm: walkValue,
+          dietary: dietary.trim() || null,
+          indoorPreference: indoor,
+          notes: notes.trim() || null,
+        })
+      }
+      if (summaryDirty) {
+        await saveSummary(summaryToSave)
+      }
       setIsSaved(true)
     } catch {
       // The hook records a friendly message in `saveError`, shown below.
@@ -175,7 +187,22 @@ export function TravelPreferencesModal({ onClose }: { onClose: () => void }) {
     (dietary.trim() || null) !== (preferences?.dietary?.trim() || null)
   const indoorDirty = indoor !== normalizeIndoor(preferences?.indoorPreference)
   const notesDirty = (notes.trim() || null) !== (preferences?.notes?.trim() || null)
-  const dirty = tagsDirty || walkDirty || dietaryDirty || indoorDirty || notesDirty
+  const fieldsDirty = tagsDirty || walkDirty || dietaryDirty || indoorDirty || notesDirty
+  const summaryDirty = (summaryDraft.trim() || null) !== (preferences?.summary?.trim() || null)
+  const dirty = fieldsDirty || summaryDirty
+
+  /** Rebuilds the summary from preferences + trips, replacing the box. */
+  async function handleGenerate() {
+    if (isSaving) return
+    if (summaryDirty && !window.confirm('Replace your unsaved summary with a newly generated one?')) return
+
+    setIsSaved(false)
+    try {
+      await summarise()
+    } catch {
+      // The hook records a friendly message in `saveError`, shown below.
+    }
+  }
 
   const extraInterests = normalizedTags.filter(
     (tag) => !PRESET_INTERESTS.includes(tag),
@@ -416,19 +443,45 @@ export function TravelPreferencesModal({ onClose }: { onClose: () => void }) {
                 <p className="mt-1.5 text-xs text-muted">Only you can see this.</p>
               </div>
 
-              {preferences.summary && (
-                <section className="mt-6 rounded-xl border border-border bg-surface-subtle p-4">
-                  <h3 className="text-xs font-medium uppercase tracking-wide text-muted">
-                    AI summary
-                  </h3>
-                  <p className="mt-2 text-sm leading-relaxed text-foreground">
-                    {preferences.summary}
-                  </p>
-                  <p className="mt-3 text-xs text-faint">
+              <section className="mt-6 rounded-xl border border-border bg-surface-subtle p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <label
+                    htmlFor={`${titleId}-summary`}
+                    className="text-sm font-medium text-foreground"
+                  >
+                    Your travel summary
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => void handleGenerate()}
+                    disabled={isSaving}
+                    className={SECONDARY_BUTTON}
+                  >
+                    Generate from my trips
+                  </button>
+                </div>
+                <p className="mt-1 text-xs text-muted">
+                  Built from your interests and the places in your trips. Edit it however you like.
+                </p>
+                <textarea
+                  id={`${titleId}-summary`}
+                  rows={4}
+                  maxLength={1024}
+                  value={summaryDraft}
+                  onChange={(event) => {
+                    setSummaryDraft(event.target.value)
+                    setIsSaved(false)
+                  }}
+                  placeholder="No summary yet. Generate one from your trips, or write your own."
+                  disabled={isSaving}
+                  className="input-field mt-3 resize-y"
+                />
+                {preferences.summary && (
+                  <p className="mt-2 text-xs text-faint">
                     Updated {formatUpdatedAt(preferences.updatedAt)}
                   </p>
-                </section>
-              )}
+                )}
+              </section>
 
               {saveError && (
                 <p role="alert" className={`mt-4 ${ERROR_ALERT}`}>

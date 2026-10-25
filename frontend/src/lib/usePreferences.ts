@@ -11,8 +11,10 @@ import {
   ApiError,
   getMyPreferences,
   getTripPreferences,
+  summariseMyPreferences,
   summariseTripPreferences,
   updateMyPreferences,
+  updateMySummary,
   updateTripPreferences,
 } from './api'
 
@@ -35,6 +37,10 @@ export interface UseMyPreferencesResult {
   saveError: string | null
   /** Saves and returns the server copy. Rejects with the API error. */
   save: (input: UpdateUserPreferencesInput) => Promise<UserPreferences>
+  /** Saves the user's own wording of their summary; null clears it. */
+  saveSummary: (summary: string | null) => Promise<UserPreferences>
+  /** Regenerates the summary from the user's preferences and trips. */
+  summarise: () => Promise<UserPreferences>
   refresh: () => void
 }
 
@@ -80,8 +86,9 @@ function useConfiguredMyPreferences(): UseMyPreferencesResult {
     }
   }, [getToken, isLoaded, isSignedIn, reloadCount])
 
-  const save = useCallback(
-    async (input: UpdateUserPreferencesInput) => {
+  // Shared by every write: one busy flag and one error, and the server copy replaces ours.
+  const run = useCallback(
+    async (action: (token: string) => Promise<UserPreferences>, fallback: string) => {
       setIsSaving(true)
       setSaveError(null)
 
@@ -89,11 +96,11 @@ function useConfiguredMyPreferences(): UseMyPreferencesResult {
         const token = await getToken()
         if (!token) throw new ApiError(401, NO_SESSION_MESSAGE)
 
-        const updated = await updateMyPreferences(token, input)
+        const updated = await action(token)
         setPreferences(updated)
         return updated
       } catch (cause) {
-        setSaveError(describeError(cause, 'Could not save your travel preferences.'))
+        setSaveError(describeError(cause, fallback))
         throw cause
       } finally {
         setIsSaving(false)
@@ -102,15 +109,34 @@ function useConfiguredMyPreferences(): UseMyPreferencesResult {
     [getToken],
   )
 
+  const save = useCallback(
+    (input: UpdateUserPreferencesInput) =>
+      run((token) => updateMyPreferences(token, input), 'Could not save your travel preferences.'),
+    [run],
+  )
+
+  const saveSummary = useCallback(
+    (summary: string | null) =>
+      run((token) => updateMySummary(token, summary), 'Could not save your summary.'),
+    [run],
+  )
+
+  const summarise = useCallback(
+    () => run((token) => summariseMyPreferences(token), 'Could not generate your summary.'),
+    [run],
+  )
+
+  const actions = { save, saveSummary, summarise, refresh }
+
   if (!isLoaded) {
-    return { preferences, isLoading: true, error: null, isSaving: false, saveError: null, save, refresh }
+    return { preferences, isLoading: true, error: null, isSaving: false, saveError: null, ...actions }
   }
 
   if (!isSignedIn) {
-    return { preferences: null, isLoading: false, error: null, isSaving: false, saveError: null, save, refresh }
+    return { preferences: null, isLoading: false, error: null, isSaving: false, saveError: null, ...actions }
   }
 
-  return { preferences, isLoading, error, isSaving, saveError, save, refresh }
+  return { preferences, isLoading, error, isSaving, saveError, ...actions }
 }
 
 function useUnconfiguredMyPreferences(): UseMyPreferencesResult {
@@ -121,6 +147,8 @@ function useUnconfiguredMyPreferences(): UseMyPreferencesResult {
     isSaving: false,
     saveError: null,
     save: () => Promise.reject(new ApiError(0, 'Authentication is not configured.')),
+    saveSummary: () => Promise.reject(new ApiError(0, 'Authentication is not configured.')),
+    summarise: () => Promise.reject(new ApiError(0, 'Authentication is not configured.')),
     refresh: () => {},
   }
 }

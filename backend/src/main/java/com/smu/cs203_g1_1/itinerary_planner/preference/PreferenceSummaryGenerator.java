@@ -13,5 +13,5 @@ public interface PreferenceSummaryGenerator {
 
     Optional<String> summariseGroup(List<UserPreference> members, TripPreference trip);
 
-    Optional<String> summariseUser(UserPreference preference);
+    Optional<String> summariseUser(UserPreference preference, TravelHistory history);
 }

@@ -100,6 +100,16 @@ class PreferenceControllerTest {
 
         verify(preferenceService).updateTrip("Trip0001", "User0001", List.of("FOOD"), List.of("hawker"));
     }
+    
+    @Test
+    void summariseMineUsesTheResolvedUserId() {
+        when(userService.getCurrentUserId(jwt)).thenReturn("User0001");
+        when(preferenceService.summariseUser("User0001")).thenReturn(new UserPreference("User0001"));
+
+        controller.summariseMine(jwt);
+
+        verify(preferenceService).summariseUser("User0001");
+    }
 
     @Test
     void summariseUsesTheResolvedUserId() {

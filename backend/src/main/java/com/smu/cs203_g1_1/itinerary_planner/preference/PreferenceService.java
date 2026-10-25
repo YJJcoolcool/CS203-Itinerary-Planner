@@ -6,7 +6,12 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
+import com.smu.cs203_g1_1.itinerary_planner.trips.Activity;
+import com.smu.cs203_g1_1.itinerary_planner.trips.Location;
 import com.smu.cs203_g1_1.itinerary_planner.trips.Trip;
 import com.smu.cs203_g1_1.itinerary_planner.trips.TripRole;
 import com.smu.cs203_g1_1.itinerary_planner.trips.TripService;
@@ -31,6 +36,8 @@ public class PreferenceService {
     static final int MAX_DIETARY_CHARS = 64;
     static final int MAX_TEXT_CHARS = 1024;
     static final BigDecimal MAX_WALK_KM = new BigDecimal("99.99");
+    static final int MAX_HISTORY_PLACES = 20;
+    static final int MAX_HISTORY_CATEGORIES = 5;
 
     private static final CsvListConverter CSV = new CsvListConverter();
 
@@ -157,13 +164,17 @@ public class PreferenceService {
         return tripPreferences.save(preference);
     }
 
-    /** Regenerates one user's summary; used by the personal profile surface. */
+    /**
+     * Regenerates one user's summary from their stated preferences plus the
+     * places in their own trips (CGT-132). Private notes are never included.
+     */
     @Transactional
     public UserPreference summariseUser(String userId) {
         UserPreference preference = getOrCreateUser(userId);
+        TravelHistory history = travelHistory(userId);
 
-        String summary = summaryGenerator.summariseUser(preference)
-            .orElseGet(() -> fallbackUserSummary(preference));
+        String summary = summaryGenerator.summariseUser(preference, history)
+            .orElseGet(() -> fallbackUserSummary(preference, history));
 
         preference.setSummary(truncate(summary));
         preference.setSummaryStale(false);
@@ -171,7 +182,7 @@ public class PreferenceService {
 
         return userPreferences.save(preference);
     }
-
+    
     static String fallbackSummary(List<UserPreference> members, TripPreference trip) {
         Set<String> tags = new TreeSet<>();
 
@@ -189,12 +200,60 @@ public class PreferenceService {
         return "Group goal: " + goal + ". Shared interests: " + interests + ".";
     }
 
-    static String fallbackUserSummary(UserPreference preference) {
+    /**
+     * Every place across the trips the user is on, de-duplicated, plus the
+     * categories they plan most (most frequent first, ties alphabetical).
+     */
+    TravelHistory travelHistory(String userId) {
+        List<Trip> trips = tripService.getTripsForUser(userId);
+
+        Map<String, String> places = new LinkedHashMap<>();
+        Map<String, Integer> categoryCounts = new HashMap<>();
+
+        for (Trip trip : trips) {
+            for (Activity activity : trip.getItinerary()) {
+                for (Location location : activity.getLocations()) {
+                    String key = location.getId() != null ? location.getId() : location.getName();
+
+                    if (key == null || places.containsKey(key)) {
+                        continue;
+                    }
+                    places.put(key, location.getName());
+
+                    String category = location.getCategory();
+                    if (category != null && !category.isBlank()) {
+                        categoryCounts.merge(category.trim().toLowerCase(), 1, Integer::sum);
+                    }
+                }
+            }
+        }
+
+        List<String> topCategories = categoryCounts.entrySet().stream()
+            .sorted(Map.Entry.<String, Integer>comparingByValue().reversed()
+                .thenComparing(Map.Entry.comparingByKey()))
+            .limit(MAX_HISTORY_CATEGORIES)
+            .map(Map.Entry::getKey)
+            .toList();
+
+        List<String> placeNames = places.values().stream()
+            .limit(MAX_HISTORY_PLACES)
+            .toList();
+
+        return new TravelHistory(trips.size(), topCategories, placeNames);
+    }
+
+    static String fallbackUserSummary(UserPreference preference, TravelHistory history) {
         String tags = preference.getTags().isEmpty()
             ? "no listed interests"
             : String.join(", ", preference.getTags());
 
-        return "Interests: " + tags + ".";
+        String summary = "Interests: " + tags + ".";
+
+        if (!history.topCategories().isEmpty()) {
+            summary += " Often plans: " + String.join(", ", history.topCategories()) + ".";
+        }
+
+        return summary;
     }
 
     /** Lists are stored as one comma-joined column, so the joined length is what counts. */

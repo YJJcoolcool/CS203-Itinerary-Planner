@@ -8,6 +8,8 @@ import com.smu.cs203_g1_1.itinerary_planner.trips.Trip;
 import com.smu.cs203_g1_1.itinerary_planner.trips.TripRole;
 import com.smu.cs203_g1_1.itinerary_planner.trips.TripService;
 import com.smu.cs203_g1_1.itinerary_planner.user.User;
+import com.smu.cs203_g1_1.itinerary_planner.trips.Activity;
+import com.smu.cs203_g1_1.itinerary_planner.trips.Location;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -34,7 +36,7 @@ class PreferenceServiceTest {
         }
 
         @Override
-        public Optional<String> summariseUser(UserPreference preference) {
+        public Optional<String> summariseUser(UserPreference preference, TravelHistory history) {
             return Optional.empty();
         }
     };
@@ -204,7 +206,7 @@ class PreferenceServiceTest {
             }
 
             @Override
-            public Optional<String> summariseUser(UserPreference preference) {
+            public Optional<String> summariseUser(UserPreference preference, TravelHistory history) {
                 return Optional.empty();
             }
         };
@@ -263,6 +265,92 @@ class PreferenceServiceTest {
 
         assertTrue(summarised.getSummary().contains("MUSEUMS"));
         assertTrue(summarised.getSummary().contains("FOOD"));
+    }
+
+    @Test
+    void travelHistoryCountsCategoriesAndSkipsRepeatedPlaces() {
+        Location museum = location("loc00001", "National Gallery", "Museum");
+        Location park = location("loc00002", "Botanic Gardens", "park");
+        Location secondMuseum = location("loc00003", "ArtScience Museum", "museum");
+
+        when(tripService.getTripsForUser("user0001")).thenReturn(List.of(trip));
+        when(trip.getItinerary()).thenReturn(List.of(
+            activity(museum, park),
+            activity(secondMuseum, museum)));
+
+        TravelHistory history = service.travelHistory("user0001");
+
+        assertEquals(1, history.tripCount());
+        // "Museum" and "museum" count together; museum (2) ranks above park (1).
+        assertEquals(List.of("museum", "park"), history.topCategories());
+        // National Gallery appears twice but is listed once.
+        assertEquals(List.of("National Gallery", "Botanic Gardens", "ArtScience Museum"), history.places());
+    }
+
+    @Test
+    void summariseUserPassesTripHistoryToTheModel() {
+        TravelHistory[] seen = new TravelHistory[1];
+        PreferenceSummaryGenerator recording = new PreferenceSummaryGenerator() {
+            @Override
+            public Optional<String> summariseGroup(List<UserPreference> members, TripPreference tripPreference) {
+                return Optional.empty();
+            }
+
+            @Override
+            public Optional<String> summariseUser(UserPreference preference, TravelHistory history) {
+                seen[0] = history;
+                return Optional.of("Loves museums.");
+            }
+        };
+        service = new PreferenceService(userPreferences, tripPreferences, tripService, recording);
+
+        when(userPreferences.findById("user0001")).thenReturn(Optional.of(preferenceOf("user0001", List.of("art"))));
+        when(userPreferences.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(tripService.getTripsForUser("user0001")).thenReturn(List.of(trip));
+        when(trip.getItinerary()).thenReturn(List.of(activity(location("loc00001", "National Gallery", "museum"))));
+
+        UserPreference summarised = service.summariseUser("user0001");
+
+        assertEquals(List.of("National Gallery"), seen[0].places());
+        assertEquals("Loves museums.", summarised.getSummary());
+        assertFalse(summarised.isSummaryStale());
+    }
+
+    @Test
+    void summariseUserFallbackMentionsWhatTheyPlanMost() {
+        when(userPreferences.findById("user0001")).thenReturn(Optional.of(preferenceOf("user0001", List.of("food"))));
+        when(userPreferences.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(tripService.getTripsForUser("user0001")).thenReturn(List.of(trip));
+        when(trip.getItinerary()).thenReturn(List.of(activity(location("loc00001", "Maxwell Food Centre", "hawker"))));
+
+        UserPreference summarised = service.summariseUser("user0001");
+
+        assertEquals("Interests: food. Often plans: hawker.", summarised.getSummary());
+    }
+
+    @Test
+    void summariseUserWithNoTripsStillWorks() {
+        when(userPreferences.findById("user0001")).thenReturn(Optional.of(preferenceOf("user0001", List.of())));
+        when(userPreferences.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(tripService.getTripsForUser("user0001")).thenReturn(List.of());
+
+        UserPreference summarised = service.summariseUser("user0001");
+
+        assertEquals("Interests: no listed interests.", summarised.getSummary());
+    }
+
+    private static Location location(String id, String name, String category) {
+        Location location = new Location(name, category, 1.29, 103.85, null);
+        location.setId(id);
+
+        return location;
+    }
+
+    private static Activity activity(Location... locations) {
+        Activity activity = new Activity();
+        activity.setLocations(List.of(locations));
+
+        return activity;
     }
 
     private static UserPreference preferenceOf(String userId, List<String> tags) {

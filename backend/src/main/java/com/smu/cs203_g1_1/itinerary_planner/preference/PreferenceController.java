@@ -118,6 +118,12 @@ public class PreferenceController {
             request.notes()));
     }
 
+    @PostMapping("/users/me/preferences/summarise")
+    public UserPreferenceResponse summariseMine(@AuthenticationPrincipal Jwt jwt) {
+        return UserPreferenceResponse.self(
+            preferenceService.summariseUser(userService.getCurrentUserId(jwt)));
+    }
+
     @GetMapping("/users/{userId}/preferences")
     public UserPreferenceResponse byUser(@PathVariable("userId") String userId) {
         return UserPreferenceResponse.publicView(preferenceService.readUser(userId));

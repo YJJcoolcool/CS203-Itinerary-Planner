@@ -1,10 +1,18 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useAuth } from '@clerk/react'
 import { Navbar } from '../components/Navbar'
 import { TravelPreferencesModal } from '../components/preferences/TravelPreferencesModal'
 import { CreateTripModal } from '../components/trips/CreateTripModal'
 import { TripCard, TripCardSkeleton } from '../components/trips/TripCard'
+import { ApiError, deleteTrip } from '../lib/api'
 import { useCurrentUser, useTrips } from '../lib/useTrips'
-import { Link } from 'react-router'
+import { Link, useLocation, useNavigate } from 'react-router'
+
+/** Sent by the trip settings panel when the owner deletes a trip (see handleDelete there). */
+interface DeletingTrip {
+  id: string
+  name: string
+}
 
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface'
@@ -142,9 +150,54 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
 export function TripsPage() {
   // Creates the backend profile on first sign-in; the result itself is not needed here.
   const { isLoading: isUserLoading } = useCurrentUser()
-  const { trips: myTrips, isLoading: isTripsLoading, error, refresh } = useTrips()
+  const { trips: allTrips, isLoading: isTripsLoading, error, refresh } = useTrips()
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isPreferencesOpen, setIsPreferencesOpen] = useState(false)
+
+  const { getToken } = useAuth()
+  const location = useLocation()
+  const navigate = useNavigate()
+
+  // Trips hidden while (or after) their delete request runs.
+  const [hiddenIds, setHiddenIds] = useState<string[]>([])
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const startedDeleteRef = useRef<string | null>(null)
+
+  const myTrips = allTrips.filter((trip) => !hiddenIds.includes(trip.id))
+  const deletingTrip = (location.state as { deletingTrip?: DeletingTrip } | null)?.deletingTrip
+
+  /*
+   * CGT-136: hide the deleted trip straight away and delete it in the
+   * background. On success it stays hidden; on failure it comes back with an
+   * error message.
+   */
+  useEffect(() => {
+    // The ref stops React's development double-run from sending the delete twice.
+    if (!deletingTrip || startedDeleteRef.current === deletingTrip.id) return
+    startedDeleteRef.current = deletingTrip.id
+    const { id, name } = deletingTrip
+
+    // Clear the navigation state so reloading the page doesn't delete again.
+    navigate(location.pathname, { replace: true, state: null })
+
+    async function runDelete() {
+      setHiddenIds((ids) => [...ids, id])
+      setDeleteError(null)
+
+      try {
+        const token = await getToken()
+        if (!token) throw new ApiError(401, 'No active session token is available.')
+
+        await deleteTrip(token, id)
+      } catch (cause) {
+        setHiddenIds((ids) => ids.filter((hiddenId) => hiddenId !== id))
+        const reason = cause instanceof Error && cause.message ? cause.message : 'Please try again.'
+        setDeleteError(`Couldn't delete "${name}": ${reason}`)
+      }
+    }
+
+    void runDelete()
+  }, [deletingTrip, getToken, location.pathname, navigate])
 
   const isLoading = isTripsLoading || isUserLoading
   const hasTrips = !isLoading && !error && myTrips.length > 0
@@ -197,6 +250,14 @@ export function TripsPage() {
         </header>
 
         <div className="mt-8">
+          {deleteError && (
+            <p
+              role="alert"
+              className="mb-4 rounded-xl border border-terracotta/40 bg-terracotta/10 px-3 py-2 text-sm text-terracotta"
+            >
+              {deleteError}
+            </p>
+          )}
           {isLoading ? (
             <TripGridSkeleton />
           ) : error ? (

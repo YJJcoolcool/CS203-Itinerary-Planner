@@ -6,7 +6,7 @@ import { useAuth } from '@clerk/react'
 import { useNavigate } from 'react-router'
 
 import { publishableKey } from '../../auth/authConfiguration'
-import { ApiError, deleteTrip, updateTrip } from '../../lib/api'
+import { ApiError, updateTrip } from '../../lib/api'
 import { useTripInvitations } from '../../lib/useInvitations'
 import { roleLabel } from '../../types/invitation'
 import type { TripRole } from '../../types/invitation'
@@ -267,8 +267,6 @@ export function TripSettingsPanel({
   const [saveSuccess, setSaveSuccess] = useState(false)
 
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const titleId = useId()
   const headingRef = useRef<HTMLHeadingElement>(null)
@@ -287,14 +285,14 @@ export function TripSettingsPanel({
     headingRef.current?.focus()
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape' && !isDeleteOpen && !isSaving && !isDeleting) {
+      if (event.key === 'Escape' && !isDeleteOpen && !isSaving) {
         onClose()
       }
     }
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isDeleteOpen, isSaving, isDeleting, onClose])
+  }, [isDeleteOpen, isSaving, onClose])
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -347,25 +345,18 @@ export function TripSettingsPanel({
     }
   }
 
-  async function handleDelete() {
-    if (isDeleting) return
-
-    setIsDeleting(true)
-    setDeleteError(null)
-
-    try {
-      const token = await getToken()
-      if (!token) throw new ApiError(401, 'No active session token is available.')
-
-      await deleteTrip(token, trip.id)
-
-      setIsDeleteOpen(false)
-      onDeleted()
-      navigate('/trips', { replace: true })
-    } catch (cause) {
-      setDeleteError(describeError(cause, 'Could not delete this trip.'))
-      setIsDeleting(false)
-    }
+  /*
+   * Deleting can be slow, so go back to My Trips straight away and let that
+   * page hide the card and send the delete (CGT-136). The trip travels in the
+   * navigation state, so My Trips knows which one to delete.
+   */
+  function handleDelete() {
+    setIsDeleteOpen(false)
+    onDeleted()
+    navigate('/trips', {
+      replace: true,
+      state: { deletingTrip: { id: trip.id, name: trip.name } },
+    })
   }
 
   const panel = (
@@ -375,7 +366,6 @@ export function TripSettingsPanel({
         if (
           event.target === event.currentTarget &&
           !isSaving &&
-          !isDeleting &&
           !isDeleteOpen
         ) {
           onClose()
@@ -406,7 +396,7 @@ export function TripSettingsPanel({
           <button
             type="button"
             onClick={onClose}
-            disabled={isSaving || isDeleting}
+            disabled={isSaving}
             aria-label="Close trip settings"
             className={`rounded-lg p-2 text-muted hover:bg-surface-subtle hover:text-foreground disabled:opacity-50 ${FOCUS_RING}`}
           >
@@ -442,7 +432,7 @@ export function TripSettingsPanel({
                       setSaveSuccess(false)
                       setSaveError(null)
                     }}
-                    disabled={isSaving || isDeleting}
+                    disabled={isSaving}
                     className="input-field w-full"
                   />
                 </div>
@@ -465,7 +455,7 @@ export function TripSettingsPanel({
                         setSaveSuccess(false)
                         setSaveError(null)
                       }}
-                      disabled={isSaving || isDeleting}
+                      disabled={isSaving}
                       className="input-field w-full"
                     />
                   </div>
@@ -488,7 +478,7 @@ export function TripSettingsPanel({
                         setSaveSuccess(false)
                         setSaveError(null)
                       }}
-                      disabled={isSaving || isDeleting}
+                      disabled={isSaving}
                       className="input-field w-full"
                     />
                   </div>
@@ -501,7 +491,7 @@ export function TripSettingsPanel({
                     setSaveSuccess(false)
                     setSaveError(null)
                   }}
-                  disabled={isSaving || isDeleting}
+                  disabled={isSaving}
                 />
               </div>
 
@@ -520,7 +510,7 @@ export function TripSettingsPanel({
               <div className="mt-5 flex justify-end">
                 <button
                   type="submit"
-                  disabled={isSaving || isDeleting || !dirty}
+                  disabled={isSaving || !dirty}
                   className={PRIMARY_BUTTON}
                 >
                   {isSaving ? 'Saving…' : 'Save changes'}
@@ -543,21 +533,11 @@ export function TripSettingsPanel({
               <p className="mt-2 text-sm leading-relaxed text-muted">
                 Permanently delete this trip. This action cannot be undone.
               </p>
-
-              {deleteError && (
-                <p role="alert" className={`mt-3 ${ERROR_ALERT}`}>
-                  {deleteError}
-                </p>
-              )}
-
               <div className="mt-4 flex justify-end">
                 <button
                   type="button"
-                  disabled={isSaving || isDeleting}
-                  onClick={() => {
-                    setDeleteError(null)
-                    setIsDeleteOpen(true)
-                  }}
+                  disabled={isSaving}
+                  onClick={() => setIsDeleteOpen(true)}
                   className={`rounded-xl bg-terracotta px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 ${FOCUS_RING}`}
                 >
                   Delete trip
@@ -571,7 +551,7 @@ export function TripSettingsPanel({
           <button
             type="button"
             onClick={onClose}
-            disabled={isSaving || isDeleting}
+            disabled={isSaving}
             className={SECONDARY_BUTTON}
           >
             Done
@@ -583,15 +563,8 @@ export function TripSettingsPanel({
         <DeleteTripDialog
           tripId={trip.id}
           tripName={trip.name}
-          isDeleting={isDeleting}
-          error={deleteError}
-          onClose={() => {
-            if (!isDeleting) {
-              setIsDeleteOpen(false)
-              setDeleteError(null)
-            }
-          }}
-          onConfirm={() => void handleDelete()}
+          onClose={() => setIsDeleteOpen(false)}
+          onConfirm={handleDelete}
         />
       )}
     </div>

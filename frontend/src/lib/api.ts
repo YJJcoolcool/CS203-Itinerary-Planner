@@ -319,10 +319,19 @@ export function respondToInvitation(
 export function searchPlaces(
   token: string | null,
   query: string,
+  tripId: string,
   limit = 5,
 ): Promise<GeoSearchResponse> {
-  const params = new URLSearchParams({ q: query, limit: String(limit) })
-  return request<GeoSearchResponse>(`/api/geo/search?${params.toString()}`, { token })
+  const params = new URLSearchParams({
+    q: query,
+    limit: String(limit),
+    tripId,
+  })
+
+  return request<GeoSearchResponse>(
+    `/api/geo/search?${params.toString()}`,
+    { token },
+  )
 }
 
 /**

@@ -21,7 +21,9 @@ interface LocationSearchState {
   error: string | null
 }
 
-function useConfiguredLocationSearch(): UseLocationSearchResult {
+function useConfiguredLocationSearch(
+  tripId: string,
+): UseLocationSearchResult {
   const { getToken, isLoaded, isSignedIn } = useAuth()
 
   const [query, setQuery] = useState('')
@@ -48,7 +50,7 @@ function useConfiguredLocationSearch(): UseLocationSearchResult {
           if (cancelled) return
           if (!token) throw new ApiError(401, NO_SESSION_MESSAGE)
 
-          const response = await searchPlaces(token, requestQuery)
+          const response = await searchPlaces(token, requestQuery, tripId)
           if (cancelled) return
           setState({
             query: requestQuery,
@@ -77,7 +79,7 @@ function useConfiguredLocationSearch(): UseLocationSearchResult {
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [getToken, isActive, trimmed])
+  }, [getToken, isActive, trimmed, tripId])
 
   // Results are only exposed once they match the current query, so a stale
   // response from a previous query can never be shown for new text.
@@ -109,7 +111,9 @@ function useUnconfiguredLocationSearch(): UseLocationSearchResult {
 }
 
 
-export const useLocationSearch: () => UseLocationSearchResult = CLERK_CONFIGURED
+export const useLocationSearch: (
+  tripId: string,
+) => UseLocationSearchResult = CLERK_CONFIGURED
   ? useConfiguredLocationSearch
   : useUnconfiguredLocationSearch
 

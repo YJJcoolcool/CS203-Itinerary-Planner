@@ -81,14 +81,16 @@ function CloseIcon() {
  * via its Close/Done buttons, Escape, or a backdrop click.
  */
 export function LocationSearch({
+  tripId,
   isAdded,
   onAdded,
 }: {
+  tripId: string
   isAdded: (place: GeoPlace) => boolean
   onAdded: (location: Location) => void
 }) {
   const { query, setQuery, results, attribution, isSearching, error, hasSearched } =
-    useLocationSearch()
+    useLocationSearch(tripId)
   const { importLocation, importingKey, error: importError } = useImportLocationFromOsm()
 
   const [open, setOpen] = useState(false)

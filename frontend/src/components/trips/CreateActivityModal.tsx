@@ -260,7 +260,7 @@ export function CreateActivityModal({
 
             <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
               <div className="min-w-0 flex-1">
-                <LocationSearch onAdded={handleLocationAdded} isAdded={isPlaceAdded} />
+                <LocationSearch tripId={tripId} onAdded={handleLocationAdded} isAdded={isPlaceAdded} />
               </div>
 
               <button

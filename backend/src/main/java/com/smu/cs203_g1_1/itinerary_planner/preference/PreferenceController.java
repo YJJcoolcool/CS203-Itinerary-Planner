@@ -97,6 +97,9 @@ public class PreferenceController {
         }
     }
 
+    public record UpdateSummaryRequest(String summary) {
+    }
+
     public record UpdateTripPreferenceRequest(List<String> goals, List<String> tags) {
     }
 
@@ -122,6 +125,13 @@ public class PreferenceController {
     public UserPreferenceResponse summariseMine(@AuthenticationPrincipal Jwt jwt) {
         return UserPreferenceResponse.self(
             preferenceService.summariseUser(userService.getCurrentUserId(jwt)));
+    }
+
+    @PutMapping("/users/me/preferences/summary")
+    public UserPreferenceResponse updateMySummary(@AuthenticationPrincipal Jwt jwt,
+                                                  @RequestBody UpdateSummaryRequest request) {
+        return UserPreferenceResponse.self(preferenceService.updateUserSummary(
+            userService.getCurrentUserId(jwt), request.summary()));
     }
 
     @GetMapping("/users/{userId}/preferences")

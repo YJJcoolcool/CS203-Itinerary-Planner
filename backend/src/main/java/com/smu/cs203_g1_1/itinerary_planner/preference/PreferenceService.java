@@ -165,8 +165,24 @@ public class PreferenceService {
     }
 
     /**
+     * Saves the user's own wording of their summary. A blank value
+     * clears it. The user chose these words, so the summary counts as current.
+     */
+    @Transactional
+    public UserPreference updateUserSummary(String userId, String summary) {
+        validateLength("summary", summary, MAX_TEXT_CHARS);
+
+        UserPreference preference = getOrCreateUser(userId);
+        preference.setSummary(summary == null || summary.isBlank() ? null : summary.trim());
+        preference.setSummaryStale(false);
+        preference.touch();
+
+        return userPreferences.save(preference);
+    }
+
+    /**
      * Regenerates one user's summary from their stated preferences plus the
-     * places in their own trips (CGT-132). Private notes are never included.
+     * places in their own trips. Private notes are never included.
      */
     @Transactional
     public UserPreference summariseUser(String userId) {

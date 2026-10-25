@@ -412,6 +412,26 @@ export function updateMyPreferences(
   })
 }
 
+/** Regenerates the signed-in user's summary from their preferences and trips. */
+export function summariseMyPreferences(token: string | null): Promise<UserPreferences> {
+  return request<UserPreferences>('/api/users/me/preferences/summarise', {
+    method: 'POST',
+    token,
+  })
+}
+
+/** Saves the signed-in user's own edit of their summary; null clears it. */
+export function updateMySummary(
+  token: string | null,
+  summary: string | null,
+): Promise<UserPreferences> {
+  return request<UserPreferences>('/api/users/me/preferences/summary', {
+    method: 'PUT',
+    body: { summary },
+    token,
+  })
+}
+
 /**
  * Fetches another user's preferences. Structured fields only: the backend
  * always returns `notes: null` on this view.

@@ -339,6 +339,40 @@ class PreferenceServiceTest {
         assertEquals("Interests: no listed interests.", summarised.getSummary());
     }
 
+    @Test
+    void updateUserSummaryTrimsAndMarksItCurrent() {
+        UserPreference existing = preferenceOf("user0001", List.of("art"));
+        existing.setSummaryStale(true);
+
+        when(userPreferences.findById("user0001")).thenReturn(Optional.of(existing));
+        when(userPreferences.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        UserPreference saved = service.updateUserSummary("user0001", "  Loves quiet museums.  ");
+
+        assertEquals("Loves quiet museums.", saved.getSummary());
+        assertFalse(saved.isSummaryStale());
+    }
+
+    @Test
+    void blankSummaryClearsIt() {
+        UserPreference existing = preferenceOf("user0001", List.of());
+        existing.setSummary("Old summary.");
+
+        when(userPreferences.findById("user0001")).thenReturn(Optional.of(existing));
+        when(userPreferences.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        assertEquals(null, service.updateUserSummary("user0001", "   ").getSummary());
+    }
+
+    @Test
+    void overlongSummaryIsRejectedBeforeTouchingTheDatabase() {
+        String tooLong = "s".repeat(PreferenceService.MAX_TEXT_CHARS + 1);
+
+        assertThrows(IllegalArgumentException.class,
+            () -> service.updateUserSummary("user0001", tooLong));
+        verifyNoInteractions(userPreferences);
+    }
+
     private static Location location(String id, String name, String category) {
         Location location = new Location(name, category, 1.29, 103.85, null);
         location.setId(id);

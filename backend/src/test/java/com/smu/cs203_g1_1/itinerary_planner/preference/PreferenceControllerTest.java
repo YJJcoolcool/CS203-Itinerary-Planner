@@ -112,6 +112,17 @@ class PreferenceControllerTest {
     }
 
     @Test
+    void updateMySummaryUsesTheResolvedUserId() {
+        when(userService.getCurrentUserId(jwt)).thenReturn("User0001");
+        when(preferenceService.updateUserSummary("User0001", "Loves museums."))
+            .thenReturn(new UserPreference("User0001"));
+
+        controller.updateMySummary(jwt, new PreferenceController.UpdateSummaryRequest("Loves museums."));
+
+        verify(preferenceService).updateUserSummary("User0001", "Loves museums.");
+    }
+
+    @Test
     void summariseUsesTheResolvedUserId() {
         when(userService.getCurrentUserId(jwt)).thenReturn("User0001");
         when(preferenceService.summariseTrip("Trip0001", "User0001"))

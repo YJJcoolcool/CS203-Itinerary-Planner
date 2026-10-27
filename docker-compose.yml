@@ -17,6 +17,7 @@ services:
     build: ./backend
     environment:
       DB_PASSWORD: ${DB_PASSWORD}
+      APP_CORS_ALLOWED_ORIGIN: https://agiletrips.live
       # Required: if unset, SecurityConfig starts the API with NO auth.
       CLERK_ISSUER_URI: ${CLERK_ISSUER_URI:?set CLERK_ISSUER_URI in .env}
       ADMIN_CLERK_USER_IDS: ${ADMIN_CLERK_USER_IDS:-}

@@ -27,17 +27,31 @@ docker build -t itinerary-web:latest --build-arg VITE_CLERK_PUBLISHABLE_KEY="$KE
 log "Shipping images to $HOST..."
 docker save itinerary-backend:latest itinerary-web:latest | gzip | ssh "$HOST" 'gunzip | docker load'
 
-log "Updating compose file (previous kept as docker-compose.yml.bak)..."
-ssh "$HOST" 'cp ~/app/docker-compose.yml ~/app/docker-compose.yml.bak'
+log "Updating Compose and Caddy configuration..."
+
+ssh "$HOST" '
+  cp ~/app/docker-compose.yml ~/app/docker-compose.yml.bak
+  if [ -f ~/app/Caddyfile ]; then
+    cp ~/app/Caddyfile ~/app/Caddyfile.bak
+  fi
+'
+
 scp docker-compose.yml "$HOST":~/app/docker-compose.yml
+scp Caddyfile "$HOST":~/app/Caddyfile
 
 log "Restarting stack..."
 ssh "$HOST" 'cd ~/app && docker compose up -d && docker image prune -f >/dev/null'
 
 # 401 on /api/trips through nginx = web, backend, DB and auth all up.
-log "Waiting for the backend..."
-ssh "$HOST" 'for i in $(seq 1 60); do
-  code=$(curl -s -o /dev/null -w "%{http_code}" localhost/api/trips)
-  [ "$code" = 401 ] && exit 0; sleep 2; done; exit 1' \
-  || die "Backend not answering. Check: ssh $HOST 'cd ~/app && docker compose logs backend'"
-log "Deployed. Site: http://$(ssh -G "$HOST" | awk '/^hostname /{print $2}')"
+log "Waiting for HTTPS and the backend..."
+
+ssh "$HOST" '
+  for i in $(seq 1 60); do
+    code=$(curl -sS -o /dev/null -w "%{http_code}" \
+      --max-time 5 https://agiletrips.live/api/trips || true)
+
+    [ "$code" = "401" ] && exit 0
+    sleep 2
+  done
+  exit 1
+' || die "HTTPS/backend check failed. Check Caddy and backend logs."

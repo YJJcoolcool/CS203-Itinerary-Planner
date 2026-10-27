@@ -1,0 +1,8 @@
+www.agiletrips.live {
+    redir https://agiletrips.live{uri} permanent
+}
+
+agiletrips.live {
+    encode gzip
+    reverse_proxy web:80
+}

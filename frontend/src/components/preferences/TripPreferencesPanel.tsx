@@ -1,10 +1,11 @@
-import { useId, useState } from 'react'
+import { useState } from 'react'
 
 import { useTripPreferences } from '../../lib/usePreferences'
 import { TRIP_GOALS, TRIP_GOAL_LABELS } from '../../types/preference'
 import type { TripGoal } from '../../types/preference'
 import type { Trip } from '../../types/trip'
 import { uniqueMembers } from '../trips/tripUtils'
+import { CollapsibleSection } from '../CollapsibleSection'
 import { PreferenceChip } from './PreferenceChip'
 
 const FOCUS_RING =
@@ -65,8 +66,6 @@ export function TripPreferencesPanel({
   const [editedGoals, setEditedGoals] = useState<TripGoal[] | null>(null)
   const [status, setStatus] = useState<string | null>(null)
 
-  const headingId = useId()
-
   const goals = editedGoals ?? preferences?.goals ?? []
   const goalsDirty =
     JSON.stringify(sortedUnique(goals)) !==
@@ -113,30 +112,18 @@ export function TripPreferencesPanel({
   }
 
   return (
-    <section
-      aria-labelledby={headingId}
-      className="mt-6 rounded-2xl border border-border bg-surface-raised p-6"
-    >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2
-            id={headingId}
-            className="font-display text-xl font-medium tracking-tight text-foreground"
-          >
-            Group preferences
-          </h2>
-          <p className="mt-1 text-sm text-muted">
-            Goals for this trip and a shared summary of what everyone likes.
-          </p>
-        </div>
-
-        {preferences?.summaryStale && (
+    <CollapsibleSection
+      title="Group preferences"
+      subtitle="Goals for this trip and a shared summary of what everyone likes."
+      aside={
+        preferences?.summaryStale && (
           <span className="inline-flex items-center gap-1.5 rounded-full border border-amber/40 bg-amber/10 px-2.5 py-1 text-xs font-medium text-foreground">
             <span className="h-1.5 w-1.5 rounded-full bg-amber" aria-hidden="true" />
             Needs update
           </span>
-        )}
-      </div>
+        )
+      }
+    >
 
       {isLoading ? (
         <p role="status" className="mt-5 text-sm text-muted">
@@ -274,6 +261,6 @@ export function TripPreferencesPanel({
           Group preferences are unavailable right now.
         </p>
       )}
-    </section>
+    </CollapsibleSection>
   )
 }

@@ -8,6 +8,7 @@ import type {
   FourDayWeatherForecast,
   TwoHourWeatherForecast,
 } from '../../types/trip'
+import { CollapsibleSection } from '../CollapsibleSection'
 
 interface WeatherForecastPanelProps {
   startDate: string
@@ -173,26 +174,15 @@ export function WeatherForecastPanel({
     latestTwoHourForecasts[0]
 
   return (
-    <section
-      aria-labelledby="weather-heading"
-      className="mt-6 rounded-2xl border border-border bg-surface-raised p-6"
+    <CollapsibleSection
+      title="Weather forecast"
+      subtitle={
+        tripIncludesToday
+          ? 'Singapore · Two-hour outlook'
+          : 'Singapore · Daily rain outlook'
+      }
+      aside={<span aria-hidden="true" className="text-2xl">🌦️</span>}
     >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2
-            id="weather-heading"
-            className="font-display text-xl font-medium tracking-tight text-foreground"
-          >
-            Weather forecast
-          </h2>
-          <p className="mt-1 text-sm text-muted">
-            {tripIncludesToday
-              ? 'Singapore · Two-hour outlook'
-              : 'Singapore · Daily rain outlook'}
-          </p>
-        </div>
-        <span aria-hidden="true" className="text-2xl">🌦️</span>
-      </div>
 
       {isLoading ? (
         <p role="status" className="mt-5 text-sm text-muted">
@@ -307,6 +297,6 @@ export function WeatherForecastPanel({
           )}
         </>
       )}
-    </section>
+    </CollapsibleSection>
   )
 }

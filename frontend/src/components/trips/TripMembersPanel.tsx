@@ -5,6 +5,7 @@ import { ApiError, changeMemberRole, removeMember } from '../../lib/api'
 import { roleLabel } from '../../types/invitation'
 import type { TripRole } from '../../types/invitation'
 import type { MemberRole, Trip } from '../../types/trip'
+import { CollapsibleSection } from '../CollapsibleSection'
 import { avatarTone, initials, roleOf, uniqueMembers } from './tripUtils'
 
 const FOCUS_RING =
@@ -63,18 +64,13 @@ export function TripMembersPanel({
     void run(userId, (token) => removeMember(token, trip.id, userId), 'Could not remove this member.')
   }
 
-  return (
-    <section
-      aria-labelledby="members-heading"
-      className="mt-6 rounded-2xl border border-border bg-surface-raised p-6"
-    >
-      <h2
-        id="members-heading"
-        className="font-display text-xl font-medium tracking-tight text-foreground"
-      >
-        Members
-      </h2>
+  const members = uniqueMembers(trip)
 
+  return (
+    <CollapsibleSection
+      title="Members"
+      subtitle={`${members.length} ${members.length === 1 ? 'traveler' : 'travelers'}`}
+    >
       {error && (
         <p role="alert" className={`mt-3 ${ERROR_ALERT}`}>
           {error}
@@ -82,7 +78,7 @@ export function TripMembersPanel({
       )}
 
       <ul className="mt-4 divide-y divide-border">
-        {uniqueMembers(trip).map((member) => {
+        {members.map((member) => {
           const name = member.displayName ?? 'Traveler'
           const role = roleOf(trip, member.id) ?? 'VIEWER'
           const showControls = canManage && role !== 'OWNER'
@@ -128,6 +124,6 @@ export function TripMembersPanel({
           )
         })}
       </ul>
-    </section>
+    </CollapsibleSection>
   )
 }

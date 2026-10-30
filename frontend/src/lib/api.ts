@@ -19,6 +19,7 @@ import type {
   Trip,
   TwoHourWeatherForecast,
   User,
+  WeatherOutlookDay,
 } from '../types/trip'
 
 /**
@@ -543,4 +544,18 @@ export function getTwoHourWeatherForecast(
   token: string | null,
 ): Promise<TwoHourWeatherForecast[]> {
   return request<TwoHourWeatherForecast[]>('/api/weather/two-hour', { token })
+}
+
+/**
+ * Fetches the day-by-day point forecast for a trip. Empty when the destination
+ * has no weather data; callers should hide the panel in that case.
+ */
+export function getWeatherOutlook(
+  token: string | null,
+  tripId: string,
+): Promise<WeatherOutlookDay[]> {
+  return request<WeatherOutlookDay[]>(
+    `/api/trips/${encodeURIComponent(tripId)}/weather/outlook`,
+    { token },
+  )
 }

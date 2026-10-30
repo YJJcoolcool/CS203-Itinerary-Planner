@@ -24,7 +24,7 @@ import tools.jackson.databind.JsonNode;
 public class OpenMeteoClient {
 
     private static final String HOURLY_VARIABLES =
-        "precipitation,rain,showers,weather_code";
+        "precipitation,rain,showers,precipitation_probability,weather_code";
     private static final int FORECAST_DAYS = 14;
 
     private final RestClient restClient;
@@ -69,6 +69,7 @@ public class OpenMeteoClient {
         }
 
         JsonNode precipitation = hourly.path("precipitation");
+        JsonNode probability = hourly.path("precipitation_probability");
         JsonNode weatherCode = hourly.path("weather_code");
 
         List<OpenMeteoForecast.Hour> hours = new ArrayList<>(times.size());
@@ -82,7 +83,8 @@ public class OpenMeteoClient {
             hours.add(new OpenMeteoForecast.Hour(
                 local.toInstant(ZoneOffset.UTC),
                 nullableDouble(element(precipitation, index)),
-                nullableInt(element(weatherCode, index))));
+                nullableInt(element(weatherCode, index)),
+                nullableInt(element(probability, index))));
         }
 
         return new OpenMeteoForecast(hours);

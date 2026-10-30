@@ -134,22 +134,23 @@ class OpenMeteoWeatherSourceTest {
     void hourlyTimesAreParsedAsUtcAcrossADstBoundary() throws Exception {
         String json = """
             {"hourly":{
-              "time":["2026-03-29T02:00"],
+              "time":["2026-03-29T01:00"],
               "precipitation":[1.0],
+              "precipitation_probability":[42],
               "weather_code":[3]
             }}
             """;
         OpenMeteoForecast parsed = OpenMeteoClient.parse(
             new ObjectMapper().readTree(json));
 
-        // Offset-less label is pinned to UTC, not to the region zone.
-        assertEquals(Instant.parse("2026-03-29T02:00:00Z"),
+        assertEquals(Instant.parse("2026-03-29T01:00:00Z"),
             parsed.hours().get(0).time());
+        assertEquals(42, parsed.hours().get(0).probabilityPercent());
 
         when(client.fetch(anyDouble(), anyDouble())).thenReturn(parsed);
 
         ZoneId berlin = ZoneId.of("Europe/Berlin");
-        ZonedDateTime from = ZonedDateTime.of(2026, 3, 29, 3, 0, 0, 0, berlin);
+        ZonedDateTime from = ZonedDateTime.of(2026, 3, 29, 1, 30, 0, 0, berlin);
         ZonedDateTime to = from.plusHours(2);
 
         assertTrue(source.isRainy(LAT, LON, from, to));

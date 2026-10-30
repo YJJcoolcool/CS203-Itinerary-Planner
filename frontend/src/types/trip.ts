@@ -129,6 +129,20 @@ export interface FourDayWeatherForecast {
   rainExpected: boolean
 }
 
+/**
+ * One day of point-based weather for a non-NEA destination, returned by
+ * `GET /api/trips/{tripId}/weather/outlook` (Open-Meteo backed).
+ */
+export interface WeatherOutlookDay {
+  /** ISO date string, e.g. `2026-11-02`. */
+  date: string
+  rainy: boolean
+  precipitationMm: number
+  probabilityPercent?: number | null
+  /** Null when no hour that day reported a WMO code. */
+  weatherCode: number | null
+}
+
 /** A two-hour weather forecast returned by the backend. */
 export interface TwoHourWeatherForecast {
   area: string

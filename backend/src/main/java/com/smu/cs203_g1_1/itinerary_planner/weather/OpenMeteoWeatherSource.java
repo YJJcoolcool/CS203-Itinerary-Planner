@@ -5,7 +5,7 @@ import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
+import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,13 +30,6 @@ public class OpenMeteoWeatherSource implements WeatherSource {
 
     private static final Logger log = LoggerFactory.getLogger(OpenMeteoWeatherSource.class);
 
-    private static final Set<Integer> RAIN_CODES = Set.of(
-        51, 53, 55, 56, 57,
-        61, 63, 65, 66, 67,
-        80, 81, 82,
-        95, 96, 97, 99);
-
-    private static final double RAIN_MM_THRESHOLD = 0.1;
     private static final long CACHE_TTL_MS = Duration.ofMinutes(15).toMillis();
     private static final double COORDINATE_SCALE = 100.0;
 
@@ -70,12 +63,42 @@ public class OpenMeteoWeatherSource implements WeatherSource {
             Instant toInstant = to.toInstant();
 
             return forecast.hours().stream().anyMatch(hour ->
-                overlaps(hour.time(), fromInstant, toInstant) && isRainy(hour));
+                overlaps(hour.time(), fromInstant, toInstant) && isRainyHour(hour));
         } catch (RuntimeException ex) {
             log.warn("Open-Meteo forecast unavailable at {},{}: {}",
                 latitude, longitude, ex.getMessage());
             return false;
         }
+    }
+
+    /**
+     * Cached hourly series for the point, or empty when Open-Meteo is
+     * unavailable. Uses the same rounded-coordinate cache as {@link #isRainy}.
+     */
+    public Optional<OpenMeteoForecast> forecastForExact(double latitude, double longitude) {
+        try {
+            return Optional.of(forecastFor(latitude, longitude));
+        } catch (RuntimeException ex) {
+            log.warn("Open-Meteo forecast unavailable at {},{}: {}",
+                latitude, longitude, ex.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    /** Shared hourly rain predicate, also used by the daily outlook aggregation. */
+    public static boolean isRainyHour(OpenMeteoForecast.Hour hour) {
+        return hour != null
+            && RainPredicate.isRainy(hour.precipitationMm(), hour.weatherCode());
+    }
+
+    /** A daily precipitation total above the shared threshold counts as rainy. */
+    public static boolean isRainyTotal(double precipitationMm) {
+        return precipitationMm > RainPredicate.RAIN_MM_THRESHOLD;
+    }
+
+    /** A rain-ish WMO code counts even without measurable precipitation. */
+    public static boolean isRainCode(Integer weatherCode) {
+        return RainPredicate.isRainCode(weatherCode);
     }
 
     private synchronized OpenMeteoForecast forecastFor(double latitude, double longitude) {
@@ -100,15 +123,6 @@ public class OpenMeteoWeatherSource implements WeatherSource {
     private static boolean overlaps(Instant hourEnd, Instant from, Instant to) {
         return !hourEnd.minus(Duration.ofHours(1)).isAfter(to)
             && hourEnd.isAfter(from);
-    }
-
-    private static boolean isRainy(OpenMeteoForecast.Hour hour) {
-        if (hour.precipitationMm() != null
-                && hour.precipitationMm() > RAIN_MM_THRESHOLD) {
-            return true;
-        }
-        return hour.weatherCode() != null
-            && RAIN_CODES.contains(hour.weatherCode());
     }
 
     private static double round(double value) {

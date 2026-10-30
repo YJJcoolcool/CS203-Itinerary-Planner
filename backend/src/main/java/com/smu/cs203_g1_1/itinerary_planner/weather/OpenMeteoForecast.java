@@ -14,6 +14,14 @@ public record OpenMeteoForecast(List<Hour> hours) {
      * One hourly entry. {@code time} is the end of the interval
      * {@code [time - 1h, time)} and is always a UTC instant.
      */
-    public record Hour(Instant time, Double precipitationMm, Integer weatherCode) {
+    public record Hour(Instant time,
+                       Double precipitationMm,
+                       Integer weatherCode,
+                       Integer probabilityPercent) {
+
+        /** Convenience constructor for callers that do not need probability. */
+        public Hour(Instant time, Double precipitationMm, Integer weatherCode) {
+            this(time, precipitationMm, weatherCode, null);
+        }
     }
 }

@@ -50,8 +50,8 @@ export interface Trip {
   startDate: string
   /** ISO date string, e.g. `2026-10-03`. */
   endDate: string
-  /** Lowercase ISO 3166-1 alpha-2 country codes, e.g. ["jp", "sg"]. */
-  countries: string[]
+  /** Lowercase ISO 3166-1 alpha-2 country code, e.g. `"sg"`. */
+  countryCode: string
   owner: User
   users: User[]
   /** User id -> role. A member missing from this map is a VIEWER (see `roleOf`). */
@@ -64,7 +64,7 @@ export interface CreateTripInput {
   name: string
   startDate: string
   endDate: string
-  countries: string[]
+  countryCode: string
 }
 
 /** Client-supplied fields for creating an activity. */
@@ -127,6 +127,20 @@ export interface FourDayWeatherForecast {
   date: string
   forecast: string
   rainExpected: boolean
+}
+
+/**
+ * One day of point-based weather for a non-NEA destination, returned by
+ * `GET /api/trips/{tripId}/weather/outlook` (Open-Meteo backed).
+ */
+export interface WeatherOutlookDay {
+  /** ISO date string, e.g. `2026-11-02`. */
+  date: string
+  rainy: boolean
+  precipitationMm: number
+  probabilityPercent?: number | null
+  /** Null when no hour that day reported a WMO code. */
+  weatherCode: number | null
 }
 
 /** A two-hour weather forecast returned by the backend. */

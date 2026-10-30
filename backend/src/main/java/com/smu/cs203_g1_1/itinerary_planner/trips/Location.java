@@ -53,6 +53,10 @@ public class Location {
     @Column(name = "address")
     private String address;
 
+    /** ISO-3166-1 alpha-2 country, when known. Null for ungeocodable input. */
+    @Column(name = "country_code", length = 2)
+    private String countryCode;
+
     /** Free-form OSM opening_hours value, when known. */
     @Column(name = "opening_hours")
     private String openingHours;
@@ -196,6 +200,14 @@ public class Location {
 
     public void setAddress(String address) {
         this.address = address;
+    }
+
+    public String getCountryCode() {
+        return countryCode;
+    }
+
+    public void setCountryCode(String countryCode) {
+        this.countryCode = countryCode;
     }
 
     public String getOpeningHours() {

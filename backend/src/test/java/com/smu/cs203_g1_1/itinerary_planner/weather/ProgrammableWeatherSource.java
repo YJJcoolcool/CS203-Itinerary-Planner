@@ -16,8 +16,22 @@ public class ProgrammableWeatherSource implements WeatherSource {
                        ZonedDateTime from, ZonedDateTime to) {
     }
 
+    private final String id;
     private final List<Call> calls = new CopyOnWriteArrayList<>();
     private volatile Predicate<Call> rule = call -> false;
+
+    public ProgrammableWeatherSource() {
+        this("fixture");
+    }
+
+    public ProgrammableWeatherSource(String id) {
+        this.id = id;
+    }
+
+    @Override
+    public String id() {
+        return id;
+    }
 
     @Override
     public boolean isRainy(double latitude, double longitude,

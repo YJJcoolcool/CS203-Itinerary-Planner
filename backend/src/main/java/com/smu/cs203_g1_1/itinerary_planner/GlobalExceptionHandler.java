@@ -15,6 +15,7 @@ import com.smu.cs203_g1_1.itinerary_planner.geo.GeoBadRequestException;
 import com.smu.cs203_g1_1.itinerary_planner.geo.GeoNotFoundException;
 import com.smu.cs203_g1_1.itinerary_planner.geo.GeoUnavailableException;
 import com.smu.cs203_g1_1.itinerary_planner.routing.OneMapException;
+import com.smu.cs203_g1_1.itinerary_planner.routing.RoutingUnavailableException;
 import com.smu.cs203_g1_1.itinerary_planner.trips.LocationNotFoundException;
 import com.smu.cs203_g1_1.itinerary_planner.user.UserNotFoundException;
 
@@ -58,6 +59,17 @@ public class GlobalExceptionHandler {
         log.warn("Geocoding service unavailable: {}", e.getMessage());
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                 .body(new ApiError("UPSTREAM_UNAVAILABLE", e.getMessage()));
+    }
+
+    /** Maps a region without a routing provider to 422 with a stable code. */
+    @ExceptionHandler(RoutingUnavailableException.class)
+    public ResponseEntity<Map<String, String>> handleRoutingUnavailable(
+            RoutingUnavailableException e) {
+        log.warn("Routing unavailable: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                .body(Map.of(
+                        "code", "ROUTING_UNAVAILABLE",
+                        "message", e.getMessage()));
     }
 
     @ExceptionHandler(OneMapException.class)

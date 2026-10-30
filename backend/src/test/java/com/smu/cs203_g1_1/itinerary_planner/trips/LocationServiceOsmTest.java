@@ -19,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.smu.cs203_g1_1.itinerary_planner.geo.GeoNotFoundException;
 import com.smu.cs203_g1_1.itinerary_planner.geo.GeoService;
+import com.smu.cs203_g1_1.itinerary_planner.geo.dto.AddressDto;
 import com.smu.cs203_g1_1.itinerary_planner.geo.dto.PlaceDto;
 
 @ExtendWith(MockitoExtension.class)
@@ -82,6 +83,21 @@ class LocationServiceOsmTest {
         assertThat(saved.getIndoorClass()).isEqualTo("UNKNOWN");
         assertThat(saved.getIndoorSource()).isNull();
         assertThat(saved.getIsIndoor()).isNull();
+    }
+
+    @Test
+    void copiesCountryCodeFromOsmAddress() {
+        when(locationRepository.findByOsmTypeAndOsmId("node", 123L)).thenReturn(Optional.empty());
+        AddressDto address = new AddressDto(null, "Shibuya", "Tokyo", "Tokyo", "150-0001", "Japan", "jp");
+        PlaceDto place = new PlaceDto("node", 123L, "Shibuya Crossing",
+                "Shibuya Crossing, Tokyo, Japan", "tourism", "attraction",
+                35.6595, 139.7005, address, null, null, 0.8);
+        when(geoService.lookup("node", 123L)).thenReturn(Optional.of(place));
+        when(locationRepository.save(any(Location.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Location saved = locationService.findOrCreateFromOsm("node", 123L);
+
+        assertThat(saved.getCountryCode()).isEqualTo("jp");
     }
 
     @Test

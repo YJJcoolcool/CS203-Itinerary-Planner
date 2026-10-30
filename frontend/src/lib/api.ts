@@ -19,6 +19,7 @@ import type {
   Trip,
   TwoHourWeatherForecast,
   User,
+  WeatherOutlookDay,
 } from '../types/trip'
 
 /**
@@ -45,6 +46,25 @@ interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   body?: unknown
   token?: string | null
+}
+
+/** Basemap configuration for a region, as returned by `GET /api/regions`. */
+export interface RegionTiles {
+  url: string
+  attribution: string
+  crs: string
+}
+
+/** A destination region and the capabilities the backend supports there. */
+export interface RegionInfo {
+  code: string
+  name: string
+  tier: string
+  locale: string
+  currency: string | null
+  defaultZone: string
+  capabilities: string[]
+  tiles: RegionTiles | null
 }
 
 /** Extract a human-readable message from an error response body. */
@@ -139,6 +159,11 @@ export function createBackendUser(token: string | null, displayName: string): Pr
   })
 }
 
+/** Fetches the configured destination regions and their capabilities. */
+export function getRegions(token: string | null): Promise<RegionInfo[]> {
+  return request<RegionInfo[]>('/api/regions', { token })
+}
+
 /** Fetches the logged-in user's trips (the ones they own or are a member of). */
 export function getTrips(token: string | null): Promise<Trip[]> {
   return request<Trip[]>('/api/trips', { token })
@@ -158,7 +183,7 @@ export function getTrip(token: string | null, tripId: string): Promise<Trip> {
   return request<Trip>(`/api/trips/${tripId}`, { token })
 }
 
-/** Updates a trip's name, dates, and countries. Editor or owner only. */
+/** Updates a trip's name, dates, and country. Editor or owner only. */
 export function updateTrip(
   token: string | null,
   tripId: string,
@@ -166,7 +191,7 @@ export function updateTrip(
     name: string
     startDate: string
     endDate: string
-    countries: string[]
+    countryCode: string
   },
 ): Promise<Trip> {
   return request<Trip>(`/api/trips/${tripId}`, {
@@ -514,9 +539,23 @@ export function getFourDayWeatherForecast(
   return request<FourDayWeatherForecast[]>('/api/weather/four-day', { token })
 }
 
-/** Fetches the two-hour weather forecast for Singapore. */
+/** Fetches the two-hour weather forecast. */
 export function getTwoHourWeatherForecast(
   token: string | null,
 ): Promise<TwoHourWeatherForecast[]> {
   return request<TwoHourWeatherForecast[]>('/api/weather/two-hour', { token })
+}
+
+/**
+ * Fetches the day-by-day point forecast for a trip. Empty when the destination
+ * has no weather data; callers should hide the panel in that case.
+ */
+export function getWeatherOutlook(
+  token: string | null,
+  tripId: string,
+): Promise<WeatherOutlookDay[]> {
+  return request<WeatherOutlookDay[]>(
+    `/api/trips/${encodeURIComponent(tripId)}/weather/outlook`,
+    { token },
+  )
 }

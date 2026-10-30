@@ -15,6 +15,8 @@ import java.util.Set;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.smu.cs203_g1_1.itinerary_planner.config.region.RegionProfile;
+import com.smu.cs203_g1_1.itinerary_planner.config.region.RegionRegistry;
 import com.smu.cs203_g1_1.itinerary_planner.planner.CategoryGroups;
 import com.smu.cs203_g1_1.itinerary_planner.trips.Location;
 import com.smu.cs203_g1_1.itinerary_planner.trips.LocationRepository;
@@ -22,30 +24,27 @@ import com.smu.cs203_g1_1.itinerary_planner.util.ID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
- * Imports the full Singapore OSM POI extract as non-curated locations.
+ * Imports a country OSM POI extract as non-curated locations.
  *
  * <p>Reads the GeoJSON emitted by {@code scripts/build-sg-pois.sh} and maps each
  * feature through the same rules the curated seed uses: {@link CategoryGroups}
  * for the interest group and {@link IndoorClassifier} for indoor evidence. The
- * 49 curated places keep {@code seeded=true} and are never overwritten; index
+ * curated places keep {@code seeded=true} and are never overwritten; index
  * rows are written with {@code seeded=false} and rank below them.</p>
  *
  * <p>Idempotent by {@code (osm_type, osm_id)}. Features without a name, a known
- * category, or a usable point inside the Singapore bbox are skipped and counted.</p>
+ * category, or a usable point inside the configured region's bounding boxes are
+ * skipped and counted.</p>
  */
 @Component
 public class OsmIndexImporter {
 
     private static final Logger log = LoggerFactory.getLogger(OsmIndexImporter.class);
-
-    /** Same box the curated seeder validates against. */
-    static final double MIN_LATITUDE = 1.15;
-    static final double MAX_LATITUDE = 1.48;
-    static final double MIN_LONGITUDE = 103.60;
-    static final double MAX_LONGITUDE = 104.10;
 
     /** Tag keys checked in priority order; the first mapped pair wins. */
     private static final List<String> CATEGORY_KEYS =
@@ -54,9 +53,21 @@ public class OsmIndexImporter {
     private static final int SAVE_BATCH_SIZE = 500;
 
     private final LocationRepository locations;
+    private final RegionProfile region;
 
-    public OsmIndexImporter(LocationRepository locations) {
+    @Autowired
+    public OsmIndexImporter(LocationRepository locations,
+                            RegionRegistry regionRegistry,
+                            @Value("${app.seed.country:sg}") String seedCountry) {
         this.locations = locations;
+        this.region = regionRegistry.byCode(seedCountry)
+            .orElseThrow(() -> new IllegalStateException(
+                "Unknown app.seed.country: " + seedCountry));
+    }
+
+    /** Test seam: imports with the default SG region. */
+    OsmIndexImporter(LocationRepository locations, RegionRegistry regionRegistry) {
+        this(locations, regionRegistry, "sg");
     }
 
     /** Imports the GeoJSON at {@code path}. */
@@ -108,7 +119,7 @@ public class OsmIndexImporter {
         int imported = 0;
         int unnamed = 0;
         int unknownCategory = 0;
-        int outsideSingapore = 0;
+        int outsideRegion = 0;
         int noGeometry = 0;
         int duplicate = 0;
 
@@ -151,8 +162,8 @@ public class OsmIndexImporter {
             double latitude = coordinates[0];
             double longitude = coordinates[1];
 
-            if (!isInSingapore(latitude, longitude)) {
-                outsideSingapore++;
+            if (!contains(latitude, longitude)) {
+                outsideRegion++;
                 continue;
             }
 
@@ -178,7 +189,7 @@ public class OsmIndexImporter {
 
         ImportSummary summary = new ImportSummary(
             total, imported, unnamed, unknownCategory,
-            outsideSingapore, noGeometry, duplicate);
+            outsideRegion, noGeometry, duplicate);
 
         log.info("OSM index import: {}", summary.describe());
 
@@ -200,7 +211,8 @@ public class OsmIndexImporter {
         location.setCategoryGroup(category.group());
         location.setLatitude(latitude);
         location.setLongitude(longitude);
-        location.setAddress(address(tags));
+        location.setAddress(address(tags, region.name()));
+        location.setCountryCode(region.code());
         location.setOpeningHours(tags.get("opening_hours"));
         location.setOsmType(osmType);
         location.setOsmId(osmId);
@@ -249,7 +261,7 @@ public class OsmIndexImporter {
         return tags;
     }
 
-    private static String address(Map<String, String> tags) {
+    private static String address(Map<String, String> tags, String countryName) {
         String houseNumber = blankToNull(tags.get("addr:housenumber"));
         String street = blankToNull(tags.get("addr:street"));
         String postcode = blankToNull(tags.get("addr:postcode"));
@@ -271,7 +283,7 @@ public class OsmIndexImporter {
             if (!address.isEmpty()) {
                 address.append(", ");
             }
-            address.append("Singapore ").append(postcode);
+            address.append(countryName).append(' ').append(postcode);
         }
 
         return address.isEmpty() ? null : address.toString();
@@ -324,9 +336,9 @@ public class OsmIndexImporter {
             : new double[] {latitude / count, longitude / count};
     }
 
-    static boolean isInSingapore(double latitude, double longitude) {
-        return latitude >= MIN_LATITUDE && latitude <= MAX_LATITUDE
-            && longitude >= MIN_LONGITUDE && longitude <= MAX_LONGITUDE;
+    private boolean contains(double latitude, double longitude) {
+        return region.bboxes().stream()
+            .anyMatch(bbox -> bbox.contains(latitude, longitude));
     }
 
     private static String key(String osmType, Long osmId) {
@@ -372,7 +384,7 @@ public class OsmIndexImporter {
                                 int imported,
                                 int unnamed,
                                 int unknownCategory,
-                                int outsideSingapore,
+                                int outsideRegion,
                                 int noGeometry,
                                 int duplicate) {
 
@@ -381,7 +393,7 @@ public class OsmIndexImporter {
                 + " imported=" + imported
                 + " unnamed=" + unnamed
                 + " unknownCategory=" + unknownCategory
-                + " outsideSingapore=" + outsideSingapore
+                + " outsideRegion=" + outsideRegion
                 + " noGeometry=" + noGeometry
                 + " duplicate=" + duplicate;
         }

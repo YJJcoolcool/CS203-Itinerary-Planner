@@ -48,22 +48,22 @@ class TripControllerTest {
 
     @Test
     void createTripUsesLoggedInUserAsOwner() {
-        List<String> countries = List.of("sg", "my");
+        String country = "sg";
 
         when(userService.getCurrentUserId(jwt))
                 .thenReturn("OwnerUs1");
 
         controller.createTrip(
                 jwt,
-                new TripRequest("Singapore + KL Trip", START, END, countries)
+                new TripRequest("Singapore Trip", START, END, country)
         );
 
         verify(tripService).createTrip(
-                "Singapore + KL Trip",
+                "Singapore Trip",
                 START,
                 END,
                 "OwnerUs1",
-                countries
+                country
         );
     }
 
@@ -87,8 +87,8 @@ class TripControllerTest {
     }
 
     @Test
-    void updateTripPassesCountriesToService() {
-        List<String> countries = List.of("jp", "sg");
+    void updateTripPassesCountryToService() {
+        String country = "jp";
 
         when(userService.getCurrentUserId(jwt))
                 .thenReturn("OwnerUs1");
@@ -97,20 +97,20 @@ class TripControllerTest {
                 jwt,
                 "Trip1234",
                 new TripUpdateRequest(
-                        "Japan and Singapore",
+                        "Japan",
                         START,
                         END,
-                        countries
+                        country
                 )
         );
 
         verify(tripService).updateTrip(
                 "OwnerUs1",
                 "Trip1234",
-                "Japan and Singapore",
+                "Japan",
                 START,
                 END,
-                countries
+                country
         );
     }
 }

@@ -147,7 +147,7 @@ class GeoControllerTest {
     }
 
     @Test
-    void searchUsesCountriesFromTrip() {
+    void searchUsesCountryFromTrip() {
         User owner = new User("owner", "Owner");
         owner.setId("OwnerUs1");
 
@@ -158,7 +158,7 @@ class GeoControllerTest {
                 owner
         );
         trip.setId("Trip1234");
-        trip.setCountries(List.of("jp", "sg"));
+        trip.setCountryCode("jp");
 
         when(userService.getCurrentUserId(jwt))
                 .thenReturn("OwnerUs1");
@@ -167,7 +167,7 @@ class GeoControllerTest {
                 .thenReturn(trip);
 
         when(geoService.search(
-                "coffee", 5, "jp,sg", null, false
+                "coffee", 5, "jp", null, false
         )).thenReturn(List.of(place));
 
         controller.search(
@@ -183,7 +183,7 @@ class GeoControllerTest {
         verify(geoService).search(
                 "coffee",
                 5,
-                "jp,sg",
+                "jp",
                 null,
                 false
         );

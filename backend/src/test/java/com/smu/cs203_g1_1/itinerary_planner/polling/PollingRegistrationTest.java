@@ -11,10 +11,12 @@ import org.junit.jupiter.api.Test;
 import static org.mockito.Mockito.mock;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
+import com.smu.cs203_g1_1.itinerary_planner.config.region.RegionRegistry;
 import com.smu.cs203_g1_1.itinerary_planner.suggestion.SuggestionService;
 import com.smu.cs203_g1_1.itinerary_planner.trips.ActivityRepository;
 import com.smu.cs203_g1_1.itinerary_planner.trips.TripRepository;
 import com.smu.cs203_g1_1.itinerary_planner.weather.WeatherSource;
+import com.smu.cs203_g1_1.itinerary_planner.weather.WeatherSourceResolver;
 
 class PollingRegistrationTest {
 
@@ -24,6 +26,8 @@ class PollingRegistrationTest {
             .withBean(ActivityRepository.class, () -> mock(ActivityRepository.class))
             .withBean(SuggestionService.class, () -> mock(SuggestionService.class))
             .withBean(WeatherSource.class, () -> mock(WeatherSource.class))
+            .withBean(WeatherSourceResolver.class, () -> mock(WeatherSourceResolver.class))
+            .withBean(RegionRegistry.class, () -> mock(RegionRegistry.class))
             .withBean(Clock.class, () -> Clock.fixed(
                     Instant.parse("2026-11-02T07:00:00Z"), ZoneId.of("Asia/Singapore")));
 

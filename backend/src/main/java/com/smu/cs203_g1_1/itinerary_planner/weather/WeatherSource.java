@@ -15,6 +15,14 @@ import java.time.ZonedDateTime;
  */
 public interface WeatherSource {
 
+    /** Stable provider id used by regions.json ("nea", "fixture", "none"). */
+    String id();
+
+    /** Whether this provider can answer for this point at all. */
+    default boolean covers(double latitude, double longitude) {
+        return true;
+    }
+
     boolean isRainy(double latitude, double longitude,
                     ZonedDateTime from, ZonedDateTime to);
 }

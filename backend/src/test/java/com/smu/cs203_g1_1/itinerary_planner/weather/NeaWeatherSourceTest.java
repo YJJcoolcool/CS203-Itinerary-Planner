@@ -7,6 +7,7 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.List;
 
+import com.smu.cs203_g1_1.itinerary_planner.config.region.RegionRegistry;
 import com.smu.cs203_g1_1.itinerary_planner.services.weather.NEAWeatherClient;
 import com.smu.cs203_g1_1.itinerary_planner.services.weather.TwoHourWeatherForecast;
 import com.smu.cs203_g1_1.itinerary_planner.services.weather.WeatherForecast;
@@ -58,7 +59,8 @@ class NeaWeatherSourceTest {
         source = new NeaWeatherSource(
             client,
             List.of(BEDOK, TAMPINES),
-            Clock.fixed(NOW.toInstant(), SINGAPORE)
+            Clock.fixed(NOW.toInstant(), SINGAPORE),
+            new RegionRegistry()
         );
     }
 
@@ -243,7 +245,7 @@ class NeaWeatherSourceTest {
     @Test
     void classpathAreaTableLoadsAndMapsAKnownPlace() {
         NeaWeatherSource fromResource = new NeaWeatherSource(client,
-                Clock.fixed(NOW.toInstant(), SINGAPORE));
+                Clock.fixed(NOW.toInstant(), SINGAPORE), new RegionRegistry());
 
         assertEquals("Tampines", fromResource.nearestArea(1.3450, 103.9440).name());
         assertEquals("Bedok", fromResource.nearestArea(1.3210, 103.9240).name());

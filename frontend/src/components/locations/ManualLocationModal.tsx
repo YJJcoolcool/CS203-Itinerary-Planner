@@ -11,11 +11,14 @@ import { divIcon, type LatLng } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
 import type { Location } from '../../types/trip'
+import type { RegionTiles } from '../../lib/api'
 import { useCreateLocation } from '../../lib/useTrips'
 
 interface ManualLocationModalProps {
   onClose: () => void
   onCreated: (location: Location) => void
+  tiles?: RegionTiles
+  initialCenter?: Coordinates
 }
 
 interface Coordinates {
@@ -27,6 +30,10 @@ const INITIAL_COORDINATES: Coordinates = {
   latitude: 1.3521,
   longitude: 103.8198,
 }
+
+const DEFAULT_TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+const DEFAULT_TILE_ATTRIBUTION =
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 
 const markerIcon = divIcon({
   className: '',
@@ -65,15 +72,18 @@ function MapClickHandler({
 export default function ManualLocationModal({
   onClose,
   onCreated,
+  tiles,
+  initialCenter,
 }: ManualLocationModalProps) {
+  const startingCoordinates = initialCenter ?? INITIAL_COORDINATES
   const [name, setName] = useState('')
   const [coordinates, setCoordinates] =
-    useState<Coordinates>(INITIAL_COORDINATES)
+    useState<Coordinates>(startingCoordinates)
   const [latitudeInput, setLatitudeInput] = useState(
-    String(INITIAL_COORDINATES.latitude),
+    String(startingCoordinates.latitude),
   )
   const [longitudeInput, setLongitudeInput] = useState(
-    String(INITIAL_COORDINATES.longitude),
+    String(startingCoordinates.longitude),
   )
   const [validationError, setValidationError] = useState<string | null>(
     null,
@@ -327,8 +337,8 @@ export default function ManualLocationModal({
                   className="h-full w-full"
                 >
                   <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution={tiles?.attribution ?? DEFAULT_TILE_ATTRIBUTION}
+                    url={tiles?.url ?? DEFAULT_TILE_URL}
                   />
 
                   <MapClickHandler

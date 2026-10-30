@@ -74,7 +74,7 @@ public class TripService {
             LocalDate startDate,
             LocalDate endDate,
             String ownerId,
-            List<String> countries) {
+            String country) {
 
         validateDates(startDate, endDate);
 
@@ -84,7 +84,7 @@ public class TripService {
 
         Trip trip = new Trip(name, startDate, endDate, owner);
         trip.setId(id);
-        trip.setCountries(countries);
+        trip.setCountryCode(country == null || country.isBlank() ? "sg" : country);
 
         // The owner is also a member of the trip.
         trip.addMember(owner);
@@ -103,7 +103,7 @@ public class TripService {
             String name,
             LocalDate startDate,
             LocalDate endDate,
-            List<String> countries) {
+            String country) {
 
         validateDates(startDate, endDate);
 
@@ -114,11 +114,10 @@ public class TripService {
         trip.setStartDate(startDate);
         trip.setEndDate(endDate);
 
-        // Omitted/null means "leave countries unchanged".
-        // An explicitly empty list is rejected by Trip.setCountries().
-        if (countries != null) {
+        // Omitted/null means "leave the country unchanged".
+        if (country != null) {
             try {
-                trip.setCountries(countries);
+                trip.setCountryCode(country);
             } catch (IllegalArgumentException e) {
                 throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,

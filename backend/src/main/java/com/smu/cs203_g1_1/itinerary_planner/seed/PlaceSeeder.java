@@ -11,6 +11,8 @@ import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,13 +56,25 @@ public class PlaceSeeder {
 
     private final LocationRepository locationRepository;
     private final PlaceScoreRepository placeScoreRepository;
+    private final String countryCode;
     private final IndoorClassifier indoorClassifier = new IndoorClassifier();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    @Autowired
     public PlaceSeeder(LocationRepository locationRepository,
-                       PlaceScoreRepository placeScoreRepository) {
+                       PlaceScoreRepository placeScoreRepository,
+                       @Value("${app.seed.country:sg}") String seedCountry) {
         this.locationRepository = locationRepository;
         this.placeScoreRepository = placeScoreRepository;
+        this.countryCode = seedCountry == null || seedCountry.isBlank()
+                ? "sg"
+                : seedCountry.trim().toLowerCase(Locale.ROOT);
+    }
+
+    /** Test seam: seeds with the default SG country code. */
+    PlaceSeeder(LocationRepository locationRepository,
+                PlaceScoreRepository placeScoreRepository) {
+        this(locationRepository, placeScoreRepository, "sg");
     }
 
     /** Loads the classpath seed and imports it. */
@@ -153,6 +167,7 @@ public class PlaceSeeder {
         location.setOsmId(place.osmId());
         location.setCategoryGroup(place.categoryGroup());
         location.setEstCost(place.estCost());
+        location.setCountryCode(countryCode);
         location.setSeeded(true);
         // openIntervals stays null: parsing opening_hours is a later milestone.
 

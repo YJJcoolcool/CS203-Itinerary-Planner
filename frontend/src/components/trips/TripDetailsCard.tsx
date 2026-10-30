@@ -31,9 +31,7 @@ export function TripDetailsCard({
 }) {
   const days = daysInclusive(trip.startDate, trip.endDate)
   const members = uniqueMembers(trip)
-  const countryNames = (trip.countries ?? [])
-    .map((code) => getName(code.toUpperCase()))
-    .filter((name): name is string => Boolean(name))
+  const countryName = getName(trip.countryCode.toUpperCase())
 
   return (
     <section className="animate-rise rounded-2xl border border-border bg-surface-raised p-6">
@@ -51,9 +49,9 @@ export function TripDetailsCard({
             <span className={PILL}>
               {days === null ? 'Dates TBD' : `${days} ${days === 1 ? 'day' : 'days'}`}
             </span>
-            {countryNames.length > 0 && (
+            {countryName && (
               <span className={PILL}>
-                {countryNames.join(', ')}
+                {countryName}
               </span>
             )}
             {/* No budget field on the backend yet (FRONTEND_PAGES.md §8). */}

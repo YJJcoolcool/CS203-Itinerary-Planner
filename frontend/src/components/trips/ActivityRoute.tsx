@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '@clerk/react'
 import { ApiError, getActivityRoute } from '../../lib/api'
+import { useTripCapabilities } from '../../lib/useTripCapabilities'
 import type { Activity, Location, RouteMode } from '../../types/trip'
 import ActivityRouteMap from './ActivityRouteMap'
 import {
@@ -31,6 +32,7 @@ const ALL_MODES: { mode: RouteMode; icon: string }[] = [
 
 interface ActivityRouteProps {
     tripId: string
+    countryCode: string
     fromActivity: Activity
     toActivity: Activity
     fromLocations: Location[] | undefined
@@ -39,6 +41,7 @@ interface ActivityRouteProps {
 
 export function ActivityRoute({
     tripId,
+    countryCode,
     fromActivity,
     toActivity,
     fromLocations,
@@ -46,6 +49,9 @@ export function ActivityRoute({
 }: ActivityRouteProps) {
     const { getToken } = useAuth()
     const menuRef = useRef<HTMLDivElement>(null)
+
+    const [token, setToken] = useState<string | null>(null)
+    const { hasRouting } = useTripCapabilities(token, countryCode)
 
     const [isLoading, setIsLoading] = useState(false)
     const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -58,7 +64,19 @@ export function ActivityRoute({
     const [isDirectionsExpanded, setIsDirectionsExpanded] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [isWarningDismissed, setIsWarningDismissed] = useState(false)
-    
+
+    useEffect(() => {
+        let cancelled = false
+
+        void getToken().then((value) => {
+        if (!cancelled) setToken(value)
+        })
+
+        return () => {
+        cancelled = true
+        }
+    }, [getToken])
+
     // Close the dropdown when the user clicks outside it or presses Escape.
     useEffect(() => {
         if (!isMenuOpen) return
@@ -88,6 +106,8 @@ export function ActivityRoute({
     }, [isMenuOpen])
 
     async function fetchRoute(mode: RouteMode) {
+        if (!hasRouting) return
+
         setIsMenuOpen(false)
         setSelectedMode(mode)
         setError(null)
@@ -210,7 +230,7 @@ export function ActivityRoute({
             <button
                 type="button"
                 onClick={() => void fetchRoute(selectedMode)}
-                disabled={isLoading}
+                disabled={isLoading || !hasRouting}
                 className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-surface-subtle hover:text-accent disabled:cursor-wait disabled:opacity-60 ${FOCUS_RING}`}
             >
                 {isLoading ? (
@@ -235,7 +255,7 @@ export function ActivityRoute({
                 aria-expanded={isMenuOpen}
                 aria-haspopup="menu"
                 onClick={() => setIsMenuOpen((open) => !open)}
-                disabled={isLoading}
+                disabled={isLoading || !hasRouting}
                 className={`border-l border-border pl-3 pr-4 text-sm text-muted transition-colors hover:bg-surface-subtle hover:text-foreground disabled:opacity-60 ${FOCUS_RING}`}
             >
                 <span aria-hidden="true">▼</span>

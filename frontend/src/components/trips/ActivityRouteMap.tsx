@@ -10,10 +10,16 @@ import type { LatLngBoundsExpression } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
 import type { RouteMapSegment } from '../../lib/routingUtils'
+import type { RegionTiles } from '../../lib/api'
 
 interface ActivityRouteMapProps {
   segments: RouteMapSegment[]
+  tiles?: RegionTiles
 }
+
+const DEFAULT_TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+const DEFAULT_TILE_ATTRIBUTION =
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
 
 const MODE_COLORS: Record<string, string> = {
   PUBLIC_TRANSPORT: '#2563eb',
@@ -49,6 +55,7 @@ function FitRouteBounds({
 
 export default function ActivityRouteMap({
   segments,
+  tiles,
 }: ActivityRouteMapProps) {
   const coordinates = segments.flatMap(
     (segment) => segment.coordinates,
@@ -75,8 +82,8 @@ export default function ActivityRouteMap({
             className="h-full w-full"
         >
             <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution={tiles?.attribution ?? DEFAULT_TILE_ATTRIBUTION}
+            url={tiles?.url ?? DEFAULT_TILE_URL}
             />
 
             {segments.map((segment, index) => (

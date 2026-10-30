@@ -137,12 +137,13 @@ function TripDetailsContent({ tripId }: { tripId: string }) {
             <WeatherForecastPanel
               startDate={displayedTrip.startDate}
               endDate={displayedTrip.endDate}
-              countries={displayedTrip.countries ?? []}
+              countryCode={displayedTrip.countryCode}
             />
 
             <TripItinerary
               key={itineraryRefreshKey}
               tripId={displayedTrip.id}
+              countryCode={displayedTrip.countryCode}
               canEdit={canEdit}
             />
 

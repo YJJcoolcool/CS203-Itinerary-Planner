@@ -4,6 +4,7 @@ import {
   getFourDayWeatherForecast,
   getTwoHourWeatherForecast,
 } from '../../lib/api'
+import { useTripCapabilities } from '../../lib/useTripCapabilities'
 import type {
   FourDayWeatherForecast,
   TwoHourWeatherForecast,
@@ -13,23 +14,23 @@ import { CollapsibleSection } from '../CollapsibleSection'
 interface WeatherForecastPanelProps {
   startDate: string
   endDate: string
-  countries: string[]
+  countryCode: string
 }
 
-function formatForecastDate(date: string): string {
+function formatForecastDate(date: string, locale: string): string {
   const [year, month, day] = date.split('-').map(Number)
   const localDate = new Date(year, month - 1, day)
 
-  return localDate.toLocaleDateString('en-SG', {
+  return localDate.toLocaleDateString(locale, {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
   })
 }
 
-function getTodayInSingapore(): string {
+function getToday(zone: string): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Singapore',
+    timeZone: zone,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -42,9 +43,9 @@ function getTodayInSingapore(): string {
   return `${values.year}-${values.month}-${values.day}`
 }
 
-function formatSingaporeTime(value: string): string {
-  return new Intl.DateTimeFormat('en-SG', {
-    timeZone: 'Asia/Singapore',
+function formatTime(value: string, locale: string, zone: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: zone,
     hour: 'numeric',
     minute: '2-digit',
     day: 'numeric',
@@ -55,9 +56,10 @@ function formatSingaporeTime(value: string): string {
 export function WeatherForecastPanel({
   startDate,
   endDate,
-  countries,
+  countryCode,
 }: WeatherForecastPanelProps) {
   const { getToken } = useAuth()
+  const [token, setToken] = useState<string | null>(null)
 
   const [forecasts, setForecasts] = useState<FourDayWeatherForecast[]>([])
   const [twoHourForecasts, setTwoHourForecasts] =
@@ -66,15 +68,30 @@ export function WeatherForecastPanel({
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const today = getTodayInSingapore()
-  const tripHasEnded = endDate < today
-  const tripIncludesToday = startDate <= today && endDate >= today
-  const includesSingapore = countries.some(
-    (country) => country.toLowerCase() === 'sg',
+  const { region, hasWeather, locale, timeZone } = useTripCapabilities(
+    token,
+    countryCode,
   )
+  const regionName = region?.name ?? countryCode.toUpperCase()
 
   useEffect(() => {
-    if (tripHasEnded || !includesSingapore) return
+    let cancelled = false
+
+    void getToken().then((value) => {
+      if (!cancelled) setToken(value)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [getToken])
+
+  const today = getToday(timeZone)
+  const tripHasEnded = endDate < today
+  const tripIncludesToday = startDate <= today && endDate >= today
+
+  useEffect(() => {
+    if (tripHasEnded || !hasWeather) return
 
     let cancelled = false
 
@@ -114,9 +131,9 @@ export function WeatherForecastPanel({
     return () => {
       cancelled = true
     }
-  }, [tripHasEnded, tripIncludesToday, includesSingapore, getToken])
+  }, [tripHasEnded, tripIncludesToday, hasWeather, getToken])
 
-  if (tripHasEnded || !includesSingapore) return null
+  if (tripHasEnded || !hasWeather) return null
 
   const tripForecasts = forecasts.filter(
     (forecast) =>
@@ -178,8 +195,8 @@ export function WeatherForecastPanel({
       title="Weather forecast"
       subtitle={
         tripIncludesToday
-          ? 'Singapore · Two-hour outlook'
-          : 'Singapore · Daily rain outlook'
+          ? `${regionName} · Two-hour outlook`
+          : `${regionName} · Daily rain outlook`
       }
       aside={<span aria-hidden="true" className="text-2xl">🌦️</span>}
     >
@@ -234,10 +251,10 @@ export function WeatherForecastPanel({
 
               <p className="mt-3 text-xs text-muted">
                 Valid from{' '}
-                {formatSingaporeTime(displayedTwoHourForecast.validFrom)}
+                {formatTime(displayedTwoHourForecast.validFrom, locale, timeZone)}
                 {' '}to{' '}
-                {formatSingaporeTime(displayedTwoHourForecast.validUntil)}
-                {' '}· Singapore time
+                {formatTime(displayedTwoHourForecast.validUntil, locale, timeZone)}
+                {' '}· {regionName} time
               </p>
             </div>
           </div>
@@ -256,7 +273,7 @@ export function WeatherForecastPanel({
                   className="rounded-xl border border-border bg-surface-subtle p-4"
                 >
                   <p className="text-sm font-medium text-foreground">
-                    {formatForecastDate(forecast.date)}
+                    {formatForecastDate(forecast.date, locale)}
                   </p>
 
                   <p

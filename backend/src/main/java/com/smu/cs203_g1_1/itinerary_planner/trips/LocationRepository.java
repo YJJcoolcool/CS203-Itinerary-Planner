@@ -35,4 +35,16 @@ public interface LocationRepository extends JpaRepository<Location, String> {
             @Param("maxLat") Double maxLat,
             @Param("minLon") Double minLon,
             @Param("maxLon") Double maxLon);
+
+    /**
+     * Same trust and box rules as {@link #findTrustedInBoundingBox}, restricted
+     * to one ISO country so a neighbouring country's rows cannot leak in.
+     */
+    @Query("select l from Location l where (l.seeded = true or l.osmId is not null) and l.latitude between :minLat and :maxLat and l.longitude between :minLon and :maxLon and l.countryCode = :countryCode")
+    List<Location> findTrustedInBoundingBoxAndCountry(
+            @Param("minLat") Double minLat,
+            @Param("maxLat") Double maxLat,
+            @Param("minLon") Double minLon,
+            @Param("maxLon") Double maxLon,
+            @Param("countryCode") String countryCode);
 }

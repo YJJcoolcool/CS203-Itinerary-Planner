@@ -11,7 +11,7 @@ import { useTripInvitations } from '../../lib/useInvitations'
 import { roleLabel } from '../../types/invitation'
 import type { TripRole } from '../../types/invitation'
 import type { Trip } from '../../types/trip'
-import { CountryMultiSelect } from './CountryMultiSelect'
+import { CountrySelect } from './CountrySelect'
 import { DeleteTripDialog } from './DeleteTripDialog'
 
 const FOCUS_RING =
@@ -42,10 +42,8 @@ function formatSentDate(iso: string): string {
   })
 }
 
-function normalizeCountries(countries: string[] = []): string[] {
-  return [...new Set(
-    countries.map((country) => country.toLowerCase()),
-  )].sort()
+function normalizeCountryCode(countryCode: string): string {
+  return countryCode.trim().toLowerCase()
 }
 
 interface InvitationsSectionProps {
@@ -258,9 +256,7 @@ export function TripSettingsPanel({
   const [name, setName] = useState(trip.name)
   const [startDate, setStartDate] = useState(trip.startDate)
   const [endDate, setEndDate] = useState(trip.endDate)
-  const [countries, setCountries] = useState<string[]>(
-    trip.countries ?? [],
-  )
+  const [countryCode, setCountryCode] = useState(trip.countryCode)
 
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -271,15 +267,15 @@ export function TripSettingsPanel({
   const titleId = useId()
   const headingRef = useRef<HTMLHeadingElement>(null)
 
-  const countriesChanged =
-    JSON.stringify(normalizeCountries(countries)) !==
-    JSON.stringify(normalizeCountries(trip.countries ?? []))
+  const countryCodeChanged =
+    normalizeCountryCode(countryCode) !==
+    normalizeCountryCode(trip.countryCode)
 
   const dirty =
     name.trim() !== trip.name ||
     startDate !== trip.startDate ||
     endDate !== trip.endDate ||
-    countriesChanged
+    countryCodeChanged
 
   useEffect(() => {
     headingRef.current?.focus()
@@ -308,16 +304,10 @@ export function TripSettingsPanel({
       return
     }
 
-    const countryCodes = [
-      ...new Set(
-        countries
-          .map((country) => country.trim().toLowerCase())
-          .filter(Boolean)
-      ),
-    ];
+    const normalizedCountryCode = normalizeCountryCode(countryCode)
 
-    if (countryCodes.length === 0) {
-      setSaveError('Enter at least one country code.')
+    if (!normalizedCountryCode) {
+      setSaveError('Enter a country code.')
       return
     }
 
@@ -333,7 +323,7 @@ export function TripSettingsPanel({
         name: name.trim(),
         startDate,
         endDate,
-        countries: normalizeCountries(countries),
+        countryCode: normalizedCountryCode,
       })
 
       onUpdated(updated)
@@ -484,14 +474,13 @@ export function TripSettingsPanel({
                   </div>
                 </div>
 
-                <CountryMultiSelect
-                  value={countries}
+                <CountrySelect
+                  value={countryCode}
                   onChange={(next) => {
-                    setCountries(next)
+                    setCountryCode(next)
                     setSaveSuccess(false)
                     setSaveError(null)
                   }}
-                  disabled={isSaving}
                 />
               </div>
 

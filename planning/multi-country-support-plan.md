@@ -1,7 +1,7 @@
 # Multi-Country Support — Implementation Plan
 
-Status: proposed
-Branch: `plan/multi-country-support`
+Status: Phase 1 implemented
+Branch: `feat/multi-country-phase1`
 Scope: Phase 1 (detailed), Phase 2 (outline), Phase 3 (out of scope)
 
 ## 1. Goal and non-goals
@@ -440,12 +440,28 @@ Config:
 app.discovery.backfill-enabled=${APP_DISCOVERY_BACKFILL:true}
 app.discovery.backfill-threshold=${APP_DISCOVERY_BACKFILL_THRESHOLD:40}
 app.discovery.backfill-radius-m=${APP_DISCOVERY_BACKFILL_RADIUS_M:1500}
+app.discovery.backfill-limit=${APP_DISCOVERY_BACKFILL_LIMIT:120}
+app.discovery.backfill-max-categories=${APP_DISCOVERY_BACKFILL_MAX_CATEGORIES:4}
+app.discovery.backfill-queue-capacity=${APP_DISCOVERY_BACKFILL_QUEUE_CAPACITY:16}
 ```
 
-Acceptance: integration test with a stubbed Overpass client — empty DB + KL
-coordinate → backfill persists N rows → `CandidateFinder` returns candidates on
-the second call and does not call Overpass again. SG path: threshold already met,
-zero Overpass calls.
+**Implementation note (as built).** The first cut called Overpass synchronously
+inside `CandidateFinder.find`, which could block a request thread for up to
+`4 × app.osm.read-timeout`. That is not acceptable, so the shipped shape is:
+
+- `NearbyBackfillService.backfillAsync(...)` submits to a dedicated 1-thread
+  bounded pool (queue capacity above, daemon threads, `@PreDestroy` shutdown).
+  A full queue returns `completedFuture(0)`; nothing is ever discarded silently.
+- `CandidateFinder` records the memo **before** submitting, submits, and never
+  joins. It re-runs the trusted query once immediately, so the very first call
+  may still return few rows.
+- `ActivityService.createActivity` pre-warms the same way after a successful
+  save, which is what makes the first real replan non-empty.
+
+Acceptance (as built): `CandidateFinderBackfillTest` proves one submission per
+~100 m cell per policy window, record-before-submit ordering, no second
+submission, and that `find` returns while the future is still pending. SG path:
+threshold already met, zero Overpass submissions.
 
 ### Lane D — Frontend
 
@@ -503,6 +519,8 @@ requires exactly one country.
 - `routing/RoutingController`: before invoking OneMap, check the trip's region
   supports `ROUTING`; otherwise throw a typed `RoutingUnavailableException`
   mapped to `422` with `{ "error": "routing_unavailable", "country": "jp" }`.
+- `routing/RoutingService`: resolves the departure date/time zone from the
+  trip's region (coupling #2), replacing the hardcoded Singapore zone.
 - `geo/GeoController.java:100-105`: replace the `countries` list join with
   `trip.getCountryCode()` when `tripId` is supplied (the explicit
   `countrycodes` query param stays for ad-hoc search).

@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useCreateTrip } from '../../lib/useTrips'
-import { CountryMultiSelect } from './CountryMultiSelect'
+import { CountrySelect } from './CountrySelect'
 
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface'
@@ -14,7 +14,7 @@ interface FieldErrors {
   name?: string
   startDate?: string
   endDate?: string
-  countries?: string
+  countryCode?: string
   form?: string
 }
 
@@ -38,7 +38,7 @@ export function CreateTripModal({
   const [name, setName] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
-  const [countries, setCountries] = useState<string[]>(['sg'])
+  const [countryCode, setCountryCode] = useState('sg')
   const [errors, setErrors] = useState<FieldErrors>({})
   const nameRef = useRef<HTMLInputElement>(null)
   const titleId = useId()
@@ -77,17 +77,13 @@ export function CreateTripModal({
       return
     }
 
-    if (countries.length === 0) {
+    if (!countryCode.trim()) {
       setErrors({
         ...next,
-        countries: 'Select at least one country.',
+        countryCode: 'Select a country.',
       })
       return
     }
-
-    const countryCodes = [...new Set(
-      countries.map((country) => country.toLowerCase()),
-    )]
 
     setErrors({})
     try {
@@ -95,7 +91,7 @@ export function CreateTripModal({
         name: name.trim(),
         startDate,
         endDate,
-        countries: countryCodes,
+        countryCode: countryCode.trim().toLowerCase(),
       })
       onCreated()
       onClose()
@@ -192,25 +188,25 @@ export function CreateTripModal({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-muted">
+            <label htmlFor={`${titleId}-country`} className="text-xs font-medium text-muted">
               Countries visited
             </label>
 
-            <CountryMultiSelect
-              value={countries}
+            <CountrySelect
+              id={`${titleId}-country`}
+              value={countryCode}
               onChange={(next) => {
-                setCountries(next)
+                setCountryCode(next)
                 setErrors((current) => ({
                   ...current,
-                  countries: undefined,
+                  countryCode: undefined,
                 }))
               }}
-              disabled={isCreating}
             />
 
-            {errors.countries && (
+            {errors.countryCode && (
               <p role="alert" className="text-xs text-terracotta">
-                {errors.countries}
+                {errors.countryCode}
               </p>
             )}
           </div>

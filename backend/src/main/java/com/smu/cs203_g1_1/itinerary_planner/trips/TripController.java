@@ -34,14 +34,14 @@ public class TripController {
         String name,
         LocalDate startDate,
         LocalDate endDate,
-        String country
+        String countryCode
     ) {}
 
     public record TripUpdateRequest(
         String name,
         LocalDate startDate,
         LocalDate endDate,
-        String country
+        String countryCode
     ) {}
 
     // role is optional when adding a member (defaults to VIEWER)
@@ -58,7 +58,7 @@ public class TripController {
             request.startDate(),
             request.endDate(),
             userService.getCurrentUserId(jwt),
-            request.country()
+            request.countryCode()
         );
     }
 
@@ -86,7 +86,7 @@ public class TripController {
             request.name(),
             request.startDate(),
             request.endDate(),
-            request.country()
+            request.countryCode()
         );
     }
 

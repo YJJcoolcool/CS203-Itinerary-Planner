@@ -1,7 +1,6 @@
 package com.smu.cs203_g1_1.itinerary_planner.routing;
 
 import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
@@ -11,17 +10,18 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import tools.jackson.databind.JsonNode;
+import com.smu.cs203_g1_1.itinerary_planner.config.region.Capability;
+import com.smu.cs203_g1_1.itinerary_planner.config.region.RegionProfile;
+import com.smu.cs203_g1_1.itinerary_planner.config.region.RegionRegistry;
 import com.smu.cs203_g1_1.itinerary_planner.routing.dto.RouteResponse;
 import com.smu.cs203_g1_1.itinerary_planner.trips.Activity;
 import com.smu.cs203_g1_1.itinerary_planner.trips.ActivityRepository;
 import com.smu.cs203_g1_1.itinerary_planner.trips.Location;
+import com.smu.cs203_g1_1.itinerary_planner.trips.Trip;
 import com.smu.cs203_g1_1.itinerary_planner.trips.TripService;
 
 @Service
 public class RoutingService {
-
-    private static final ZoneId SINGAPORE_ZONE =
-            ZoneId.of("Asia/Singapore");
 
     private static final DateTimeFormatter DATE_FORMAT =
             DateTimeFormatter.ofPattern("MM-dd-yyyy");
@@ -32,15 +32,18 @@ public class RoutingService {
     private final ActivityRepository activityRepository;
     private final TripService tripService;
     private final OneMapClient oneMapClient;
+    private final RegionRegistry regionRegistry;
 
     public RoutingService(
             ActivityRepository activityRepository,
             TripService tripService,
-            OneMapClient oneMapClient) {
+            OneMapClient oneMapClient,
+            RegionRegistry regionRegistry) {
 
         this.activityRepository = activityRepository;
         this.tripService = tripService;
         this.oneMapClient = oneMapClient;
+        this.regionRegistry = regionRegistry;
     }
 
     @Transactional(readOnly = true)
@@ -53,7 +56,18 @@ public class RoutingService {
             OffsetDateTime requestedDeparture) {
 
         // Ensure the user belongs to the trip.
-        tripService.getTripForMember(tripId, userId);
+        Trip trip = tripService.getTripForMember(tripId, userId);
+
+        RegionProfile region = regionRegistry.byCode(trip.getCountryCode())
+                .orElseThrow(() -> new RoutingUnavailableException(trip.getCountryCode()));
+
+        boolean routingAvailable = region.provider(Capability.ROUTING)
+                .filter(providerId -> !providerId.isBlank())
+                .isPresent();
+
+        if (!routingAvailable) {
+            throw new RoutingUnavailableException(trip.getCountryCode());
+        }
 
         if (fromActivityId.equals(toActivityId)) {
             throw new ResponseStatusException(
@@ -115,12 +129,12 @@ public class RoutingService {
 
         if (mode == RouteMode.PUBLIC_TRANSPORT) {
 
-            OffsetDateTime singaporeDeparture =
-                    departure.atZoneSameInstant(SINGAPORE_ZONE)
+            OffsetDateTime regionalDeparture =
+                    departure.atZoneSameInstant(region.zone())
                             .toOffsetDateTime();
 
-            date = singaporeDeparture.format(DATE_FORMAT);
-            time = singaporeDeparture.format(TIME_FORMAT);
+            date = regionalDeparture.format(DATE_FORMAT);
+            time = regionalDeparture.format(TIME_FORMAT);
         }
 
         // Request route from OneMap.

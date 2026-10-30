@@ -8,9 +8,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import com.smu.cs203_g1_1.itinerary_planner.discovery.BackfillPolicy;
+import com.smu.cs203_g1_1.itinerary_planner.discovery.NearbyBackfillService;
 import com.smu.cs203_g1_1.itinerary_planner.trips.Location;
 import com.smu.cs203_g1_1.itinerary_planner.trips.LocationRepository;
 import com.smu.cs203_g1_1.itinerary_planner.trips.PlaceScore;
@@ -42,23 +46,59 @@ public class CandidateFinder {
     private static final double DEFAULT_QUALITY = 0.5;
     private static final int MIN_LIMIT = 1;
     private static final int MAX_LIMIT = 50;
+    private static final int DEFAULT_BACKFILL_THRESHOLD = 40;
+    private static final int DEFAULT_BACKFILL_RADIUS_M = 1500;
+    private static final int DEFAULT_BACKFILL_LIMIT = 120;
 
     private final LocationRepository locationRepository;
     private final PlaceScoreRepository placeScoreRepository;
     private final ScoreCalculator scoreCalculator;
+    private final ObjectProvider<NearbyBackfillService> backfillServiceProvider;
+    private final ObjectProvider<BackfillPolicy> backfillPolicyProvider;
+    private final int backfillThreshold;
+    private final int backfillRadiusM;
+    private final int backfillLimit;
 
     @Autowired
     public CandidateFinder(LocationRepository locationRepository,
-                           PlaceScoreRepository placeScoreRepository) {
-        this(locationRepository, placeScoreRepository, new ScoreCalculator());
+                           PlaceScoreRepository placeScoreRepository,
+                           ObjectProvider<NearbyBackfillService> backfillServiceProvider,
+                           ObjectProvider<BackfillPolicy> backfillPolicyProvider,
+                           @Value("${app.discovery.backfill-threshold:40}")
+                           int backfillThreshold,
+                           @Value("${app.discovery.backfill-radius-m:1500}")
+                           int backfillRadiusM,
+                           @Value("${app.discovery.backfill-limit:120}")
+                           int backfillLimit) {
+        this(locationRepository, placeScoreRepository, new ScoreCalculator(),
+            backfillServiceProvider, backfillPolicyProvider,
+            backfillThreshold, backfillRadiusM, backfillLimit);
     }
 
     public CandidateFinder(LocationRepository locationRepository,
                            PlaceScoreRepository placeScoreRepository,
                            ScoreCalculator scoreCalculator) {
+        this(locationRepository, placeScoreRepository, scoreCalculator,
+            null, null,
+            DEFAULT_BACKFILL_THRESHOLD, DEFAULT_BACKFILL_RADIUS_M, DEFAULT_BACKFILL_LIMIT);
+    }
+
+    CandidateFinder(LocationRepository locationRepository,
+                    PlaceScoreRepository placeScoreRepository,
+                    ScoreCalculator scoreCalculator,
+                    ObjectProvider<NearbyBackfillService> backfillServiceProvider,
+                    ObjectProvider<BackfillPolicy> backfillPolicyProvider,
+                    int backfillThreshold,
+                    int backfillRadiusM,
+                    int backfillLimit) {
         this.locationRepository = Objects.requireNonNull(locationRepository);
         this.placeScoreRepository = Objects.requireNonNull(placeScoreRepository);
         this.scoreCalculator = Objects.requireNonNull(scoreCalculator);
+        this.backfillServiceProvider = backfillServiceProvider;
+        this.backfillPolicyProvider = backfillPolicyProvider;
+        this.backfillThreshold = backfillThreshold;
+        this.backfillRadiusM = backfillRadiusM;
+        this.backfillLimit = backfillLimit;
     }
 
     public List<Candidate> find(CandidateRequest request) {
@@ -78,11 +118,28 @@ public class CandidateFinder {
                 ? 180.0
                 : RADIUS_KM / (KM_PER_DEGREE_LAT * Math.abs(cosLat));
 
-        List<Location> nearby = locationRepository.findTrustedInBoundingBox(
-                latitude - latDelta,
-                latitude + latDelta,
-                longitude - lonDelta,
-                longitude + lonDelta);
+        double minLat = latitude - latDelta;
+        double maxLat = latitude + latDelta;
+        double minLon = longitude - lonDelta;
+        double maxLon = longitude + lonDelta;
+
+        List<Location> nearby = findTrusted(dropped, minLat, maxLat, minLon, maxLon);
+
+        if (nearby.size() < backfillThreshold) {
+            NearbyBackfillService backfillService = backfillService();
+            BackfillPolicy backfillPolicy = backfillPolicy();
+
+            if (backfillService != null
+                    && backfillPolicy != null
+                    && backfillPolicy.shouldBackfill(latitude, longitude)) {
+                // Record before submitting so concurrent requests in this cell
+                // cannot each enqueue the same work.
+                backfillPolicy.recordBackfill(latitude, longitude);
+                backfillService.backfillAsync(
+                    latitude, longitude, backfillRadiusM, backfillLimit);
+                nearby = findTrusted(dropped, minLat, maxLat, minLon, maxLon);
+            }
+        }
 
         Set<String> excluded = request.excludedLocationIds() == null
                 ? Set.of()
@@ -169,6 +226,34 @@ public class CandidateFinder {
 
         int size = Math.min(request.limit(), candidates.size());
         return List.copyOf(candidates.subList(0, size));
+    }
+
+    private List<Location> findTrusted(Location dropped,
+                                       double minLat,
+                                       double maxLat,
+                                       double minLon,
+                                       double maxLon) {
+        String countryCode = dropped.getCountryCode();
+
+        if (countryCode != null && !countryCode.isBlank()) {
+            return locationRepository.findTrustedInBoundingBoxAndCountry(
+                minLat, maxLat, minLon, maxLon, countryCode);
+        }
+
+        return locationRepository.findTrustedInBoundingBox(
+            minLat, maxLat, minLon, maxLon);
+    }
+
+    private NearbyBackfillService backfillService() {
+        return backfillServiceProvider == null
+            ? null
+            : backfillServiceProvider.getIfAvailable();
+    }
+
+    private BackfillPolicy backfillPolicy() {
+        return backfillPolicyProvider == null
+            ? null
+            : backfillPolicyProvider.getIfAvailable();
     }
 
     private Map<String, Double> loadManualQuality(List<Eligible> eligible) {

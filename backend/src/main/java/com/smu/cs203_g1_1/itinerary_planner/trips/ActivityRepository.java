@@ -30,6 +30,7 @@ public interface ActivityRepository
      * Get a specific activity, but only if it belongs
      * to the specified trip.
      */
+    @EntityGraph(attributePaths = "locations")
     Optional<Activity> findByIdAndTripId(
             String activityId,
             String tripId);

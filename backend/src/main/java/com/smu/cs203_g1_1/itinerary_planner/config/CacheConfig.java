@@ -26,6 +26,7 @@ public class CacheConfig {
     public static final String GEOCODE_REVERSE = "geocodeReverse";
     public static final String OSM_LOOKUP = "osmLookup";
     public static final String POIS = "pois";
+    public static final String ROUTES = "routes";
 
     /**
      * Builds the cache manager wiring each cache name to its Caffeine spec: the three
@@ -33,10 +34,25 @@ public class CacheConfig {
      */
     @Bean
     public CacheManager cacheManager() {
-        List<Cache> caches = List.of( new CaffeineCache(GEOCODE_SEARCH, placeCache()), new CaffeineCache(GEOCODE_REVERSE, placeCache()), new CaffeineCache(OSM_LOOKUP, placeCache()), new CaffeineCache(POIS, Caffeine.newBuilder()
-                        .maximumSize(5_000)
-                        .expireAfterWrite(Duration.ofHours(1))
-                        .build()));
+        List<Cache> caches = List.of(
+            new CaffeineCache(GEOCODE_SEARCH, placeCache()),
+            new CaffeineCache(GEOCODE_REVERSE, placeCache()),
+            new CaffeineCache(OSM_LOOKUP, placeCache()),
+            new CaffeineCache(
+                POIS,
+                Caffeine.newBuilder()
+                    .maximumSize(5_000)
+                    .expireAfterWrite(Duration.ofHours(1))
+                    .build()
+            ),
+            new CaffeineCache(
+                ROUTES,
+                Caffeine.newBuilder()
+                    .maximumSize(2_000)
+                    .expireAfterWrite(Duration.ofMinutes(5))
+                    .build()
+            )
+        );
 
         SimpleCacheManager manager = new SimpleCacheManager();
         manager.setCaches(caches);

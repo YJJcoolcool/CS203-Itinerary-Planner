@@ -26,6 +26,9 @@ services:
       APP_RAG_EMBED_ON_STARTUP: ${APP_RAG_EMBED_ON_STARTUP:-false}
       APP_POLLING_ENABLED: ${APP_POLLING_ENABLED:-true}
       APP_POLLING_ACTIVITY_DELAY_MS: ${APP_POLLING_ACTIVITY_DELAY_MS:-600000}
+      # OneMap API credentials
+      ONEMAP_EMAIL: ${ONEMAP_EMAIL:?set ONEMAP_EMAIL in .env}
+      ONEMAP_PASSWORD: ${ONEMAP_PASSWORD:?set ONEMAP_PASSWORD in .env}
     volumes:
       - backend-logs:/app/logs
     depends_on:

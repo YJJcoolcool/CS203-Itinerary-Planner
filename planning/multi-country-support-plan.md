@@ -10,11 +10,17 @@ Scope: Phase 1 (detailed), Phase 2 (outline), Phase 3 (out of scope)
 discovery, planner with a non-empty candidate set (live-OSM backfill, D7), manual
 itinerary, members, and suggestions behave correctly. Weather and turn-by-turn
 routing degrade to *explicitly unavailable* rather than silently reporting the
-wrong thing. Singapore behaviour is byte-for-byte unchanged.
+wrong thing. Singapore behaviour is byte-for-byte unchanged, and **Singapore
+remains the default country** for any trip that does not specify one.
+
+**Scope contraction (product decision).** One trip has exactly **one** country.
+The existing `countries[]` list is retired in favour of a single
+`trips.country_code` (D0). Multi-country trips are explicitly out of scope for
+Phases 1–3.
 
 **Non-goals (Phase 1).** No new weather provider, no second routing provider, no
 public-transport routing abroad, no per-country offline indexes, no UI redesign,
-no full i18n/translation.
+no full i18n/translation, no multi-country trips.
 
 **Phase 2** adds real weather providers (Open-Meteo / OpenWeather) and a routing
 provider seam with OSRM/ORS/Google. **Phase 3** (per-city GTFS public transport)
@@ -50,17 +56,45 @@ Singapore-coupled, must change:
 
 ## 3. Architecture decisions
 
-### D1 — Region profiles are configuration, resolved by coordinate
+### D0 — One trip, one country; Singapore is the default
+
+`Trip.countries: List<String>` collapses to `Trip.countryCode: String`. The
+`trip_countries` join table is retired.
+
+- **Default:** a trip created without a country gets `sg`. This preserves every
+  existing behaviour and matches what the client already does
+  (`CreateTripModal.tsx:41` initialises `['sg']`).
+- **Validation:** exactly one ISO-3166-1 alpha-2 code; reject empty on create,
+  refuse to clear it on update.
+- **Why now:** with one country per trip, region resolution is unambiguous, the
+  weather gate becomes `trip.countryCode`, cross-border candidate bleed is
+  solved by a single filter, and the UI loses a multi-select it never needed.
+
+Migration (two-step, so a rollback stays cheap):
+
+1. `V6` adds `trips.country_code varchar(2)` and backfills:
+   `UPDATE trips SET country_code = COALESCE((SELECT min(country_code) FROM trip_countries tc WHERE tc.trip_id = trips.id), 'sg') WHERE country_code IS NULL;`
+   then `ALTER COLUMN ... SET NOT NULL`. `min()` is deterministic; with the ≤1
+   row payload today it is simply "the" country.
+2. Keep `trip_countries` **unused** for one release, then drop it in a later
+   migration once the deploy is confirmed.
+
+Rejected alternative: keep the list table and constrain length to 1. It leaves
+every call site (`GeoController`, `TripController`, `TripService`, the frontend
+types) still handling a list while the domain says otherwise.
+
+### D1 — Region profiles are configuration
 
 Introduce a bundled `regions.json` plus a `RegionRegistry`. A region is keyed by
-ISO-3166-1 alpha-2 and carries: display name, bounding boxes, IANA zone, locale,
-currency, and capability flags (`weather`, `routing`).
+ISO-3166-1 alpha-2 and carries: display name, tier, bounding boxes, IANA zone,
+locale, currency, provider keys and basemap.
 
-**Why coordinate-keyed, not trip-keyed.** Trips carry `countries[]` and may span
-several (SG + MY is the obvious case). Weather is asked as
-`isRainy(lat, lon, …)`, so resolving at the *point* is unambiguous and needs no
-trip-level arbitration. Trip country codes remain the coarse gate for UI and
-seeding.
+**Resolution is trip-first, coordinate-second.** With D0, `trip.countryCode`
+identifies the region directly, so weather/routing/UI all resolve from the trip.
+`byPoint(lat, lon)` is retained for the two places that genuinely have only a
+coordinate: the seed importer's bounds check and the NEA `covers()` guard (a
+MY-border point must never be answered by NEA just because it falls inside the
+SG bbox).
 
 Rejected alternatives:
 - *JPA entity / admin-editable table* — premature; region config is release
@@ -76,7 +110,7 @@ Today every weather failure path returns `false`, conflating "no data" with
 ```java
 public interface WeatherSourceResolver {
     Optional<WeatherSource> forPoint(double lat, double lon);
-    Optional<WeatherSource> forCountries(List<String> countryCodes);
+    Optional<WeatherSource> forCountry(String countryCode);
 }
 ```
 
@@ -277,8 +311,9 @@ Add `weather/WeatherSourceResolver` implementation backed by `RegionRegistry` +
 
 - `forPoint(lat, lon)` → `byPoint` → region `providers.weather` → catalog bean.
   No region or no provider → empty.
-- `forCountries(codes)` → first code with a weather provider; empty otherwise.
-  Used by `SuggestionService`, which has countries but no coordinates.
+- `forCountry(code)` → `byCode` → region `providers.weather` → catalog bean.
+  No region or no provider → empty. Used by `SuggestionService`, which knows the
+  trip's country but not necessarily a coordinate.
 - **Coverage hook.** Add a default method to `WeatherSource` (non-breaking):
 
   ```java
@@ -300,11 +335,10 @@ app.weather.source=${APP_WEATHER_SOURCE:nea}
 Modify `suggestion/SuggestionService.java`:
 
 - Replace `coversSingapore(trip)` (`:168-175`) with
-  `weatherSourceResolver.forCountries(trip.getCountries()).isPresent()`.
-- Keep the legacy rule: empty `countries` → treated as legacy → SG behaviour.
-  Preserve this explicitly and test it, because it is the main compatibility
-  risk.
-- At `:252` log the resolved reason (`no weather provider for countries [jp]`)
+  `weatherSourceResolver.forCountry(trip.getCountryCode()).isPresent()`.
+- The "empty countries = legacy SG" branch disappears: `countryCode` is
+  non-null and defaults to `sg` (D0), so there is exactly one path.
+- At `:252` log the resolved reason (`no weather provider for country jp`)
   rather than naming SG.
 
 Modify `polling/WeatherPoller.java`:
@@ -322,7 +356,11 @@ Acceptance: `NeaWeatherSourceTest` still passes; new tests for non-SG centroid
 
 ### Lane C — Data model and seeding
 
-- `db/migration/V6__location_country_code.sql`
+- `db/migration/V6__trip_single_country.sql` — the D0 migration: add
+  `trips.country_code`, backfill from `trip_countries` with `'sg'` fallback, set
+  `NOT NULL`, index it. `trip_countries` is left in place but unused; its drop is
+  a separate later migration.
+- `db/migration/V7__location_country_code.sql`
 
   ```sql
   ALTER TABLE location ADD COLUMN country_code varchar(2);
@@ -334,6 +372,12 @@ Acceptance: `NeaWeatherSourceTest` still passes; new tests for non-SG centroid
   geocoding. Leave the column nullable so rows created from ungeocodable input do
   not fail.
 
+- `trips/Trip.java`: replace `countries: List<String>` + `@ElementCollection`
+  with `countryCode: String` (`@Column(name = "country_code", nullable = false,
+  length = 2)`). Move the existing two-letter validation (`Trip.java:185-205`)
+  onto the single value, and default to `"sg"` when null. Update
+  `TripController`, `TripService`, `TripResponse`, and the
+  `getTripForMember` callers.
 - `seed/OsmIndexImporter.java`: delete the duplicated bbox (`:45-48`), take the
   region from `RegionRegistry` by an injected `app.seed.country` property
   (default `sg`). Replace the hardcoded `"Singapore "` at `:274` with the region
@@ -344,12 +388,13 @@ Acceptance: `NeaWeatherSourceTest` still passes; new tests for non-SG centroid
   extract URL/filename from it. Keep the SG default so existing docs stay valid.
 - `geo/PoiService` / `PlaceDiscoveryService`: set `country_code` on creation from
   the reverse-geocode `address.countryCode()` (already parsed at `PoiService:123`).
-- `CandidateFinder`: optional `countryCode` filter alongside the bbox, to avoid
-  cross-border bleed (JB vs SG). Off by default; enabled when the trip has a
-  single country.
+- `CandidateFinder`: filter candidates by the **trip's** `countryCode` alongside
+  the bbox. With one country per trip this is now unconditional, which removes
+  cross-border bleed (JB vs SG) instead of making it a heuristic.
 
-Acceptance: migration runs on a copy of prod-shaped data; import of a
-non-SG fixture file lands rows with the right `country_code`.
+Acceptance: V6 backfills every existing trip (nulls = 0), V7 every location
+(nulls = 0); import of a non-SG fixture file lands rows with the right
+`country_code`; a SG trip's candidate set is unchanged from `main`.
 
 ### Lane C2 — Cold start (live OSM backfill into the local table)
 
@@ -426,11 +471,19 @@ zero Overpass calls.
   from the trip capability payload (`D8`). Default to the current OSM URL so SG
   is unchanged. Reject a `crs` other than `wgs84` with a visible "map unavailable
   for this destination" state rather than rendering offset pins.
-- `components/trips/CountryMultiSelect.tsx`: mark codes without capabilities
-  ("no weather data yet") — informational only, do not block selection.
+- `components/trips/CountryMultiSelect.tsx` → `CountrySelect.tsx`: single-select,
+  pre-selected `sg` when creating a trip, no "Add another country" affordance.
+  Keep the searchable list; mark codes whose tier is not `full` with a hint.
+- Types and call sites follow D0: `types/trip.ts:53-54` (`countries: string[]` →
+  `country: string`), `CreateTripModal.tsx:41,80-98,200-213`
+  (`useState<string>('sg')`), `TripSettingsPanel.tsx:261-336`,
+  `TripDetailsCard.tsx:34`, `WeatherForecastPanel.tsx:16,72-77`,
+  `lib/api.ts:161-169` (`countries` → `country` in the update payload).
+  Do this as one mechanical pass; do not leave both shapes alive.
 
 Acceptance: an SG trip renders identically; a JP trip hides weather, hides route
-actions, and shows JP-appropriate dates.
+actions, and shows JP-appropriate dates; trip creation defaults to Singapore and
+requires exactly one country.
 
 ### Lane E — API surface
 
@@ -447,9 +500,12 @@ actions, and shows JP-appropriate dates.
   Public (no auth) or authenticated — match the existing auth convention in
   `SecurityConfig`; prefer authenticated for consistency. Keep the payload small:
   this is fetched once and cached; do not include bboxes.
-- `routing/RoutingController`: before invoking OneMap, check the region supports
-  `ROUTING`; otherwise throw a typed `RoutingUnavailableException` mapped to
-  `422` with `{ "error": "routing_unavailable", "countries": [...] }`.
+- `routing/RoutingController`: before invoking OneMap, check the trip's region
+  supports `ROUTING`; otherwise throw a typed `RoutingUnavailableException`
+  mapped to `422` with `{ "error": "routing_unavailable", "country": "jp" }`.
+- `geo/GeoController.java:100-105`: replace the `countries` list join with
+  `trip.getCountryCode()` when `tripId` is supplied (the explicit
+  `countrycodes` query param stays for ad-hoc search).
 - `services/weather/WeatherController`: unchanged signatures. When no provider
   covers the window, return `200` with `[]` (already tolerated by the client) and
   let capabilities drive visibility.
@@ -462,8 +518,9 @@ Acceptance: contract tests for `/api/regions` and for 422 on a JP trip.
   reference the moved bbox constants.
 - New: `RegionRegistryTest`, `WeatherSourceResolverTest`,
   `NeaWeatherSourceRegionTest` (point outside SG but inside another region must
-  not be answered by NEA), `SuggestionServiceScopeTest` (empty countries = legacy
-  SG; `["jp"]` = skipped with reason), `RoutingUnavailableTest`.
+  not be answered by NEA), `SuggestionServiceScopeTest` (`countryCode = "jp"` =
+  skipped with reason; `"sg"` = runs), `TripCountryCodeTest` (default `sg`, two-
+  letter validation, cannot be cleared), `RoutingUnavailableTest`.
 - Fixtures: no network. `FixtureWeatherSource` already exists; add a
   `regions-test.json` only if the production file cannot express a case.
 
@@ -473,15 +530,15 @@ Acceptance: contract tests for `/api/regions` and for 422 on a JP trip.
 |---|---|---|
 | A | `config/region/**`, `resources/regions.json`, `config/ClockConfig.java` | — blocks all |
 | B | `weather/**`, `services/weather/**`, `suggestion/SuggestionService.java`, `polling/WeatherPoller.java` | A |
-| C | `db/migration/V6*`, `seed/**`, `scripts/build-sg-pois.sh`, `geo/PoiService.java` | A |
+| C | `db/migration/V6*, V7*`, `trips/Trip.java`, `trips/TripService.java`, `trips/TripController.java`, `seed/**`, `scripts/build-sg-pois.sh`, `geo/PoiService.java` | A, E (`GeoController`) |
 | C2 | `discovery/NearbyBackfillService.java`, `discovery/BackfillPolicy.java`, `planner/CandidateFinder.java` | C (`PoiService`), A |
 | D | `frontend/src/**` | E (contract) |
-| E | `geo/RegionController.java`, `routing/RoutingController.java` | A |
+| E | `geo/RegionController.java`, `routing/RoutingController.java`, `geo/GeoController.java` | A, C (`Trip` accessors) |
 | F | `backend/src/test/**` | all, but additive |
 
-Sequence: **A → (B ∥ C ∥ E) → (C2 ∥ D) → F**. C2 needs C's `country_code`
-plumbing and B's resolver types; D needs E's payload contract. F runs
-continuously as each lane lands.
+Sequence: **A → (B ∥ C ∥ E) → (C2 ∥ D) → F**. C's `Trip.countryCode` rename must
+land before E reads it and before D's types change; C2 needs C's `country_code`
+plumbing and B's resolver types. F runs continuously as each lane lands.
 
 ## 6. Risks and mitigations
 
@@ -491,7 +548,9 @@ continuously as each lane lands.
 | Existing tests assume SG local date | CI red | Grep `LocalDate.now` + fixed-clock tests in `SuggestionService`/poller; adjust expectations, not the clock |
 | "No provider" silently suppressing suggestions | Missed feature, invisible | Resolver + explicit log + capability flag in UI; test asserts the log path |
 | Multi-zone countries resolve to one zone | Wrong day boundaries for US/AU | Documented limitation; `regions.json` can carry per-bbox zones later |
+| `trips.country_code` backfill picks the wrong row for a multi-country trip | Misclassified trip | `min(country_code)` is deterministic; list trips with >1 row beforehand and spot-check the result |
 | `location.country_code` backfill wrong for any non-SG row | Misclassification | Verify against prod row counts first; backfill is a data assertion, run it as a query before the migration |
+| Dropping `trip_countries` too early | Irreversible if rollback needed | Two-step: V6 only adds/backfills; the drop ships in a later migration after one confirmed release |
 | NEA claiming coverage outside SG | Wrong weather abroad | `covers()` override + explicit cross-region test |
 | Overpass backfill hammers the public instance | 429/timeouts, slow writes | Trigger at activity creation, not replan; threshold gate; per-point memo; bounded radius/limit; configurable to disable |
 | Nominatim public ToS (~1 req/s, no bulk) | Multi-country traffic gets blocked | Base URLs already configurable (`app.osm.*-base-url`); plan self-hosted Nominatim + Overpass before any load test |
@@ -505,20 +564,25 @@ continuously as each lane lands.
 
 1. `./mvnw test` green with SG defaults unchanged.
 2. New tests listed in Lane F.
-3. Migration test: apply V6 to a dump-shaped DB; assert null count = 0 and the
-   index exists.
+3. Migration test: apply V6 and V7 to a dump-shaped DB; assert
+   `trips.country_code` nulls = 0, all legacy rows became `sg`,
+   `location.country_code` nulls = 0, and both indexes exist.
 4. Contract test for `GET /api/regions` and the 422 routing response.
+5. API contract test: create a trip without `country` → response is `sg`;
+   create/update with `"JP"` → stored `jp`; attempt to clear → 400.
 
 **Manual smoke (no network beyond local services).**
 
 1. SG trip: create, add activity, weather panel shows NEA two-hour forecast,
    route button works. Must be pixel-identical to `main`.
-2. JP trip (`countries=["jp"]`): search "Shibuya" (Nominatim), add activity,
+2. JP trip (`country="jp"`): search "Shibuya" (Nominatim), add activity,
    planner suggests nearby candidates **after backfill**, weather panel absent,
    route action absent.
-3. Legacy trip with `countries=[]`: behaves like SG (backward-compat check).
-4. SG+MY trip: weather panel shows only for SG-coordinate activities; MY
-   activities produce a "no weather data" path, not "no rain".
+3. Trip with no country supplied: created as `sg` and behaves like SG
+   (backward-compat check).
+4. Cross-border check: SG trip with an activity at a JB coordinate → the
+   `country_code` filter excludes MY candidates; no NEA answer outside the SG
+   bbox.
 5. Dev profile: `app.weather.source=none` still selects the fixture and nothing
    regresses.
 6. Cold start: fresh DB, KL/Beijing coordinate, `app.discovery.backfill-enabled=true`
@@ -541,7 +605,9 @@ Use these tiers when deciding whether to add a `regions.json` entry:
 Country-specific notes worth keeping:
 
 - **Malaysia**: OSM decent around KL/Penang/JB. Cross-border bleed from SG is
-  real (`CandidateFinder` bbox), so the optional `country_code` filter matters.
+  handled by the unconditional `country_code` candidate filter (D0 makes it
+  correct, not heuristic), but the SG bbox still overlaps JB — so `byPoint` is
+  only used for coverage, never for trip-level resolution.
 - **China**: OSM dense in Tier-1, thin elsewhere; names usually Chinese-only, so
   search input must be Chinese. OSM tile hosts are unreliable there and Chinese
   providers are GCJ-02. Treat as `partial` until a basemap/CRS story exists.

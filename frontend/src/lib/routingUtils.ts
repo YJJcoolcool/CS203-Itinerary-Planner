@@ -1,4 +1,6 @@
 
+import polyline from '@mapbox/polyline'
+
 import type { RouteMode, RouteResponse } from '../types/trip'
 
 type JsonObject = Record<string, unknown>
@@ -193,4 +195,207 @@ export function getRouteModeButtonLabel(mode: RouteMode): string {
     case 'CYCLING':
       return 'Cycling'
   }
+}
+
+export interface RouteMapSegment {
+  mode: string
+  coordinates: [number, number][]
+}
+
+export function getRouteMapSegments(
+  response: RouteResponse,
+): RouteMapSegment[] {
+  const routeData = asObject(response.routeData)
+
+  if (!routeData) return []
+
+  // Driving, walking and cycling
+  if (response.mode !== 'PUBLIC_TRANSPORT') {
+    const geometry = routeData.route_geometry
+
+    if (typeof geometry !== 'string' || !geometry) {
+      return []
+    }
+
+    return [{
+      mode: response.mode,
+      coordinates: polyline.decode(geometry) as [number, number][],
+    }]
+  }
+
+  // Public transport: use the same first itinerary as the duration display
+  const plan = asObject(routeData.plan)
+  const itineraries = plan?.itineraries
+
+  if (!Array.isArray(itineraries) || itineraries.length === 0) {
+    return []
+  }
+
+  const itinerary = asObject(itineraries[0])
+  const legs = itinerary?.legs
+
+  if (!Array.isArray(legs)) return []
+
+  return legs.flatMap((leg) => {
+    const legObject = asObject(leg)
+    const geometry = asObject(legObject?.legGeometry)
+    const points = geometry?.points
+
+    if (typeof points !== 'string' || !points) {
+      return []
+    }
+
+    return [{
+      mode: typeof legObject?.mode === 'string'
+        ? legObject.mode
+        : 'WALK',
+      coordinates: polyline.decode(points) as [number, number][],
+    }]
+  })
+}
+
+export interface PublicTransportItinerary {
+  duration: number
+  startTime: number
+  endTime: number
+  walkDistance: number
+  legs: PublicTransportLeg[]
+}
+
+export interface PublicTransportLeg {
+  mode: string
+  route?: string
+  routeShortName?: string
+  routeLongName?: string
+  duration: number
+  from: {
+    name: string
+  }
+  to: {
+    name: string
+  }
+  legGeometry?: {
+    points?: string
+  }
+}
+
+export interface RouteDirection {
+  type: 'WALK' | 'SUBWAY' | 'BUS'
+  title: string
+  description: string
+  durationSeconds: number
+}
+
+export function getPublicTransportItineraries(
+  response: RouteResponse,
+): PublicTransportItinerary[] {
+  const routeData = asObject(response.routeData)
+  const plan = asObject(routeData?.plan)
+  const itineraries = plan?.itineraries
+
+  if (!Array.isArray(itineraries)) return []
+
+  return itineraries.filter(
+    (item): item is PublicTransportItinerary =>
+      typeof item === 'object' &&
+      item !== null &&
+      Array.isArray((item as PublicTransportItinerary).legs),
+  )
+}
+
+export function getItineraryMapSegments(
+  itinerary: PublicTransportItinerary,
+): RouteMapSegment[] {
+  return itinerary.legs.flatMap((leg) => {
+    const points = leg.legGeometry?.points
+
+    if (!points) return []
+
+    return [{
+      mode: leg.mode,
+      coordinates: polyline.decode(points) as [number, number][],
+    }]
+  })
+}
+
+export function getItineraryDirections(
+    itinerary: PublicTransportItinerary,
+    destinationName: string,
+    ): RouteDirection[] {
+    return itinerary.legs.flatMap(
+        (leg, index): RouteDirection[] => {
+        const durationMinutes = Math.round(leg.duration / 60)
+
+        if (leg.mode === 'WALK') {
+            const isLastLeg = index === itinerary.legs.length - 1
+
+            return [{
+            type: 'WALK',
+            title: `Walk ${durationMinutes} min`,
+            description: `To ${
+                isLastLeg ? destinationName : leg.to.name
+            }`,
+            durationSeconds: leg.duration,
+            }]
+        }
+
+        if (leg.mode === 'SUBWAY') {
+            const lineName = leg.routeLongName
+            ? `${leg.routeLongName} (${leg.routeShortName ?? ''})`
+            : `Train ${leg.routeShortName ?? ''}`
+
+            return [{
+            type: 'SUBWAY',
+            title: lineName,
+            description: `${leg.from.name} → ${leg.to.name}`,
+            durationSeconds: leg.duration,
+            }]
+        }
+
+        if (leg.mode === 'BUS') {
+            return [{
+            type: 'BUS',
+            title: `Bus ${leg.routeShortName ?? leg.route ?? ''}`,
+            description: `${leg.from.name} → ${leg.to.name}`,
+            durationSeconds: leg.duration,
+            }]
+        }
+
+        return []
+        },
+    )
+}
+
+export interface RouteInstruction {
+    turn: string
+    distanceMetres: number
+    durationSeconds: number
+    roadName: string
+    instruction: string
+}
+
+export function getRouteInstructions(
+    response: RouteResponse,
+): RouteInstruction[] {
+    if (response.mode === 'PUBLIC_TRANSPORT') return []
+
+    const routeData = asObject(response.routeData)
+    const rawInstructions = routeData?.route_instructions
+
+    if (!Array.isArray(rawInstructions)) return []
+
+    return rawInstructions.flatMap((item): RouteInstruction[] => {
+        if (!Array.isArray(item)) return []
+
+        const distance = asNumber(item[2]) ?? 0
+        const duration = asNumber(item[4]) ?? 0
+
+        return [{
+            turn: String(item[0] ?? ''),
+            roadName: String(item[1] ?? ''),
+            distanceMetres: distance,
+            durationSeconds: duration,
+            instruction: String(item[9] ?? ''),
+        }]
+    }).filter(item => item.instruction.length > 0)
 }

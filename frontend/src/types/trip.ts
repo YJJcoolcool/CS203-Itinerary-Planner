@@ -152,3 +152,8 @@ export interface RouteResponse {
   departureDateTime: string
   routeData: unknown
 }
+
+/** Route geometry */
+export interface RouteMapData {
+  coordinates: [number, number][]
+}

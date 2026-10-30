@@ -72,7 +72,7 @@ Singapore-coupled, must change:
 
 Migration (two-step, so a rollback stays cheap):
 
-1. `V6` adds `trips.country_code varchar(2)` and backfills:
+1. `V11` adds `trips.country_code varchar(2)` and backfills:
    `UPDATE trips SET country_code = COALESCE((SELECT min(country_code) FROM trip_countries tc WHERE tc.trip_id = trips.id), 'sg') WHERE country_code IS NULL;`
    then `ALTER COLUMN ... SET NOT NULL`. `min()` is deterministic; with the ≤1
    row payload today it is simply "the" country.
@@ -356,11 +356,11 @@ Acceptance: `NeaWeatherSourceTest` still passes; new tests for non-SG centroid
 
 ### Lane C — Data model and seeding
 
-- `db/migration/V6__trip_single_country.sql` — the D0 migration: add
+- `db/migration/V11__trip_single_country.sql` — the D0 migration: add
   `trips.country_code`, backfill from `trip_countries` with `'sg'` fallback, set
   `NOT NULL`, index it. `trip_countries` is left in place but unused; its drop is
   a separate later migration.
-- `db/migration/V7__location_country_code.sql`
+- `db/migration/V12__location_country_code.sql`
 
   ```sql
   ALTER TABLE location ADD COLUMN country_code varchar(2);
@@ -392,7 +392,7 @@ Acceptance: `NeaWeatherSourceTest` still passes; new tests for non-SG centroid
   the bbox. With one country per trip this is now unconditional, which removes
   cross-border bleed (JB vs SG) instead of making it a heuristic.
 
-Acceptance: V6 backfills every existing trip (nulls = 0), V7 every location
+Acceptance: V11 backfills every existing trip (nulls = 0), V12 every location
 (nulls = 0); import of a non-SG fixture file lands rows with the right
 `country_code`; a SG trip's candidate set is unchanged from `main`.
 
@@ -530,7 +530,7 @@ Acceptance: contract tests for `/api/regions` and for 422 on a JP trip.
 |---|---|---|
 | A | `config/region/**`, `resources/regions.json`, `config/ClockConfig.java` | — blocks all |
 | B | `weather/**`, `services/weather/**`, `suggestion/SuggestionService.java`, `polling/WeatherPoller.java` | A |
-| C | `db/migration/V6*, V7*`, `trips/Trip.java`, `trips/TripService.java`, `trips/TripController.java`, `seed/**`, `scripts/build-sg-pois.sh`, `geo/PoiService.java` | A, E (`GeoController`) |
+| C | `db/migration/V11*, V12*`, `trips/Trip.java`, `trips/TripService.java`, `trips/TripController.java`, `seed/**`, `scripts/build-sg-pois.sh`, `geo/PoiService.java` | A, E (`GeoController`) |
 | C2 | `discovery/NearbyBackfillService.java`, `discovery/BackfillPolicy.java`, `planner/CandidateFinder.java` | C (`PoiService`), A |
 | D | `frontend/src/**` | E (contract) |
 | E | `geo/RegionController.java`, `routing/RoutingController.java`, `geo/GeoController.java` | A, C (`Trip` accessors) |
@@ -550,7 +550,7 @@ plumbing and B's resolver types. F runs continuously as each lane lands.
 | Multi-zone countries resolve to one zone | Wrong day boundaries for US/AU | Documented limitation; `regions.json` can carry per-bbox zones later |
 | `trips.country_code` backfill picks the wrong row for a multi-country trip | Misclassified trip | `min(country_code)` is deterministic; list trips with >1 row beforehand and spot-check the result |
 | `location.country_code` backfill wrong for any non-SG row | Misclassification | Verify against prod row counts first; backfill is a data assertion, run it as a query before the migration |
-| Dropping `trip_countries` too early | Irreversible if rollback needed | Two-step: V6 only adds/backfills; the drop ships in a later migration after one confirmed release |
+| Dropping `trip_countries` too early | Irreversible if rollback needed | Two-step: V11 only adds/backfills; the drop ships in a later migration after one confirmed release |
 | NEA claiming coverage outside SG | Wrong weather abroad | `covers()` override + explicit cross-region test |
 | Overpass backfill hammers the public instance | 429/timeouts, slow writes | Trigger at activity creation, not replan; threshold gate; per-point memo; bounded radius/limit; configurable to disable |
 | Nominatim public ToS (~1 req/s, no bulk) | Multi-country traffic gets blocked | Base URLs already configurable (`app.osm.*-base-url`); plan self-hosted Nominatim + Overpass before any load test |
@@ -564,7 +564,7 @@ plumbing and B's resolver types. F runs continuously as each lane lands.
 
 1. `./mvnw test` green with SG defaults unchanged.
 2. New tests listed in Lane F.
-3. Migration test: apply V6 and V7 to a dump-shaped DB; assert
+3. Migration test: apply V11 and V12 to a dump-shaped DB; assert
    `trips.country_code` nulls = 0, all legacy rows became `sg`,
    `location.country_code` nulls = 0, and both indexes exist.
 4. Contract test for `GET /api/regions` and the 422 routing response.

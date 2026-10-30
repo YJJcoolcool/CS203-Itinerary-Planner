@@ -7,13 +7,14 @@ Scope: Phase 1 (detailed), Phase 2 (outline), Phase 3 (out of scope)
 ## 1. Goal and non-goals
 
 **Phase 1 goal.** A trip in a non-SG country works end to end: geocoding, POI
-discovery, planner, manual itinerary, members, and suggestions behave correctly.
-Weather and turn-by-turn routing degrade to *explicitly unavailable* rather than
-silently reporting the wrong thing. Singapore behaviour is byte-for-byte
-unchanged.
+discovery, planner with a non-empty candidate set (live-OSM backfill, D7), manual
+itinerary, members, and suggestions behave correctly. Weather and turn-by-turn
+routing degrade to *explicitly unavailable* rather than silently reporting the
+wrong thing. Singapore behaviour is byte-for-byte unchanged.
 
 **Non-goals (Phase 1).** No new weather provider, no second routing provider, no
-public-transport routing abroad, no UI redesign, no full i18n/translation.
+public-transport routing abroad, no per-country offline indexes, no UI redesign,
+no full i18n/translation.
 
 **Phase 2** adds real weather providers (Open-Meteo / OpenWeather) and a routing
 provider seam with OSRM/ORS/Google. **Phase 3** (per-city GTFS public transport)
@@ -44,6 +45,8 @@ Singapore-coupled, must change:
 | 6 | SG-only seed data | `resources/seed/sg_pois.json`, `scripts/build-sg-pois.sh`, `OsmIndexImporter:274` appends `"Singapore "` |
 | 7 | `location` has no country | `db/migration/V1__init.sql:60-75` |
 | 8 | SG default copy | `rag/QueryTextBuilder.java:34`, `resources/prompts/choose-alternative.txt:1`, frontend panel titles |
+| 9 | Hardcoded OSM tile URL | `components/locations/ManualLocationModal.tsx:331`, `components/trips/ActivityRouteMap.tsx:79` |
+| 10 | Planner reads DB only | `CandidateFinder.java:80` → `LocationRepository:32`; empty outside seeded regions |
 
 ## 3. Architecture decisions
 
@@ -113,6 +116,73 @@ frontend stops hardcoding `countries.includes('sg')` and asks what the trip can
 actually do. One source of truth, and it also lets `CountryMultiSelect` mark
 unsupported countries instead of accepting them silently.
 
+### D6 — Providers are selected per region, not globally
+
+`app.weather.source` is a single global selector today. That does not scale: SG
+needs NEA, the rest of the world needs a global feed, and China may need a
+different feed again. A region entry therefore names its providers:
+
+```json
+"providers": { "weather": "nea", "routing": "onemap" }
+```
+
+`app.weather.source` is retained as the **default** for regions that do not name
+one, so `application-dev.properties` (`app.weather.source=none` → fixture) keeps
+working untouched. Resolution order: region key → global default → none.
+
+This is a registry lookup, not a plugin loader. Each provider id maps to a bean
+implementing `WeatherSource` / (Phase 2) `RoutingProvider`; unknown id fails fast
+at startup rather than silently degrading.
+
+### D7 — Cold start is a first-class Phase 1 problem
+
+`CandidateFinder` reads only the local `location` table
+(`CandidateFinder:80` → `findTrustedInBoundingBox`, which requires
+`seeded = true or osm_id is not null`). Outside SG that table is empty, so a
+fresh Malaysia or China destination produces **zero candidates** — the planner
+is mechanically correct and practically useless. Phase 1 therefore includes a
+live-OSM fallback rather than treating seeding as an ops afterthought.
+
+Fallback shape: when the trusted bbox yields fewer than `N` rows, query Overpass
+around the point and persist the results through the existing
+`LocationService.findOrCreateFromOsm` path (already idempotent by
+`(osmType, osmId)`, already classifies indoor/category/hours). The planner is
+then unchanged: it still reads the DB, which now has local rows.
+
+Constraints: public Overpass allows ~25 s per query and is shared; the fallback
+must be bounded (top-k, whitelisted categories), cached, and never on a
+user-blocking replan path. Preferred trigger is activity creation / trip setup,
+which also warms the RAG bucket.
+
+### D8 — Basemap is region configuration
+
+Tile URLs are hardcoded in two components
+(`ManualLocationModal.tsx:331`, `ActivityRouteMap.tsx:79`), both pointing at
+`https://{s}.tile.openstreetmap.org`. That domain is unreliable in mainland
+China and a licensed-provider question there. Region entries carry
+`tiles: { url, attribution }`; the components take them from the capability
+payload.
+
+Caveat to record in code: Chinese providers serve **GCJ-02**, while OSM and this
+app are **WGS-84**. Mixing a GCJ-02 basemap with WGS-84 pins offsets markers by
+100–500 m. A region must therefore declare its basemap *and* its coordinate
+system together; Phase 1 only supports `wgs84` and rejects a GCJ-02 basemap
+until a transform exists.
+
+### D9 — "Supported country" is a tier, not a boolean
+
+Coverage is bounded by OSM data quality and third-party terms, not by our code.
+Regions declare a tier so the product can be honest:
+
+| Tier | Meaning | Example | Behaviour |
+|---|---|---|---|
+| `full` | OSM-strong, weather + routing available | SG, JP, most of EU | all features |
+| `partial` | OSM-decent, some providers missing | MY, TH, CN Tier-1 | planner works, degraded panels |
+| `minimal` | OSM-thin | parts of Africa, Central Asia | geocoding only, planner sparse |
+
+`GET /api/regions` exposes the tier; the UI uses it to explain *why* something
+is unavailable instead of just hiding it.
+
 ## 4. Phase 1 work breakdown
 
 Lanes are ordered by dependency. **A must merge before B, C, D, E.**
@@ -130,22 +200,38 @@ Add:
       {
         "code": "sg",
         "name": "Singapore",
+        "tier": "full",
         "locale": "en-SG",
         "currency": "SGD",
         "defaultZone": "Asia/Singapore",
         "bboxes": [{ "minLat": 1.15, "maxLat": 1.48, "minLon": 103.60, "maxLon": 104.10 }],
-        "capabilities": ["weather", "routing"]
+        "providers": { "weather": "nea", "routing": "onemap" },
+        "tiles": {
+          "url": "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+          "attribution": "© OpenStreetMap contributors",
+          "crs": "wgs84"
+        }
       }
     ],
-    "fallback": { "locale": "en", "currency": null, "defaultZone": "UTC", "capabilities": [] }
+    "fallback": {
+      "tier": "partial",
+      "locale": "en",
+      "currency": null,
+      "defaultZone": "UTC",
+      "providers": {},
+      "tiles": { "crs": "wgs84" }
+    }
   }
   ```
 
   The SG numbers are copied verbatim from the two existing constant blocks, so
-  behaviour is preserved by construction.
+  behaviour is preserved by construction. Non-SG regions are added one at a time
+  as their data is verified — do not ship entries for countries nobody has
+  smoke-tested.
 
-- `config/region/RegionProfile.java` — record: `code`, `name`, `locale`,
-  `currency`, `defaultZone`, `List<BoundingBox>`, `Set<Capability>`.
+- `config/region/RegionProfile.java` — record: `code`, `name`, `tier`, `locale`,
+  `currency`, `defaultZone`, `List<BoundingBox>`, `providers`
+  (`Map<Capability,String>`), `tiles` (`TileConfig`).
   `record BoundingBox(double minLat, double maxLat, double minLon, double maxLon)`
   with `boolean contains(double lat, double lon)`.
 - `config/region/RegionRegistry.java` — loads `regions.json` at startup
@@ -159,7 +245,12 @@ Add:
   ```
 
   `byPoint` = first region whose bbox contains the point; empty otherwise.
+  Startup validation: every `providers` id resolves to a known bean, every
+  `defaultZone` parses, `crs` is `wgs84` (see D8).
 - `config/region/Capability.java` — enum `WEATHER`, `ROUTING`.
+- `config/region/ProviderCatalog.java` — id → bean lookup used by the startup
+  validation and by Lane B's resolver.
+- `config/region/TileConfig.java` — `url`, `attribution`, `crs`.
 
 Modify:
 
@@ -178,24 +269,33 @@ Modify `weather/NeaWeatherSource.java`:
   outside this file need it; otherwise update the callers.
 - Replace `SINGAPORE` (`:67`) with the resolved region zone; keep `AREA_RESOURCE`
   and the NEA-specific feed logic untouched — it is correct *for SG*.
-- Keep `@ConditionalOnProperty(app.weather.source=nea)` and `@Primary`.
+- Keep `@ConditionalOnProperty(app.weather.source=nea)` and `@Primary` for the
+  SG/dev wiring; Lane B's resolver is what actually selects per region.
 
 Add `weather/WeatherSourceResolver` implementation backed by `RegionRegistry` +
-`Clock`:
+`ProviderCatalog`:
 
-- `forPoint` → region has `WEATHER` → delegate to the active `WeatherSource` and
-  verify it accepts the point (NEA returns `false` outside SG, which would still
-  be wrong for a region that claims weather — so the NEa implementation must
-  expose its own coverage; see below).
+- `forPoint(lat, lon)` → `byPoint` → region `providers.weather` → catalog bean.
+  No region or no provider → empty.
+- `forCountries(codes)` → first code with a weather provider; empty otherwise.
+  Used by `SuggestionService`, which has countries but no coordinates.
 - **Coverage hook.** Add a default method to `WeatherSource` (non-breaking):
 
   ```java
   default boolean covers(double latitude, double longitude) { return true; }
   ```
 
-  `NeaWeatherSource` overrides it with the SG bbox check. `NoRainWeatherSource`
-  returns `false`. This makes "provider exists but not here" explicit without
-  changing `isRainy`.
+  `NeaWeatherSource` overrides it with the SG bbox check (from `RegionRegistry`,
+  not a constant). `NoRainWeatherSource` returns `false`. This makes "provider
+  exists but not here" explicit without changing `isRainy`. The resolver treats
+  `covers == false` as no provider.
+
+Modify `application.properties`:
+
+```properties
+# Global default only; a region's providers.weather overrides it.
+app.weather.source=${APP_WEATHER_SOURCE:nea}
+```
 
 Modify `suggestion/SuggestionService.java`:
 
@@ -251,6 +351,57 @@ Acceptance: `NeaWeatherSourceTest` still passes; new tests for non-SG centroid
 Acceptance: migration runs on a copy of prod-shaped data; import of a
 non-SG fixture file lands rows with the right `country_code`.
 
+### Lane C2 — Cold start (live OSM backfill into the local table)
+
+Without this, every non-SG destination has an empty candidate ring (D7).
+
+Add `discovery/NearbyBackfillService`:
+
+```java
+int backfill(double lat, double lon, int radiusM, int limit)
+```
+
+- Calls the existing generic Overpass path (`PoiService.findPois` or
+  `OverpassClient` directly) across the whitelisted categories.
+- Persists each hit through `LocationService.findOrCreateFromOsm(osmType, osmId)`
+  — reuses the idempotent import that already sets indoor class, category group
+  and opening hours. Do **not** write `Location` rows by hand.
+- Skips rows already present (the OSM-identity unique constraint handles races).
+- Bounded: `limit` ≤ 200, `radius` ≤ 2000 m (same clamps as `/api/geo/pois`),
+  one Overpass query per category at most.
+
+Add `discovery/BackfillPolicy`:
+
+- Triggers on activity creation and on trip country change, **not** inside the
+  replan hot path.
+- Skips when the trusted bbox already has ≥ `app.discovery.backfill-threshold`
+  rows (default 40), so SG never pays for it.
+- Runs off the request thread (`@Async` + a bounded executor); failures log and
+  degrade, never block the write.
+- Optional scheduled pre-warm per trip start date (Phase 2 candidate; not needed
+  to ship).
+
+Modify `planner/CandidateFinder`:
+
+- After the trusted bbox query returns fewer than the threshold, call
+  `NearbyBackfillService.backfill(...)` **once** and re-run the query. This keeps
+  the planner DB-only (no network in the pure planning path) while making the
+  first Malaysia/China trip non-empty.
+- Guard with a per-(point, hour) memo so repeated replans cannot hammer Overpass.
+
+Config:
+
+```properties
+app.discovery.backfill-enabled=${APP_DISCOVERY_BACKFILL:true}
+app.discovery.backfill-threshold=${APP_DISCOVERY_BACKFILL_THRESHOLD:40}
+app.discovery.backfill-radius-m=${APP_DISCOVERY_BACKFILL_RADIUS_M:1500}
+```
+
+Acceptance: integration test with a stubbed Overpass client — empty DB + KL
+coordinate → backfill persists N rows → `CandidateFinder` returns candidates on
+the second call and does not call Overpass again. SG path: threshold already met,
+zero Overpass calls.
+
 ### Lane D — Frontend
 
 - `lib/api.ts`: add `getRegions()` and the region/capability types.
@@ -270,6 +421,11 @@ non-SG fixture file lands rows with the right `country_code`.
 - `components/locations/ManualLocationModal.tsx:27-28`: default center from the
   trip's first activity (or the geocoded trip destination) instead of
   1.3521/103.8198; fall back to the current values only when the trip is SG.
+- `components/locations/ManualLocationModal.tsx:330-331` and
+  `components/trips/ActivityRouteMap.tsx:78-79`: take `tileUrl`/`attribution`
+  from the trip capability payload (`D8`). Default to the current OSM URL so SG
+  is unchanged. Reject a `crs` other than `wgs84` with a visible "map unavailable
+  for this destination" state rather than rendering offset pins.
 - `components/trips/CountryMultiSelect.tsx`: mark codes without capabilities
   ("no weather data yet") — informational only, do not block selection.
 
@@ -281,12 +437,16 @@ actions, and shows JP-appropriate dates.
 - `geo/RegionController.java` — `GET /api/regions`:
 
   ```json
-  [{ "code": "sg", "name": "Singapore", "locale": "en-SG", "currency": "SGD",
-     "capabilities": ["weather", "routing"] }]
+  [{ "code": "sg", "name": "Singapore", "tier": "full", "locale": "en-SG",
+     "currency": "SGD", "defaultZone": "Asia/Singapore",
+     "capabilities": ["weather", "routing"],
+     "tiles": { "url": "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+                "attribution": "© OpenStreetMap contributors", "crs": "wgs84" } }]
   ```
 
   Public (no auth) or authenticated — match the existing auth convention in
-  `SecurityConfig`; prefer authenticated for consistency.
+  `SecurityConfig`; prefer authenticated for consistency. Keep the payload small:
+  this is fetched once and cached; do not include bboxes.
 - `routing/RoutingController`: before invoking OneMap, check the region supports
   `ROUTING`; otherwise throw a typed `RoutingUnavailableException` mapped to
   `422` with `{ "error": "routing_unavailable", "countries": [...] }`.
@@ -314,11 +474,14 @@ Acceptance: contract tests for `/api/regions` and for 422 on a JP trip.
 | A | `config/region/**`, `resources/regions.json`, `config/ClockConfig.java` | — blocks all |
 | B | `weather/**`, `services/weather/**`, `suggestion/SuggestionService.java`, `polling/WeatherPoller.java` | A |
 | C | `db/migration/V6*`, `seed/**`, `scripts/build-sg-pois.sh`, `geo/PoiService.java` | A |
+| C2 | `discovery/NearbyBackfillService.java`, `discovery/BackfillPolicy.java`, `planner/CandidateFinder.java` | C (`PoiService`), A |
 | D | `frontend/src/**` | E (contract) |
 | E | `geo/RegionController.java`, `routing/RoutingController.java` | A |
 | F | `backend/src/test/**` | all, but additive |
 
-Sequence: **A → (B ∥ C ∥ E) → D → F**. F runs continuously as each lane lands.
+Sequence: **A → (B ∥ C ∥ E) → (C2 ∥ D) → F**. C2 needs C's `country_code`
+plumbing and B's resolver types; D needs E's payload contract. F runs
+continuously as each lane lands.
 
 ## 6. Risks and mitigations
 
@@ -330,6 +493,11 @@ Sequence: **A → (B ∥ C ∥ E) → D → F**. F runs continuously as each lan
 | Multi-zone countries resolve to one zone | Wrong day boundaries for US/AU | Documented limitation; `regions.json` can carry per-bbox zones later |
 | `location.country_code` backfill wrong for any non-SG row | Misclassification | Verify against prod row counts first; backfill is a data assertion, run it as a query before the migration |
 | NEA claiming coverage outside SG | Wrong weather abroad | `covers()` override + explicit cross-region test |
+| Overpass backfill hammers the public instance | 429/timeouts, slow writes | Trigger at activity creation, not replan; threshold gate; per-point memo; bounded radius/limit; configurable to disable |
+| Nominatim public ToS (~1 req/s, no bulk) | Multi-country traffic gets blocked | Base URLs already configurable (`app.osm.*-base-url`); plan self-hosted Nominatim + Overpass before any load test |
+| OSM coverage varies wildly by country | Planner looks broken in thin regions | Region `tier` exposed via API; UI explains "limited data" instead of showing an empty list |
+| Chinese providers use GCJ-02 vs our WGS-84 | Pins offset 100–500 m | A region declares basemap and CRS together; Phase 1 accepts `wgs84` only and refuses a GCJ-02 basemap |
+| Adding regions nobody smoke-tested | Silent quality regressions | Ship `regions.json` entries one country at a time, gated by the Lane F tests + manual smoke |
 
 ## 7. Verification plan
 
@@ -346,26 +514,58 @@ Sequence: **A → (B ∥ C ∥ E) → D → F**. F runs continuously as each lan
 1. SG trip: create, add activity, weather panel shows NEA two-hour forecast,
    route button works. Must be pixel-identical to `main`.
 2. JP trip (`countries=["jp"]`): search "Shibuya" (Nominatim), add activity,
-   planner suggests nearby candidates, weather panel absent, route action absent.
+   planner suggests nearby candidates **after backfill**, weather panel absent,
+   route action absent.
 3. Legacy trip with `countries=[]`: behaves like SG (backward-compat check).
 4. SG+MY trip: weather panel shows only for SG-coordinate activities; MY
    activities produce a "no weather data" path, not "no rain".
 5. Dev profile: `app.weather.source=none` still selects the fixture and nothing
    regresses.
+6. Cold start: fresh DB, KL/Beijing coordinate, `app.discovery.backfill-enabled=true`
+   → first `CandidateFinder` call persists rows and returns candidates; second
+   call makes no Overpass request; SG trip makes zero Overpass requests.
+7. Backfill disabled (`APP_DISCOVERY_BACKFILL=false`) → request succeeds with an
+   empty candidate list, no error.
 
-## 8. Phase 2 outline (not scheduled)
+## 8. Country coverage notes
+
+Coverage is bounded by OSM data quality and provider terms, not by this design.
+Use these tiers when deciding whether to add a `regions.json` entry:
+
+| Tier | Meaning | Examples | What works |
+|---|---|---|---|
+| `full` | OSM-strong, weather + routing wired | SG, JP, most of EU, KR, TW | everything |
+| `partial` | OSM-decent or provider gaps | MY, TH, VN, ID, CN Tier-1 | planner + backfill; weather/routing may be absent |
+| `minimal` | OSM-thin | much of Africa, Central Asia, rural anywhere | geocoding only; planner sparse even after backfill |
+
+Country-specific notes worth keeping:
+
+- **Malaysia**: OSM decent around KL/Penang/JB. Cross-border bleed from SG is
+  real (`CandidateFinder` bbox), so the optional `country_code` filter matters.
+- **China**: OSM dense in Tier-1, thin elsewhere; names usually Chinese-only, so
+  search input must be Chinese. OSM tile hosts are unreliable there and Chinese
+  providers are GCJ-02. Treat as `partial` until a basemap/CRS story exists.
+- **US / AU / RU**: multiple IANA zones; `defaultZone` is a known approximation
+  until per-bbox zones land.
+- Anywhere: geocoding still resolves via Nominatim even in `minimal` regions —
+  the user can always add a place manually; they just won't get suggestions.
+
+## 9. Phase 2 outline (not scheduled)
 
 - `OpenMeteoWeatherSource` / `OpenWeatherSource` behind the unchanged
-  `WeatherSource`; hourly precipitation maps to `isRainy` directly.
+  `WeatherSource`; hourly precipitation maps to `isRainy` directly. Register the
+  id in `regions.json` (`providers.weather`) — no selector code change.
 - Extract `RoutingProvider` (`id()`, `supports(RouteMode)`, `route(RouteRequest)`)
   only when the second implementation exists; generalize
   `frontend/src/lib/routingUtils.ts` away from OneMap's `plan`/`route_summary`
   shapes.
-- `regions.json` gains per-bbox zones and a `weatherProvider` key so a region can
-  select its implementation without a code change.
-- Seed pipeline: per-country extracts, same script with an argument.
+- Per-bbox zones in `regions.json`, removing the multi-zone approximation.
+- Commercial geocoder fallback (Google/Mapbox/HERE) for `minimal` regions, behind
+  the existing base-URL config pattern.
+- Seed pipeline: per-country extracts, same script with an argument, plus a
+  scheduled pre-warm of backfill for upcoming trips.
 
-## 9. Phase 3 (explicitly out of scope)
+## 10. Phase 3 (explicitly out of scope)
 
 Public transport abroad needs GTFS feeds plus a journey planner (OTP, Navitia, or
 a paid API) per city, with ongoing feed maintenance. Budget 1–2 weeks per metro;

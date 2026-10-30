@@ -69,18 +69,19 @@ public class DefaultWeatherSourceResolver implements WeatherSourceResolver {
     public Optional<WeatherSource> forCountry(String countryCode) {
         RegionProfile region = regionRegistry.byCode(countryCode)
             .orElseGet(this::fallbackRegion);
-        return resolveForRegion(region);
+        return forRegion(region);
     }
 
     @Override
     public Optional<WeatherSource> forPoint(double latitude, double longitude) {
         RegionProfile region = regionRegistry.byPoint(latitude, longitude)
             .orElseGet(this::fallbackRegion);
-        return resolveForRegion(region)
+        return forRegion(region)
             .filter(source -> source.covers(latitude, longitude));
     }
 
-    private Optional<WeatherSource> resolveForRegion(RegionProfile region) {
+    @Override
+    public Optional<WeatherSource> forRegion(RegionProfile region) {
         Optional<WeatherSource> configured = registeredWeatherSource(region);
         if (configured.isPresent()) {
             return configured;

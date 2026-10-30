@@ -28,6 +28,7 @@ function loadRegions(token: string): Promise<RegionInfo[]> {
 export interface TripCapabilities {
   region: RegionInfo | null
   hasWeather: boolean
+  hasForecast: boolean
   hasNeaForecast: boolean
   hasRouting: boolean
   locale: string
@@ -90,6 +91,7 @@ export function useTripCapabilities(
   return {
     region,
     hasWeather: capabilities.includes('weather'),
+    hasForecast: capabilities.includes('forecast'),
     hasNeaForecast: region?.code === 'sg',
     hasRouting: capabilities.includes('routing'),
     locale: region?.locale || 'en',

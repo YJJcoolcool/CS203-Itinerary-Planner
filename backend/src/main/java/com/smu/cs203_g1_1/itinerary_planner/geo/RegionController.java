@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -13,6 +14,8 @@ import com.smu.cs203_g1_1.itinerary_planner.config.region.Capability;
 import com.smu.cs203_g1_1.itinerary_planner.config.region.RegionProfile;
 import com.smu.cs203_g1_1.itinerary_planner.config.region.RegionRegistry;
 import com.smu.cs203_g1_1.itinerary_planner.config.region.TileConfig;
+import com.smu.cs203_g1_1.itinerary_planner.weather.WeatherSource;
+import com.smu.cs203_g1_1.itinerary_planner.weather.WeatherSourceResolver;
 
 /**
  * Read-only region capability catalog for the trip UI.
@@ -27,25 +30,28 @@ import com.smu.cs203_g1_1.itinerary_planner.config.region.TileConfig;
 public class RegionController {
 
     private final RegionRegistry regionRegistry;
+    private final WeatherSourceResolver weatherSourceResolver;
 
-    public RegionController(RegionRegistry regionRegistry) {
+    public RegionController(RegionRegistry regionRegistry,
+                            WeatherSourceResolver weatherSourceResolver) {
         this.regionRegistry = regionRegistry;
+        this.weatherSourceResolver = weatherSourceResolver;
     }
 
     @GetMapping
     public List<RegionResponse> list() {
         List<RegionResponse> responses = new ArrayList<>(regionRegistry.all().stream()
-            .map(RegionController::toResponse)
+            .map(this::toResponse)
             .toList());
         responses.add(toResponse(regionRegistry.fallback(), "*"));
         return List.copyOf(responses);
     }
 
-    private static RegionResponse toResponse(RegionProfile region) {
+    private RegionResponse toResponse(RegionProfile region) {
         return toResponse(region, region.code());
     }
 
-    private static RegionResponse toResponse(RegionProfile region, String code) {
+    private RegionResponse toResponse(RegionProfile region, String code) {
         return new RegionResponse(
             code,
             region.name(),
@@ -58,13 +64,25 @@ public class RegionController {
         );
     }
 
-    private static List<String> capabilities(RegionProfile region) {
+    private List<String> capabilities(RegionProfile region) {
+        Optional<WeatherSource> resolved = weatherSourceResolver.forRegion(region);
+
         return Arrays.stream(Capability.values())
-            .filter(capability -> region.provider(capability)
-                .filter(id -> !id.isBlank())
-                .isPresent())
+            .filter(capability -> supports(capability, region, resolved))
             .map(capability -> capability.name().toLowerCase(Locale.ROOT))
             .toList();
+    }
+
+    private static boolean supports(Capability capability,
+                                    RegionProfile region,
+                                    Optional<WeatherSource> resolved) {
+        return switch (capability) {
+            case WEATHER -> resolved.isPresent();
+            case FORECAST -> resolved
+                .map(source -> "open-meteo".equals(source.id()))
+                .orElse(false);
+            case ROUTING -> region.provider(Capability.ROUTING).isPresent();
+        };
     }
 
     private static TileResponse tiles(TileConfig tiles) {

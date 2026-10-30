@@ -5,5 +5,6 @@ package com.smu.cs203_g1_1.itinerary_planner.config.region;
  */
 public enum Capability {
     WEATHER,
+    FORECAST,
     ROUTING
 }

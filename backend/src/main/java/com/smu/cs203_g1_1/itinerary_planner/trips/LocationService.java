@@ -109,6 +109,9 @@ public class LocationService {
                     location.setOsmType(place.osmType() != null ? place.osmType() : osmType);
                     location.setOsmId(place.osmId() != null ? place.osmId() : osmId);
                     location.setAddress(place.displayName());
+                    location.setCountryCode(place.address() == null
+                            ? null
+                            : place.address().countryCode());
                     location.setOpeningHours(place.openingHours());
                     location.setCategoryGroup(CategoryGroups.from(place.category(), place.type()));
                     location.setIndoorClass(indoor.indoorClass());

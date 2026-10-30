@@ -187,7 +187,7 @@ class SuggestionServiceTest {
 
     @Test
     void replanSkipsTripsThatDoNotIncludeSingapore() {
-        trip.setCountries(List.of("JP"));
+        trip.setCountryCode("JP");
         tripRepository.saveAndFlush(trip);
 
         assertTrue(replan().isEmpty());

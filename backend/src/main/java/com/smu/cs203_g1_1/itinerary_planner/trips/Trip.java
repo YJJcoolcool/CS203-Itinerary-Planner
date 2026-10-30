@@ -45,6 +45,10 @@ public class Trip {
     private LocalDate startDate;
     private LocalDate endDate;
 
+    /** One trip has exactly one country; Singapore is the default. */
+    @Column(name = "country_code", nullable = false, length = 2)
+    private String countryCode = "sg";
+
     /*
      * Many trips belong to one User (the owner).
      * Database: trips.owner_id -> users.id
@@ -85,18 +89,6 @@ public class Trip {
     @Column(name = "role", nullable = false)
     @Enumerated(EnumType.STRING)
     private Map<String, TripRole> roles = new HashMap<>();
-
-    /**
-     * One trip can have multiple countries.
-     * Trip is the owning side.
-     */
-    @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(
-        name = "trip_countries",
-        joinColumns = @JoinColumn(name = "trip_id")
-    )
-    @Column(name = "country_code", nullable = false, length = 2)
-    private List<String> countries = new ArrayList<>();
 
     /*
      * One trip has many activities. Activity owns the foreign key
@@ -171,33 +163,37 @@ public class Trip {
         return Collections.unmodifiableMap(roles);
     }
 
-    public List<String> getCountries() {
-        return Collections.unmodifiableList(countries);
+    public String getCountryCode() {
+        return countryCode;
     }
 
-    public void setCountries(List<String> countryCodes) {
-        if (countryCodes == null || countryCodes.isEmpty()) {
+    public void setCountryCode(String countryCode) {
+        if (countryCode == null || countryCode.isBlank()) {
             throw new IllegalArgumentException(
-                "At least one country must be selected"
+                "Country code must be a valid two-letter code"
             );
         }
 
-        List<String> normalized = countryCodes.stream()
-            .filter(code -> code != null)
-            .map(code -> code.trim().toLowerCase(Locale.ROOT))
-            .distinct()
-            .toList();
+        String normalized = countryCode.trim().toLowerCase(Locale.ROOT);
 
-        if (normalized.size() != countryCodes.size()
-                || normalized.stream().anyMatch(
-                    code -> !Pattern.matches("[a-z]{2}", code)
-                )) {
+        if (!Pattern.matches("[a-z]{2}", normalized)) {
             throw new IllegalArgumentException(
-                "Country codes must be valid two-letter codes"
+                "Country code must be a valid two-letter code"
             );
         }
 
-        this.countries = new ArrayList<>(normalized);
+        this.countryCode = normalized;
+    }
+
+    /**
+     * Compatibility shim for callers that still consume the retired country
+     * list. It exposes the single trip country and is removed once those lanes
+     * migrate to {@link #getCountryCode()}.
+     */
+    @Deprecated
+    @JsonIgnore
+    public List<String> getCountries() {
+        return countryCode == null ? List.of() : List.of(countryCode);
     }
 
     public List<Activity> getItinerary() {

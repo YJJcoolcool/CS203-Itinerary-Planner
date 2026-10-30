@@ -59,8 +59,7 @@ class ActivityUpdateTest {
     void setUp() {
         owner = saveUser("OwnerUs1", "clerk-owner");
 
-        List<String> countries = List.of("jp");
-        trip = tripService.createTrip("Japan", LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 5), owner.getId(), countries);
+        trip = tripService.createTrip("Japan", LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 5), owner.getId(), "jp");
         sensoji = locationService.createLocation(new Location("Senso-ji", "Temple", 35.7148, 139.7967, false));
         skytree = locationService.createLocation(new Location("Skytree", "Tower", 35.7101, 139.8107, true));
         ueno = locationService.createLocation(new Location("Ueno Park", "Park", 35.7156, 139.7745, false));
@@ -120,8 +119,7 @@ class ActivityUpdateTest {
 
     @Test
     void update_activityFromAnotherTrip_is404() {
-        List<String> countries = List.of("kr");
-        Trip otherTrip = tripService.createTrip("Korea", LocalDate.of(2026, 12, 1), LocalDate.of(2026, 12, 3), owner.getId(), countries);
+        Trip otherTrip = tripService.createTrip("Korea", LocalDate.of(2026, 12, 1), LocalDate.of(2026, 12, 3), owner.getId(), "kr");
         Activity changes = new Activity("Wrong trip", List.of(sensoji), START, START.plusHours(2), null);
 
         assertStatus(HttpStatus.NOT_FOUND,

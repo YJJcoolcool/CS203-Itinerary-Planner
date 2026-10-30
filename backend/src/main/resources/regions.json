@@ -1,0 +1,27 @@
+{
+  "regions": [
+    {
+      "code": "sg",
+      "name": "Singapore",
+      "tier": "full",
+      "locale": "en-SG",
+      "currency": "SGD",
+      "defaultZone": "Asia/Singapore",
+      "bboxes": [{ "minLat": 1.15, "maxLat": 1.48, "minLon": 103.60, "maxLon": 104.10 }],
+      "providers": { "weather": "nea", "routing": "onemap" },
+      "tiles": {
+        "url": "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        "attribution": "© OpenStreetMap contributors",
+        "crs": "wgs84"
+      }
+    }
+  ],
+  "fallback": {
+    "tier": "partial",
+    "locale": "en",
+    "currency": null,
+    "defaultZone": "UTC",
+    "providers": {},
+    "tiles": { "crs": "wgs84" }
+  }
+}

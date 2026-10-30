@@ -40,8 +40,7 @@ class TripMembershipTest {
         member = saveUser("MemberU1", "clerk-member");
         outsider = saveUser("Outsidr1", "clerk-outsider");
 
-        List<String> countries = List.of("id");
-        trip = tripService.createTrip("Indonesia", LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 5), owner.getId(), countries);
+        trip = tripService.createTrip("Indonesia", LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 5), owner.getId(), "id");
         tripService.addMember(owner.getId(), trip.getId(), member.getId());
     }
 

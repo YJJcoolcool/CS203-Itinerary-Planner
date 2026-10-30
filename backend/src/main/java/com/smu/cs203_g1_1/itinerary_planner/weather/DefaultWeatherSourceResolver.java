@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component;
  *
  * <p>Resolution order:</p>
  * <ol>
+ *   <li>the {@code fixture} provider, when registered (dev override);</li>
  *   <li>the matched region's {@code providers.weather} entry, when that id is
  *       registered;</li>
  *   <li>otherwise the fallback region's {@code providers.weather} entry, when
@@ -38,8 +39,11 @@ public class DefaultWeatherSourceResolver implements WeatherSourceResolver {
 
     private static final String NO_PROVIDER = "none";
 
+    private static final String FIXTURE_ID = "fixture";
+
     private final RegionRegistry regionRegistry;
     private final Map<String, WeatherSource> byId;
+    private final WeatherSource fixtureOverride;
     private final WeatherSource global;
 
     public DefaultWeatherSourceResolver(RegionRegistry regionRegistry,
@@ -59,6 +63,7 @@ public class DefaultWeatherSourceResolver implements WeatherSourceResolver {
         }
 
         this.byId = Map.copyOf(index);
+        this.fixtureOverride = index.get(FIXTURE_ID);
         this.global = index.values().stream()
             .filter(source -> !NO_PROVIDER.equals(source.id()))
             .findFirst()
@@ -82,6 +87,12 @@ public class DefaultWeatherSourceResolver implements WeatherSourceResolver {
 
     @Override
     public Optional<WeatherSource> forRegion(RegionProfile region) {
+        // The dev fixture is an override, not a mode: when it is registered
+        // (--rainy/--dry), it answers for every region regardless of config.
+        if (fixtureOverride != null) {
+            return Optional.of(fixtureOverride);
+        }
+
         Optional<WeatherSource> configured = registeredWeatherSource(region);
         if (configured.isPresent()) {
             return configured;

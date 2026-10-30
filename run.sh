@@ -10,7 +10,7 @@
 #   ./run.sh backend        # backend only
 #   ./run.sh frontend       # frontend only
 #   ./run.sh --install      # force a dependency reinstall first
-#   ./run.sh --rainy        # dev weather fixture: always rainy
+#   ./run.sh --rainy        # force rainy weather (fixture overrides real providers)
 #   ./run.sh --rainy --poll # rainy + proactive polling (first tick in ~5s)
 #   ./run.sh --no-ai        # no OpenAI key needed; deterministic fallback
 #   ./run.sh --help
@@ -42,8 +42,8 @@ Usage: ./run.sh [backend|frontend] [--install]
   backend       Start the Spring Boot backend only  (http://localhost:8080)
   frontend      Start the Vite frontend only        (http://localhost:5173)
   --install     Force reinstall of dependencies before starting
-  --rainy       Dev weather fixture: always rainy (no NEA calls)
-  --dry         Dev weather fixture: never rainy (no NEA calls)
+  --rainy       Force rainy weather for demos (fixture overrides real providers)
+  --dry         Force dry weather for demos (fixture overrides real providers)
   --poll        Enable proactive polling (first tick in ~5s)
   --no-ai       Unset OPENAI_API_KEY; SQL-only discovery + deterministic ranking
   -h, --help    Show this help

@@ -9,7 +9,6 @@ import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /**
@@ -22,10 +21,11 @@ import org.springframework.stereotype.Component;
  *
  * <p>Failures are deliberately swallowed: weather is advisory and must never
  * break a replan.</p>
+ *
+ * <p>Registered in every profile. It performs no work at startup, and the dev
+ * fixture — when enabled — takes precedence in {@code DefaultWeatherSourceResolver}.</p>
  */
 @Component
-@ConditionalOnProperty(name = "app.weather.fixture-enabled",
-    havingValue = "false", matchIfMissing = true)
 public class OpenMeteoWeatherSource implements WeatherSource {
 
     private static final Logger log = LoggerFactory.getLogger(OpenMeteoWeatherSource.class);

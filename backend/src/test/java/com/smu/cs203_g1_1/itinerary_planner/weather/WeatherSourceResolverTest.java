@@ -37,15 +37,30 @@ class WeatherSourceResolverTest {
     }
 
     @Test
-    void singaporeFallsBackToTheFixtureWhenNeaAndFallbackAreNotRegistered() {
-        // Dev profile: regions.json says "nea"/"open-meteo", but only the fixture bean exists.
+    void singaporeUsesTheFixtureWhenOnlyTheFixtureIsRegistered() {
+        // A fixture-only context (dev demo): the override answers immediately,
+        // so the region and fallback lookups are never consulted.
         RegionRegistry regions = mock(RegionRegistry.class);
-        when(regions.byCode("sg")).thenReturn(Optional.of(region("sg", "nea")));
-        when(regions.fallback()).thenReturn(region(null, "open-meteo"));
 
         WeatherSource fixture = source("fixture");
         WeatherSourceResolver resolver = new DefaultWeatherSourceResolver(
             regions, List.of(fixture));
+
+        assertSame(fixture, resolver.forCountry("sg").orElseThrow());
+    }
+
+    @Test
+    void registeredFixtureOverridesEveryConfiguredProvider() {
+        // --rainy/--dry: the fixture is registered alongside the real providers
+        // and must win for every region.
+        RegionRegistry regions = mock(RegionRegistry.class);
+        when(regions.byCode("sg")).thenReturn(Optional.of(region("sg", "nea")));
+
+        WeatherSource nea = source("nea");
+        WeatherSource openMeteo = source("open-meteo");
+        WeatherSource fixture = source("fixture");
+        WeatherSourceResolver resolver = new DefaultWeatherSourceResolver(
+            regions, List.of(nea, openMeteo, fixture));
 
         assertSame(fixture, resolver.forCountry("sg").orElseThrow());
     }

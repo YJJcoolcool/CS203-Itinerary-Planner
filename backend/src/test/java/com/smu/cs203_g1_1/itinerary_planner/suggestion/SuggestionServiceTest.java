@@ -12,6 +12,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -189,11 +190,11 @@ class SuggestionServiceTest {
     }
 
     @Test
-    void replanSkipsTripsThatDoNotIncludeSingapore() {
+    void replanUsesTheFallbackProviderForNonSingaporeTrips() {
         trip.setCountryCode("JP");
         tripRepository.saveAndFlush(trip);
 
-        assertTrue(replan().isEmpty());
+        assertFalse(replan().isEmpty());
     }
 
     @Test

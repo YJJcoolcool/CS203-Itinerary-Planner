@@ -636,9 +636,18 @@ Country-specific notes worth keeping:
 
 ## 9. Phase 2 outline (not scheduled)
 
-- `OpenMeteoWeatherSource` / `OpenWeatherSource` behind the unchanged
-  `WeatherSource`; hourly precipitation maps to `isRainy` directly. Register the
-  id in `regions.json` (`providers.weather`) — no selector code change.
+- **Done (Phase 2a):** `OpenMeteoWeatherSource` (`id = "open-meteo"`, global
+  coverage) behind the unchanged `WeatherSource`. `regions.json` fallback names
+  it, so countries without an explicit entry resolve to it; `sg` still names
+  `nea`. Resolution order is region provider → fallback provider → sole remaining
+  provider → none. `/api/regions` exposes a synthetic `"*"` fallback entry.
+  Rain predicate: an hourly entry labelled `T` covers `[T-1h, T)`; rainy when it
+  overlaps the window and `precipitation > 0.1mm` or the WMO code is in
+  `{51,53,55,56,57,61,63,65,66,67,80,81,82,95,96,97,99}`. Snow counts as
+  precipitation by design. `timezone=UTC` is mandatory: Open-Meteo returns
+  offset-less labels even for UTC.
+  **Not done:** the NEA-shaped panels remain SG-only (`hasNeaForecast`); a
+  point-based outlook panel for other countries is a separate follow-up.
 - Extract `RoutingProvider` (`id()`, `supports(RouteMode)`, `route(RouteRequest)`)
   only when the second implementation exists; generalize
   `frontend/src/lib/routingUtils.ts` away from OneMap's `plan`/`route_summary`

@@ -37,10 +37,11 @@ class WeatherSourceResolverTest {
     }
 
     @Test
-    void singaporeFallsBackToTheFixtureWhenNeaIsNotRegistered() {
-        // Dev profile: regions.json still says "nea", but only the fixture bean exists.
+    void singaporeFallsBackToTheFixtureWhenNeaAndFallbackAreNotRegistered() {
+        // Dev profile: regions.json says "nea"/"open-meteo", but only the fixture bean exists.
         RegionRegistry regions = mock(RegionRegistry.class);
         when(regions.byCode("sg")).thenReturn(Optional.of(region("sg", "nea")));
+        when(regions.fallback()).thenReturn(region(null, "open-meteo"));
 
         WeatherSource fixture = source("fixture");
         WeatherSourceResolver resolver = new DefaultWeatherSourceResolver(
@@ -50,14 +51,44 @@ class WeatherSourceResolverTest {
     }
 
     @Test
-    void unknownCountryHasNoProvider() {
+    void unknownCountryResolvesToTheFallbackProvider() {
         RegionRegistry regions = mock(RegionRegistry.class);
         when(regions.byCode("zz")).thenReturn(Optional.empty());
+        when(regions.fallback()).thenReturn(region(null, "open-meteo"));
 
+        WeatherSource openMeteo = source("open-meteo");
         WeatherSourceResolver resolver = new DefaultWeatherSourceResolver(
-            regions, List.of(source("nea")));
+            regions, List.of(openMeteo));
 
-        assertTrue(resolver.forCountry("zz").isEmpty());
+        assertSame(openMeteo, resolver.forCountry("zz").orElseThrow());
+    }
+
+    @Test
+    void regionWithAnUnregisteredProviderFallsThroughToTheFallbackProvider() {
+        RegionRegistry regions = mock(RegionRegistry.class);
+        when(regions.byCode("jp")).thenReturn(Optional.of(region("jp", "missing")));
+        when(regions.fallback()).thenReturn(region(null, "open-meteo"));
+
+        WeatherSource openMeteo = source("open-meteo");
+        WeatherSourceResolver resolver = new DefaultWeatherSourceResolver(
+            regions, List.of(openMeteo));
+
+        assertSame(openMeteo, resolver.forCountry("jp").orElseThrow());
+    }
+
+    @Test
+    void forPointFallsBackToTheFallbackProviderWhenNoRegionMatches() {
+        RegionRegistry regions = mock(RegionRegistry.class);
+        when(regions.byPoint(35.6762, 139.6503))
+            .thenReturn(Optional.empty());
+        when(regions.fallback()).thenReturn(region(null, "open-meteo"));
+
+        WeatherSource openMeteo = source("open-meteo");
+        when(openMeteo.covers(35.6762, 139.6503)).thenReturn(true);
+        WeatherSourceResolver resolver = new DefaultWeatherSourceResolver(
+            regions, List.of(openMeteo));
+
+        assertSame(openMeteo, resolver.forPoint(35.6762, 139.6503).orElseThrow());
     }
 
     @Test

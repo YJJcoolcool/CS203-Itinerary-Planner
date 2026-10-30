@@ -27,7 +27,7 @@ export function TwoHourWeatherPanel({
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const { region, hasWeather, locale, timeZone } = useTripCapabilities(
+  const { region, hasNeaForecast, locale, timeZone } = useTripCapabilities(
     token,
     countryCode,
   )
@@ -46,7 +46,7 @@ export function TwoHourWeatherPanel({
   }, [getToken])
 
   useEffect(() => {
-    if (!hasWeather) return
+    if (!hasNeaForecast) return
 
     let cancelled = false
 
@@ -76,9 +76,9 @@ export function TwoHourWeatherPanel({
     return () => {
       cancelled = true
     }
-  }, [hasWeather, getToken])
+  }, [hasNeaForecast, getToken])
 
-  if (!hasWeather) return null
+  if (!hasNeaForecast) return null
 
   // Keep the most recent validity period for each area.
   const latestByArea = new Map<string, TwoHourWeatherForecast>()

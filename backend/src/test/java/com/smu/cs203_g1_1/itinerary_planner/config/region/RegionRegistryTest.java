@@ -75,7 +75,8 @@ class RegionRegistryTest {
         assertEquals(RegionTier.PARTIAL, fallback.tier());
         assertEquals(ZoneId.of("UTC"), fallback.zone());
         assertEquals("en", fallback.locale());
-        assertTrue(fallback.provider(Capability.WEATHER).isEmpty());
+        assertEquals("open-meteo", fallback.provider(Capability.WEATHER).orElseThrow());
+        assertTrue(fallback.provider(Capability.ROUTING).isEmpty());
     }
 
     @Test

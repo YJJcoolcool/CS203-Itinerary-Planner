@@ -28,6 +28,7 @@ function loadRegions(token: string): Promise<RegionInfo[]> {
 export interface TripCapabilities {
   region: RegionInfo | null
   hasWeather: boolean
+  hasNeaForecast: boolean
   hasRouting: boolean
   locale: string
   timeZone: string
@@ -79,7 +80,9 @@ export function useTripCapabilities(
   const region =
     regions?.find(
       (candidate) => candidate.code.toLowerCase() === normalizedCode,
-    ) ?? null
+    ) ??
+    regions?.find((candidate) => candidate.code === '*') ??
+    null
 
   const capabilities = region?.capabilities ?? []
   const regionTiles = region?.tiles
@@ -87,6 +90,7 @@ export function useTripCapabilities(
   return {
     region,
     hasWeather: capabilities.includes('weather'),
+    hasNeaForecast: region?.code === 'sg',
     hasRouting: capabilities.includes('routing'),
     locale: region?.locale || 'en',
     timeZone: region?.defaultZone || 'UTC',

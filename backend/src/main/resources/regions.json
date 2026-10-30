@@ -21,7 +21,7 @@
     "locale": "en",
     "currency": null,
     "defaultZone": "UTC",
-    "providers": {},
+    "providers": { "weather": "open-meteo" },
     "tiles": { "crs": "wgs84" }
   }
 }

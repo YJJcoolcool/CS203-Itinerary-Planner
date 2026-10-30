@@ -16,19 +16,22 @@ import org.springframework.stereotype.Component;
  *
  * <p>Resolution order:</p>
  * <ol>
- *   <li>the region's {@code providers.weather} entry, when that id is
+ *   <li>the matched region's {@code providers.weather} entry, when that id is
  *       registered;</li>
+ *   <li>otherwise the fallback region's {@code providers.weather} entry, when
+ *       that id is registered;</li>
  *   <li>otherwise the single registered provider whose id is not
  *       {@code "none"} (the global default);</li>
  *   <li>otherwise no provider.</li>
  * </ol>
  *
- * <p>The global fallback keeps the dev fixture working: in dev the SG region
- * still names {@code "nea"}, but only the fixture bean is registered.</p>
+ * <p>The fallback and global steps keep non-SG visits and the dev fixture
+ * working: unknown countries resolve to the fallback's Open-Meteo provider,
+ * while dev (only the fixture registered) still resolves to the fixture.</p>
  *
  * <p>Unknown provider ids in {@code regions.json} are deliberately tolerated
- * here — they fall through to the global default. Duplicate bean ids are a
- * configuration bug and fail startup.</p>
+ * here — they fall through. Duplicate bean ids are a configuration bug and
+ * fail startup.</p>
  */
 @Component
 public class DefaultWeatherSourceResolver implements WeatherSourceResolver {
@@ -64,27 +67,43 @@ public class DefaultWeatherSourceResolver implements WeatherSourceResolver {
 
     @Override
     public Optional<WeatherSource> forCountry(String countryCode) {
-        return regionRegistry.byCode(countryCode)
-            .flatMap(this::resolveForRegion);
+        RegionProfile region = regionRegistry.byCode(countryCode)
+            .orElseGet(this::fallbackRegion);
+        return resolveForRegion(region);
     }
 
     @Override
     public Optional<WeatherSource> forPoint(double latitude, double longitude) {
-        return regionRegistry.byPoint(latitude, longitude)
-            .flatMap(this::resolveForRegion)
+        RegionProfile region = regionRegistry.byPoint(latitude, longitude)
+            .orElseGet(this::fallbackRegion);
+        return resolveForRegion(region)
             .filter(source -> source.covers(latitude, longitude));
     }
 
     private Optional<WeatherSource> resolveForRegion(RegionProfile region) {
-        Optional<String> configuredId = region.provider(Capability.WEATHER);
+        Optional<WeatherSource> configured = registeredWeatherSource(region);
+        if (configured.isPresent()) {
+            return configured;
+        }
 
-        if (configuredId.isPresent()) {
-            WeatherSource configured = byId.get(configuredId.get());
-            if (configured != null) {
-                return Optional.of(configured);
-            }
+        Optional<WeatherSource> fromFallback = registeredWeatherSource(fallbackRegion());
+        if (fromFallback.isPresent()) {
+            return fromFallback;
         }
 
         return Optional.ofNullable(global);
+    }
+
+    private Optional<WeatherSource> registeredWeatherSource(RegionProfile region) {
+        if (region == null) {
+            return Optional.empty();
+        }
+        return region.provider(Capability.WEATHER)
+            .map(byId::get)
+            .filter(source -> source != null);
+    }
+
+    private RegionProfile fallbackRegion() {
+        return regionRegistry.fallback();
     }
 }

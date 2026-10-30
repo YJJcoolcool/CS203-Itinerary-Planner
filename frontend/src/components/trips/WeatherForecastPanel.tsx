@@ -68,7 +68,7 @@ export function WeatherForecastPanel({
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const { region, hasWeather, locale, timeZone } = useTripCapabilities(
+  const { region, hasNeaForecast, locale, timeZone } = useTripCapabilities(
     token,
     countryCode,
   )
@@ -91,7 +91,7 @@ export function WeatherForecastPanel({
   const tripIncludesToday = startDate <= today && endDate >= today
 
   useEffect(() => {
-    if (tripHasEnded || !hasWeather) return
+    if (tripHasEnded || !hasNeaForecast) return
 
     let cancelled = false
 
@@ -131,9 +131,9 @@ export function WeatherForecastPanel({
     return () => {
       cancelled = true
     }
-  }, [tripHasEnded, tripIncludesToday, hasWeather, getToken])
+  }, [tripHasEnded, tripIncludesToday, hasNeaForecast, getToken])
 
-  if (tripHasEnded || !hasWeather) return null
+  if (tripHasEnded || !hasNeaForecast) return null
 
   const tripForecasts = forecasts.filter(
     (forecast) =>

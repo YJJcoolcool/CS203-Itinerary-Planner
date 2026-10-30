@@ -22,10 +22,10 @@ class RegionControllerTest {
     }
 
     @Test
-    void returnsConfiguredRegionsWithoutBoundingBoxes() throws Exception {
+    void returnsConfiguredRegionsAndTheFallbackWithoutBoundingBoxes() throws Exception {
         mockMvc.perform(get("/api/regions"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.length()").value(1))
+            .andExpect(jsonPath("$.length()").value(2))
             .andExpect(jsonPath("$[0].code").value("sg"))
             .andExpect(jsonPath("$[0].name").value("Singapore"))
             .andExpect(jsonPath("$[0].tier").value("full"))
@@ -38,6 +38,12 @@ class RegionControllerTest {
                 .value("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"))
             .andExpect(jsonPath("$[0].tiles.attribution")
                 .value("© OpenStreetMap contributors"))
-            .andExpect(jsonPath("$[0].bboxes").doesNotExist());
+            .andExpect(jsonPath("$[0].bboxes").doesNotExist())
+            .andExpect(jsonPath("$[1].code").value("*"))
+            .andExpect(jsonPath("$[1].tier").value("partial"))
+            .andExpect(jsonPath("$[1].defaultZone").value("UTC"))
+            .andExpect(jsonPath("$[1].capabilities", contains("weather")))
+            .andExpect(jsonPath("$[1].tiles.crs").value("wgs84"))
+            .andExpect(jsonPath("$[1].bboxes").doesNotExist());
     }
 }

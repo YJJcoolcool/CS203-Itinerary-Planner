@@ -1,5 +1,6 @@
 package com.smu.cs203_g1_1.itinerary_planner.geo;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -16,9 +17,10 @@ import com.smu.cs203_g1_1.itinerary_planner.config.region.TileConfig;
 /**
  * Read-only region capability catalog for the trip UI.
  *
- * <p>Only configured regions are returned; the fallback profile is an internal
- * default and never appears as a selectable country. Bounding boxes stay
- * server-side: the client only needs identity, capabilities and basemap.</p>
+ * <p>Configured regions are returned first, followed by the synthetic
+ * {@code "*"} fallback so a client can answer "can this country do weather?"
+ * for any ISO code. Bounding boxes stay server-side: the client only needs
+ * identity, capabilities and basemap.</p>
  */
 @RestController
 @RequestMapping("/api/regions")
@@ -32,14 +34,20 @@ public class RegionController {
 
     @GetMapping
     public List<RegionResponse> list() {
-        return regionRegistry.all().stream()
+        List<RegionResponse> responses = new ArrayList<>(regionRegistry.all().stream()
             .map(RegionController::toResponse)
-            .toList();
+            .toList());
+        responses.add(toResponse(regionRegistry.fallback(), "*"));
+        return List.copyOf(responses);
     }
 
     private static RegionResponse toResponse(RegionProfile region) {
+        return toResponse(region, region.code());
+    }
+
+    private static RegionResponse toResponse(RegionProfile region, String code) {
         return new RegionResponse(
-            region.code(),
+            code,
             region.name(),
             region.tier().name().toLowerCase(Locale.ROOT),
             region.locale(),

@@ -18,6 +18,16 @@ import org.springframework.stereotype.Component;
 public class NoRainWeatherSource implements WeatherSource {
 
     @Override
+    public String id() {
+        return "none";
+    }
+
+    @Override
+    public boolean covers(double latitude, double longitude) {
+        return false;
+    }
+
+    @Override
     public boolean isRainy(double latitude, double longitude,
                            ZonedDateTime from, ZonedDateTime to) {
         return false;

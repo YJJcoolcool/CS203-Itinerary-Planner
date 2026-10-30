@@ -14,6 +14,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -25,6 +26,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.smu.cs203_g1_1.itinerary_planner.config.region.RegionRegistry;
 import com.smu.cs203_g1_1.itinerary_planner.suggestion.SuggestionResponse;
 import com.smu.cs203_g1_1.itinerary_planner.suggestion.SuggestionService;
 import com.smu.cs203_g1_1.itinerary_planner.suggestion.TriggerSource;
@@ -35,6 +37,7 @@ import com.smu.cs203_g1_1.itinerary_planner.trips.Trip;
 import com.smu.cs203_g1_1.itinerary_planner.trips.TripRepository;
 import com.smu.cs203_g1_1.itinerary_planner.user.User;
 import com.smu.cs203_g1_1.itinerary_planner.weather.WeatherSource;
+import com.smu.cs203_g1_1.itinerary_planner.weather.WeatherSourceResolver;
 
 @ExtendWith(MockitoExtension.class)
 class WeatherPollerTest {
@@ -55,6 +58,9 @@ class WeatherPollerTest {
     @Mock
     private WeatherSource weatherSource;
 
+    @Mock
+    private WeatherSourceResolver weatherSourceResolver;
+
     private WeatherPoller poller;
 
     private User owner;
@@ -64,8 +70,12 @@ class WeatherPollerTest {
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(NOW.toInstant(), ZONE);
+        lenient().when(weatherSourceResolver.forCountry(anyString()))
+                .thenReturn(Optional.of(weatherSource));
+        lenient().when(weatherSourceResolver.forPoint(anyDouble(), anyDouble()))
+                .thenReturn(Optional.of(weatherSource));
         poller = new WeatherPoller(tripRepository, activityRepository,
-                suggestionService, weatherSource, clock);
+                suggestionService, weatherSourceResolver, new RegionRegistry(), clock);
 
         owner = new User("clerk-owner", "Owner");
         owner.setId("User0001");

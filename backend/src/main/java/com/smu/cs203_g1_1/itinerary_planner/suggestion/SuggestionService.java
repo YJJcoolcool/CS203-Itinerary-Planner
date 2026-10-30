@@ -45,6 +45,7 @@ import com.smu.cs203_g1_1.itinerary_planner.trips.TripRole;
 import com.smu.cs203_g1_1.itinerary_planner.trips.TripService;
 import com.smu.cs203_g1_1.itinerary_planner.util.ID;
 import com.smu.cs203_g1_1.itinerary_planner.weather.WeatherSource;
+import com.smu.cs203_g1_1.itinerary_planner.weather.WeatherSourceResolver;
 
 /**
  * Builds weather-driven alternative suggestions and applies the user's decision.
@@ -71,7 +72,7 @@ public class SuggestionService {
     private final ActivityRepository activityRepository;
     private final TripService tripService;
     private final CandidateFinder candidateFinder;
-    private final WeatherSource weatherSource;
+    private final WeatherSourceResolver weatherSourceResolver;
     private final PlanChooser planChooser;
     private final ObjectProvider<QueryEmbedder> queryEmbedder;
     private final ObjectProvider<PlaceDiscoveryService> discoveryService;
@@ -84,7 +85,7 @@ public class SuggestionService {
                              ActivityRepository activityRepository,
                              TripService tripService,
                              CandidateFinder candidateFinder,
-                             WeatherSource weatherSource,
+                             WeatherSourceResolver weatherSourceResolver,
                              PlanChooser planChooser,
                              ObjectProvider<QueryEmbedder> queryEmbedder,
                              ObjectProvider<PlaceDiscoveryService> discoveryService,
@@ -95,7 +96,7 @@ public class SuggestionService {
         this.activityRepository = activityRepository;
         this.tripService = tripService;
         this.candidateFinder = candidateFinder;
-        this.weatherSource = weatherSource;
+        this.weatherSourceResolver = weatherSourceResolver;
         this.planChooser = planChooser;
         this.queryEmbedder = queryEmbedder;
         this.discoveryService = discoveryService;
@@ -158,21 +159,6 @@ public class SuggestionService {
         log.info("Rejected suggestion id={} for activity id={} on trip id={}",
                 suggestionId, suggestion.getActivity().getId(), suggestion.getTrip().getId());
         return SuggestionResponse.from(saved);
-    }
-
-    /**
-     * Singapore-only scope: a trip with no countries keeps the legacy
-     * behaviour, but an explicit list must contain SG for weather-driven
-     * replanning to run at all.
-     */
-    private static boolean coversSingapore(Trip trip) {
-        List<String> countries = trip.getCountries();
-
-        if (countries == null || countries.isEmpty()) {
-            return true;
-        }
-
-        return countries.stream().anyMatch(code -> "SG".equalsIgnoreCase(code));
     }
 
     /** Union of the traveller's own tags and the trip's group tags. */
@@ -249,9 +235,9 @@ public class SuggestionService {
         ZonedDateTime now = at != null ? at : ZonedDateTime.now(clock);
         long startedAt = System.nanoTime();
 
-        if (!coversSingapore(trip)) {
-            log.info("Skipping replan for trip id={}: countries {} do not include SG",
-                    tripId, trip.getCountries());
+        if (weatherSourceResolver.forCountry(trip.getCountryCode()).isEmpty()) {
+            log.info("Skipping replan for trip id={}: no weather provider for country {}",
+                    tripId, trip.getCountryCode());
             return List.of();
         }
 
@@ -319,7 +305,13 @@ public class SuggestionService {
                     ? end
                     : fromWindow.plusHours(RAIN_WINDOW_FALLBACK_HOURS);
 
-            if (!weatherSource.isRainy(
+            // Resolve per point, not per bean: the trip country only gates the
+            // cheap early exit; the point decides which provider can answer.
+            WeatherSource source = weatherSourceResolver
+                    .forPoint(dropped.getLatitude(), dropped.getLongitude())
+                    .orElse(null);
+
+            if (source == null || !source.isRainy(
                     dropped.getLatitude(), dropped.getLongitude(), fromWindow, toWindow)) {
                 continue;
             }

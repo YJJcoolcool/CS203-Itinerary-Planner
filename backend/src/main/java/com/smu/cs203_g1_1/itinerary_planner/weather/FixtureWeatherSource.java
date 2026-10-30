@@ -30,6 +30,11 @@ public class FixtureWeatherSource implements WeatherSource {
     }
 
     @Override
+    public String id() {
+        return "fixture";
+    }
+
+    @Override
     public boolean isRainy(double latitude, double longitude,
                            ZonedDateTime from, ZonedDateTime to) {
         return rainy;

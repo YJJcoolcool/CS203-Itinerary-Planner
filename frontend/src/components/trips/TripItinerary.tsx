@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { useAuth } from '@clerk/react'
 import { ApiError, deleteActivity } from '../../lib/api'
 import { useTripItinerary } from '../../lib/useTrips'
 import { CreateActivityModal } from './CreateActivityModal'
+import { ActivityRoute } from './ActivityRoute'
 import type { Activity, Location } from '../../types/trip'
 
 const FOCUS_RING =
@@ -211,16 +212,31 @@ export function TripItinerary({ tripId, canEdit }: { tripId: string; canEdit: bo
           </p>
         ) : (
           <ol className="flex flex-col gap-3">
-            {visibleActivities.map((activity) => (
-              <ActivityItem
-                key={activity.id}
-                activity={activity}
-                locations={locationsByActivity[activity.id]}
-                isLoadingLocations={isLoadingLocations}
-                onEdit={canEdit ? () => setEditingActivity(activity) : undefined}
-                onDelete={canEdit ? () => void handleDelete(activity) : undefined}
-              />
-            ))}
+            {visibleActivities.map((activity, index) => {
+              const nextActivity = visibleActivities[index + 1]
+
+              return (
+                <Fragment key={activity.id}>
+                  <ActivityItem
+                    activity={activity}
+                    locations={locationsByActivity[activity.id]}
+                    isLoadingLocations={isLoadingLocations}
+                    onEdit={canEdit ? () => setEditingActivity(activity) : undefined}
+                    onDelete={canEdit ? () => void handleDelete(activity) : undefined}
+                  />
+
+                  {visibleActivities.length >= 2 && nextActivity && (
+                    <ActivityRoute
+                      tripId={tripId}
+                      fromActivity={activity}
+                      toActivity={nextActivity}
+                      fromLocations={locationsByActivity[activity.id]}
+                      toLocations={locationsByActivity[nextActivity.id]}
+                    />
+                  )}
+                </Fragment>
+              )
+            })}
           </ol>
         )}
       </div>

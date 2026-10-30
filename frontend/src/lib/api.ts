@@ -14,6 +14,8 @@ import type {
   GeoPlace,
   GeoSearchResponse,
   Location,
+  RouteMode,
+  RouteResponse,
   Trip,
   TwoHourWeatherForecast,
   User,
@@ -263,6 +265,27 @@ export function getActivityLocations(
 ): Promise<Location[]> {
   return request<Location[]>(`/api/trips/${tripId}/activities/${activityId}/locations`, { token })
 }
+
+/** Fetches a route between two consecutive activities. */
+export function getActivityRoute(
+  token: string | null,
+  tripId: string,
+  fromActivityId: string,
+  toActivityId: string,
+  mode: RouteMode,
+  departureDateTime: string,
+): Promise<RouteResponse> {
+  const params = new URLSearchParams({
+    mode,
+    departureDateTime,
+  })
+
+  return request<RouteResponse>(
+    `/api/trips/${encodeURIComponent(tripId)}/activities/${encodeURIComponent(fromActivityId)}/route-to/${encodeURIComponent(toActivityId)}?${params.toString()}`,
+    { token },
+  )
+}
+
 /** Owner invites an existing user (by email) to a trip. */
 export function sendInvitation(
   token: string | null,

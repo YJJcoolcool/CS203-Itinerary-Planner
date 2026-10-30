@@ -138,3 +138,22 @@ export interface TwoHourWeatherForecast {
   updatedAt: string | null
   rainExpected: boolean
 }
+
+/** Transport modes supported by the activity routing endpoint. */
+export type RouteMode = 'PUBLIC_TRANSPORT' | 'DRIVING' | 'WALKING' | 'CYCLING'
+
+/** Response from GET /api/trips/{tripId}/activities/{fromId}/route-to/{toId}. */
+export interface RouteResponse {
+  fromActivityId: string
+  toActivityId: string
+  fromLocationName: string
+  toLocationName: string
+  mode: RouteMode
+  departureDateTime: string
+  routeData: unknown
+}
+
+/** Route geometry */
+export interface RouteMapData {
+  coordinates: [number, number][]
+}

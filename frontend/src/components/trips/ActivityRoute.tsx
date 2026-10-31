@@ -65,6 +65,8 @@ export function ActivityRoute({
     const [error, setError] = useState<string | null>(null)
     const [isWarningDismissed, setIsWarningDismissed] = useState(false)
 
+    const includesSingapore = countryCode.toLowerCase() === 'sg'
+    
     useEffect(() => {
         let cancelled = false
 
@@ -221,6 +223,9 @@ export function ActivityRoute({
     const routeInstructions = routeResponse
         ? getRouteInstructions(routeResponse)
         : []
+
+    // Only available for Singapore
+    if (!includesSingapore) return null;
 
     return (
         <li className="flex flex-col items-center gap-2 py-1">

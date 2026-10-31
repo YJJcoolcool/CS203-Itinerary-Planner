@@ -144,6 +144,7 @@ function TripDetailsContent({ tripId }: { tripId: string }) {
               key={itineraryRefreshKey}
               tripId={displayedTrip.id}
               canEdit={canEdit}
+              countries={displayedTrip.countries ?? []}
             />
 
             <SuggestionsPanel

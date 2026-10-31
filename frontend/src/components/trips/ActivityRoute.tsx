@@ -35,6 +35,7 @@ interface ActivityRouteProps {
     toActivity: Activity
     fromLocations: Location[] | undefined
     toLocations: Location[] | undefined
+    countries: string[]
 }
 
 export function ActivityRoute({
@@ -43,6 +44,7 @@ export function ActivityRoute({
     toActivity,
     fromLocations,
     toLocations,
+    countries,
 }: ActivityRouteProps) {
     const { getToken } = useAuth()
     const menuRef = useRef<HTMLDivElement>(null)
@@ -58,6 +60,10 @@ export function ActivityRoute({
     const [isDirectionsExpanded, setIsDirectionsExpanded] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [isWarningDismissed, setIsWarningDismissed] = useState(false)
+
+    const includesSingapore = countries.some(
+        (country) => country.toLowerCase() === 'sg',
+    )
     
     // Close the dropdown when the user clicks outside it or presses Escape.
     useEffect(() => {
@@ -201,6 +207,9 @@ export function ActivityRoute({
     const routeInstructions = routeResponse
         ? getRouteInstructions(routeResponse)
         : []
+
+    // Only available for Singapore
+    if (!includesSingapore) return;
 
     return (
         <li className="flex flex-col items-center gap-2 py-1">

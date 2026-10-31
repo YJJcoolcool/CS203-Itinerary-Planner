@@ -120,7 +120,15 @@ function ActivityItem({
  * Itinerary for a trip. Loads the activities first, then each activity's
  * locations (see `useTripItinerary`).
  */
-export function TripItinerary({ tripId, canEdit, countries }: { tripId: string; canEdit: boolean; countries: string[] }) {
+export function TripItinerary({
+  tripId,
+  countryCode,
+  canEdit,
+}: {
+  tripId: string
+  countryCode: string
+  canEdit: boolean
+}) {
   const { activities, locationsByActivity, isLoading, isLoadingLocations, error, refresh } =
     useTripItinerary(tripId)
   
@@ -233,7 +241,6 @@ export function TripItinerary({ tripId, canEdit, countries }: { tripId: string; 
                       toActivity={nextActivity}
                       fromLocations={locationsByActivity[activity.id]}
                       toLocations={locationsByActivity[nextActivity.id]}
-                      countries={countries}
                     />
                   )}
                 </Fragment>

@@ -37,7 +37,6 @@ interface ActivityRouteProps {
     toActivity: Activity
     fromLocations: Location[] | undefined
     toLocations: Location[] | undefined
-    countries: string[]
 }
 
 export function ActivityRoute({
@@ -47,7 +46,6 @@ export function ActivityRoute({
     toActivity,
     fromLocations,
     toLocations,
-    countries,
 }: ActivityRouteProps) {
     const { getToken } = useAuth()
     const menuRef = useRef<HTMLDivElement>(null)
@@ -67,9 +65,7 @@ export function ActivityRoute({
     const [error, setError] = useState<string | null>(null)
     const [isWarningDismissed, setIsWarningDismissed] = useState(false)
 
-    const includesSingapore = countries.some(
-        (country) => country.toLowerCase() === 'sg',
-    )
+    const includesSingapore = countryCode.toLowerCase() === 'sg'
     
     useEffect(() => {
         let cancelled = false
@@ -229,7 +225,7 @@ export function ActivityRoute({
         : []
 
     // Only available for Singapore
-    if (!includesSingapore) return;
+    if (!includesSingapore) return null;
 
     return (
         <li className="flex flex-col items-center gap-2 py-1">

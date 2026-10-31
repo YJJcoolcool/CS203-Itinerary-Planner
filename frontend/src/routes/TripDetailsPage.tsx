@@ -151,7 +151,6 @@ function TripDetailsContent({ tripId }: { tripId: string }) {
               tripId={displayedTrip.id}
               countryCode={displayedTrip.countryCode}
               canEdit={canEdit}
-              countries={displayedTrip.countries ?? []}
             />
 
             <SuggestionsPanel

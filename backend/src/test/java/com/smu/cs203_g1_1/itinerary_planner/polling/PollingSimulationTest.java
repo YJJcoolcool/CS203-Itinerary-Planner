@@ -21,6 +21,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 
 import com.smu.cs203_g1_1.itinerary_planner.ai.PlanChooser;
+import com.smu.cs203_g1_1.itinerary_planner.config.region.RegionRegistry;
 import com.smu.cs203_g1_1.itinerary_planner.planner.CandidateFinder;
 import com.smu.cs203_g1_1.itinerary_planner.suggestion.Suggestion;
 import com.smu.cs203_g1_1.itinerary_planner.suggestion.SuggestionRepository;
@@ -41,8 +42,10 @@ import com.smu.cs203_g1_1.itinerary_planner.testutil.MutableClock;
 import com.smu.cs203_g1_1.itinerary_planner.user.User;
 import com.smu.cs203_g1_1.itinerary_planner.user.UserRepository;
 import com.smu.cs203_g1_1.itinerary_planner.util.ID;
+import com.smu.cs203_g1_1.itinerary_planner.weather.DefaultWeatherSourceResolver;
 import com.smu.cs203_g1_1.itinerary_planner.weather.ProgrammableWeatherSource;
 import com.smu.cs203_g1_1.itinerary_planner.weather.WeatherSource;
+import com.smu.cs203_g1_1.itinerary_planner.weather.WeatherSourceResolver;
 
 /**
  * End-to-end simulation of the polling + filtering path against H2 with no
@@ -51,6 +54,7 @@ import com.smu.cs203_g1_1.itinerary_planner.weather.WeatherSource;
  */
 @DataJpaTest
 @Import({SuggestionService.class, TripService.class, CandidateFinder.class,
+        DefaultWeatherSourceResolver.class, RegionRegistry.class,
         PollingSimulationTest.TestClockConfig.class,
         PollingSimulationTest.TestWeatherConfig.class,
         PollingSimulationTest.TestPlanChooserConfig.class})
@@ -122,6 +126,12 @@ class PollingSimulationTest {
     @Autowired
     private Clock clock;
 
+    @Autowired
+    private WeatherSourceResolver weatherSourceResolver;
+
+    @Autowired
+    private RegionRegistry regionRegistry;
+
     private WeatherPoller poller;
     private User owner;
     private Trip trip;
@@ -136,7 +146,7 @@ class PollingSimulationTest {
         TestClockConfig.CLOCK.setInstant(AT.toInstant());
 
         poller = new WeatherPoller(tripRepository, activityRepository,
-                suggestionService, TestWeatherConfig.WEATHER, clock);
+                suggestionService, weatherSourceResolver, regionRegistry, clock);
 
         owner = saveUser("clerk-owner", "Owner", "owner@simulation.test");
 

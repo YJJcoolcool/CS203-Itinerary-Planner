@@ -4,6 +4,7 @@ import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
+import com.smu.cs203_g1_1.itinerary_planner.config.region.RegionRegistry;
 import com.smu.cs203_g1_1.itinerary_planner.trips.Location;
 import com.smu.cs203_g1_1.itinerary_planner.trips.LocationRepository;
 
@@ -49,7 +50,7 @@ class OsmIndexImporterTest {
 
     @BeforeEach
     void setUp() {
-        importer = new OsmIndexImporter(locations);
+        importer = new OsmIndexImporter(locations, new RegionRegistry());
     }
 
     @Test
@@ -59,7 +60,7 @@ class OsmIndexImporterTest {
         assertEquals(5, summary.total());
         assertEquals(2, summary.imported());
         assertEquals(1, summary.unnamed());
-        assertEquals(1, summary.outsideSingapore());
+        assertEquals(1, summary.outsideRegion());
         assertEquals(1, summary.unknownCategory());
         assertEquals(2, locations.count());
     }
@@ -75,6 +76,7 @@ class OsmIndexImporterTest {
         assertEquals("food", hawker.getCategoryGroup());
         assertEquals("INDOOR", hawker.getIndoorClass());
         assertEquals("OSM_TAG", hawker.getIndoorSource());
+        assertEquals("sg", hawker.getCountryCode());
         assertTrue(hawker.getAddress().contains("Test Road"));
         assertTrue(hawker.getAddress().contains("123456"));
     }

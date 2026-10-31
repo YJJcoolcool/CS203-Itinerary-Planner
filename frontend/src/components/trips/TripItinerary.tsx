@@ -228,6 +228,7 @@ export function TripItinerary({ tripId, canEdit, countries }: { tripId: string; 
                   {visibleActivities.length >= 2 && nextActivity && (
                     <ActivityRoute
                       tripId={tripId}
+                      countryCode={countryCode}
                       fromActivity={activity}
                       toActivity={nextActivity}
                       fromLocations={locationsByActivity[activity.id]}

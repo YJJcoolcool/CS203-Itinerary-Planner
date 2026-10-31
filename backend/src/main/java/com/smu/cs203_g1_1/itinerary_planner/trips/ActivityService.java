@@ -6,11 +6,16 @@ import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.smu.cs203_g1_1.itinerary_planner.discovery.BackfillPolicy;
+import com.smu.cs203_g1_1.itinerary_planner.discovery.NearbyBackfillService;
 import com.smu.cs203_g1_1.itinerary_planner.util.ID;
 
 @Service
@@ -21,15 +26,37 @@ public class ActivityService {
     private final ActivityRepository activityRepository;
     private final TripService tripService;
     private final LocationService locationService;
+    private final ObjectProvider<NearbyBackfillService> backfillServiceProvider;
+    private final ObjectProvider<BackfillPolicy> backfillPolicyProvider;
+    private final int backfillRadiusM;
+    private final int backfillLimit;
 
+    @Autowired
+    public ActivityService(
+            ActivityRepository activityRepository,
+            TripService tripService,
+            LocationService locationService,
+            ObjectProvider<NearbyBackfillService> backfillServiceProvider,
+            ObjectProvider<BackfillPolicy> backfillPolicyProvider,
+            @Value("${app.discovery.backfill-radius-m:1500}") int backfillRadiusM,
+            @Value("${app.discovery.backfill-limit:120}") int backfillLimit) {
+
+        this.activityRepository = activityRepository;
+        this.tripService = tripService;
+        this.locationService = locationService;
+        this.backfillServiceProvider = backfillServiceProvider;
+        this.backfillPolicyProvider = backfillPolicyProvider;
+        this.backfillRadiusM = backfillRadiusM;
+        this.backfillLimit = backfillLimit;
+    }
+
+    /** Test-friendly constructor; backfill pre-warm is disabled. */
     public ActivityService(
             ActivityRepository activityRepository,
             TripService tripService,
             LocationService locationService) {
 
-        this.activityRepository = activityRepository;
-        this.tripService = tripService;
-        this.locationService = locationService;
+        this(activityRepository, tripService, locationService, null, null, 1500, 120);
     }
 
 
@@ -128,8 +155,48 @@ public class ActivityService {
 
         // Maintains both Trip.itinerary and Activity.trip.
         trip.addActivity(saved);
+        prewarmBackfill(saved.getLocations());
         log.info("Created activity id={} in trip id={}", saved.getId(), tripId);
         return saved;
+    }
+
+    /**
+     * Opportunistically warms nearby OSM rows after a write, never on the
+     * request's critical path. Missing beans or a failed future are ignored.
+     */
+    private void prewarmBackfill(List<Location> locations) {
+        NearbyBackfillService backfillService = backfillServiceProvider == null
+                ? null
+                : backfillServiceProvider.getIfAvailable();
+        BackfillPolicy policy = backfillPolicyProvider == null
+                ? null
+                : backfillPolicyProvider.getIfAvailable();
+
+        if (backfillService == null || policy == null || locations == null) {
+            return;
+        }
+
+        for (Location place : locations) {
+            if (place == null
+                    || place.getLatitude() == null
+                    || place.getLongitude() == null) {
+                continue;
+            }
+
+            try {
+                double latitude = place.getLatitude();
+                double longitude = place.getLongitude();
+
+                if (policy.shouldBackfill(latitude, longitude)) {
+                    policy.recordBackfill(latitude, longitude);
+                    backfillService.backfillAsync(
+                            latitude, longitude, backfillRadiusM, backfillLimit);
+                }
+            } catch (RuntimeException ex) {
+                log.warn("Backfill pre-warm failed for location id={}: {}",
+                        place.getId(), ex.getMessage());
+            }
+        }
     }
 
 

@@ -12,6 +12,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -29,6 +30,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.smu.cs203_g1_1.itinerary_planner.ai.PlanChoice;
 import com.smu.cs203_g1_1.itinerary_planner.ai.PlanChooser;
+import com.smu.cs203_g1_1.itinerary_planner.config.region.RegionRegistry;
 import com.smu.cs203_g1_1.itinerary_planner.planner.CandidateFinder;
 import com.smu.cs203_g1_1.itinerary_planner.preference.TripPreference;
 import com.smu.cs203_g1_1.itinerary_planner.preference.TripPreferenceRepository;
@@ -48,6 +50,7 @@ import com.smu.cs203_g1_1.itinerary_planner.testutil.MutableClock;
 import com.smu.cs203_g1_1.itinerary_planner.user.User;
 import com.smu.cs203_g1_1.itinerary_planner.user.UserRepository;
 import com.smu.cs203_g1_1.itinerary_planner.util.ID;
+import com.smu.cs203_g1_1.itinerary_planner.weather.DefaultWeatherSourceResolver;
 import com.smu.cs203_g1_1.itinerary_planner.weather.ProgrammableWeatherSource;
 import com.smu.cs203_g1_1.itinerary_planner.weather.WeatherSource;
 
@@ -57,6 +60,7 @@ import jakarta.persistence.EntityManager;
 // candidate pipeline, role checks, dirty checking and swap are all exercised.
 @DataJpaTest
 @Import({SuggestionService.class, TripService.class, CandidateFinder.class,
+        DefaultWeatherSourceResolver.class, RegionRegistry.class,
         SuggestionServiceTest.TestWeatherConfig.class,
         SuggestionServiceTest.TestPlanChooserConfig.class,
         SuggestionServiceTest.TestClockConfig.class})
@@ -186,11 +190,11 @@ class SuggestionServiceTest {
     }
 
     @Test
-    void replanSkipsTripsThatDoNotIncludeSingapore() {
-        trip.setCountries(List.of("JP"));
+    void replanUsesTheFallbackProviderForNonSingaporeTrips() {
+        trip.setCountryCode("JP");
         tripRepository.saveAndFlush(trip);
 
-        assertTrue(replan().isEmpty());
+        assertFalse(replan().isEmpty());
     }
 
     @Test

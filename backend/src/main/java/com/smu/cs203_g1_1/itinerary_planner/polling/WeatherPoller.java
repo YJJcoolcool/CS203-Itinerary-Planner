@@ -6,6 +6,7 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import org.slf4j.Logger;
@@ -14,6 +15,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import com.smu.cs203_g1_1.itinerary_planner.config.region.RegionProfile;
+import com.smu.cs203_g1_1.itinerary_planner.config.region.RegionRegistry;
 import com.smu.cs203_g1_1.itinerary_planner.suggestion.SuggestionService;
 import com.smu.cs203_g1_1.itinerary_planner.suggestion.TriggerSource;
 import com.smu.cs203_g1_1.itinerary_planner.trips.Activity;
@@ -22,6 +25,7 @@ import com.smu.cs203_g1_1.itinerary_planner.trips.Location;
 import com.smu.cs203_g1_1.itinerary_planner.trips.Trip;
 import com.smu.cs203_g1_1.itinerary_planner.trips.TripRepository;
 import com.smu.cs203_g1_1.itinerary_planner.weather.WeatherSource;
+import com.smu.cs203_g1_1.itinerary_planner.weather.WeatherSourceResolver;
 
 /**
  * Proactive rain-driven replanning.
@@ -50,31 +54,39 @@ public class WeatherPoller {
 
     private static final Logger log = LoggerFactory.getLogger(WeatherPoller.class);
 
-    private static final ZoneId SG = ZoneId.of("Asia/Singapore");
+    /*
+     * The tick zone is immaterial: ticks are hourly and the day window is
+     * derived per trip from its region's zone below. Do not "fix" this to a
+     * per-trip cron; Spring cannot schedule per row.
+     */
+    private static final ZoneId SCHEDULE_ZONE = ZoneId.of("Asia/Singapore");
 
     private final TripRepository tripRepository;
     private final ActivityRepository activityRepository;
     private final SuggestionService suggestionService;
-    private final WeatherSource weatherSource;
+    private final WeatherSourceResolver weatherSourceResolver;
+    private final RegionRegistry regionRegistry;
     private final Clock clock;
 
     public WeatherPoller(TripRepository tripRepository,
                          ActivityRepository activityRepository,
                          SuggestionService suggestionService,
-                         WeatherSource weatherSource,
+                         WeatherSourceResolver weatherSourceResolver,
+                         RegionRegistry regionRegistry,
                          Clock clock) {
         this.tripRepository = tripRepository;
         this.activityRepository = activityRepository;
         this.suggestionService = suggestionService;
-        this.weatherSource = weatherSource;
+        this.weatherSourceResolver = weatherSourceResolver;
+        this.regionRegistry = regionRegistry;
         this.clock = clock;
     }
 
-    /** 24 h pass: trips whose start date is tomorrow in Singapore. */
+    /** 24 h pass: trips whose start date is tomorrow in their own region. */
     @Scheduled(cron = "0 0 * * * *", zone = "Asia/Singapore")
     public void pollTomorrowTrips() {
-        LocalDate tomorrow = LocalDate.now(clock.withZone(SG)).plusDays(1);
-        List<Trip> trips = tripRepository.findByStartDate(tomorrow);
+        LocalDate scanDate = LocalDate.now(clock.withZone(SCHEDULE_ZONE)).plusDays(1);
+        List<Trip> trips = tripRepository.findByStartDate(scanDate);
 
         int tripsScanned = 0;
         int activitiesScanned = 0;
@@ -83,6 +95,21 @@ public class WeatherPoller {
         for (Trip trip : trips) {
             tripsScanned++;
             try {
+                Optional<RegionProfile> region = regionRegistry.byCode(trip.getCountryCode());
+                if (region.isEmpty()) {
+                    log.info("Skipping trip id={} for polling: no region for country {}",
+                            trip.getId(), trip.getCountryCode());
+                    continue;
+                }
+
+                Optional<WeatherSource> weatherSource =
+                        weatherSourceResolver.forCountry(trip.getCountryCode());
+                if (weatherSource.isEmpty()) {
+                    log.info("Skipping trip id={} for polling: no weather provider for country {}",
+                            trip.getId(), trip.getCountryCode());
+                    continue;
+                }
+
                 List<Activity> activities =
                         activityRepository.findByTripIdOrderByStartDateTimeAsc(trip.getId());
                 activitiesScanned += activities.size();
@@ -94,10 +121,12 @@ public class WeatherPoller {
                     continue;
                 }
 
-                ZonedDateTime from = tomorrow.atStartOfDay(SG);
-                ZonedDateTime to = tomorrow.plusDays(1).atStartOfDay(SG);
+                ZoneId zone = region.get().zone();
+                LocalDate tomorrow = LocalDate.now(clock.withZone(zone)).plusDays(1);
+                ZonedDateTime from = tomorrow.atStartOfDay(zone);
+                ZonedDateTime to = tomorrow.plusDays(1).atStartOfDay(zone);
 
-                if (!weatherSource.isRainy(centroid[0], centroid[1], from, to)) {
+                if (!weatherSource.get().isRainy(centroid[0], centroid[1], from, to)) {
                     continue;
                 }
 
@@ -166,7 +195,15 @@ public class WeatherPoller {
                         ? end
                         : windowFrom.plusHours(2);
 
-                if (!weatherSource.isRainy(latitude, longitude, windowFrom, windowTo)) {
+                Optional<WeatherSource> weatherSource =
+                        weatherSourceResolver.forPoint(latitude, longitude);
+                if (weatherSource.isEmpty()) {
+                    log.info("Skipping activity id={} for polling: no weather provider covers this point",
+                            activity.getId());
+                    continue;
+                }
+
+                if (!weatherSource.get().isRainy(latitude, longitude, windowFrom, windowTo)) {
                     continue;
                 }
 

@@ -37,6 +37,18 @@ class FlywayMigrationTest {
                 "V8 should keep the wider activity/status/responded index");
     }
 
+    @Test
+    void countryCodeMigrationsRunAndMatchTheEntities() {
+        assertTrue(columnExists("TRIPS", "COUNTRY_CODE"),
+                "V11 should add trips.country_code");
+        assertTrue(indexExists("IDX_TRIPS_COUNTRY_CODE"),
+                "V11 should index trips.country_code");
+        assertTrue(columnExists("LOCATION", "COUNTRY_CODE"),
+                "V12 should add location.country_code");
+        assertTrue(indexExists("IDX_LOCATION_COUNTRY_CODE"),
+                "V12 should index location.country_code");
+    }
+
     private boolean columnExists(String table, String column) {
         Integer count = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM information_schema.columns "

@@ -1,7 +1,5 @@
 package com.smu.cs203_g1_1.itinerary_planner.geo;
 
-import java.util.List;
-
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -71,7 +69,7 @@ public class GeoController {
             @Parameter(description = "Restrict results to the supplied viewbox")
             @RequestParam(value = "bounded", defaultValue = "false") boolean bounded,
 
-            @Parameter(description = "Optional trip ID; uses the trip's saved countries")
+            @Parameter(description = "Optional trip ID; uses the trip's saved country")
             @RequestParam(value = "tripId", required = false) String tripId,
 
             @AuthenticationPrincipal Jwt jwt) {
@@ -97,11 +95,7 @@ public class GeoController {
 
             Trip trip = tripService.getTripForMember(tripId, userId);
 
-            List<String> countries = trip.getCountries();
-
-            effectiveCountryCodes = countries.isEmpty()
-                ? null
-                : String.join(",", countries);
+            effectiveCountryCodes = trip.getCountryCode();
         }
 
         return new SearchResponse(

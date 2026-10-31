@@ -10,6 +10,8 @@ import java.time.ZonedDateTime;
 import java.util.List;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.smu.cs203_g1_1.itinerary_planner.config.region.RegionProfile;
+import com.smu.cs203_g1_1.itinerary_planner.config.region.RegionRegistry;
 import com.smu.cs203_g1_1.itinerary_planner.services.weather.NEAWeatherClient;
 import com.smu.cs203_g1_1.itinerary_planner.services.weather.TwoHourWeatherForecast;
 import com.smu.cs203_g1_1.itinerary_planner.services.weather.WeatherForecast;
@@ -64,36 +66,55 @@ public class NeaWeatherSource implements WeatherSource {
 
     private static final Logger log = LoggerFactory.getLogger(NeaWeatherSource.class);
 
-    private static final ZoneId SINGAPORE = ZoneId.of("Asia/Singapore");
     private static final String AREA_RESOURCE = "nea/area-centroids.json";
-
-    /** Singapore bounding box; points outside it are never evaluated. */
-    static final double MIN_LATITUDE = 1.15;
-    static final double MAX_LATITUDE = 1.48;
-    static final double MIN_LONGITUDE = 103.60;
-    static final double MAX_LONGITUDE = 104.10;
+    private static final String SG_REGION_CODE = "sg";
 
     private final NEAWeatherClient client;
     private final Clock clock;
     private final List<Area> areas;
+    private final RegionRegistry regionRegistry;
+    private final ZoneId zone;
 
     /**
      * Marks this constructor for injection: the class also has a package-private
      * constructor for tests, so Spring cannot infer which one to use.
      */
     @Autowired
-    public NeaWeatherSource(NEAWeatherClient client, Clock clock) {
-        this(client, loadAreas(), clock);
+    public NeaWeatherSource(NEAWeatherClient client, Clock clock,
+                            RegionRegistry regionRegistry) {
+        this(client, loadAreas(), clock, regionRegistry);
     }
 
-    NeaWeatherSource(NEAWeatherClient client, List<Area> areas, Clock clock) {
+    NeaWeatherSource(NEAWeatherClient client, List<Area> areas, Clock clock,
+                     RegionRegistry regionRegistry) {
         if (areas == null || areas.isEmpty()) {
             throw new IllegalArgumentException("At least one NEA area is required");
         }
+        if (regionRegistry == null) {
+            throw new IllegalArgumentException("RegionRegistry is required");
+        }
+
+        RegionProfile singapore = regionRegistry.byCode(SG_REGION_CODE)
+            .orElseThrow(() -> new IllegalStateException(
+                "Region 'sg' is required for the NEA weather source"));
 
         this.client = client;
         this.areas = List.copyOf(areas);
-        this.clock = clock == null ? Clock.system(SINGAPORE) : clock;
+        this.regionRegistry = regionRegistry;
+        this.zone = singapore.zone();
+        this.clock = clock == null ? Clock.system(zone) : clock;
+    }
+
+    @Override
+    public String id() {
+        return "nea";
+    }
+
+    @Override
+    public boolean covers(double latitude, double longitude) {
+        return regionRegistry.byPoint(latitude, longitude)
+            .map(region -> SG_REGION_CODE.equals(region.code()))
+            .orElse(false);
     }
 
     @Override
@@ -103,7 +124,7 @@ public class NeaWeatherSource implements WeatherSource {
             return false;
         }
 
-        if (!isInSingapore(latitude, longitude)) {
+        if (!covers(latitude, longitude)) {
             return false;
         }
 
@@ -153,8 +174,8 @@ public class NeaWeatherSource implements WeatherSource {
             return false;
         }
 
-        LocalDate first = from.withZoneSameInstant(SINGAPORE).toLocalDate();
-        LocalDate last = to.withZoneSameInstant(SINGAPORE).toLocalDate();
+        LocalDate first = from.withZoneSameInstant(zone).toLocalDate();
+        LocalDate last = to.withZoneSameInstant(zone).toLocalDate();
 
         for (LocalDate day = first; !day.isAfter(last); day = day.plusDays(1)) {
             LocalDate current = day;
@@ -183,15 +204,6 @@ public class NeaWeatherSource implements WeatherSource {
         OffsetDateTime end = windowEnd.toOffsetDateTime();
 
         return !end.isBefore(forecastStart) && !start.isAfter(forecastEnd);
-    }
-
-    static boolean isInSingapore(double latitude, double longitude) {
-        if (Double.isNaN(latitude) || Double.isNaN(longitude)) {
-            return false;
-        }
-
-        return latitude >= MIN_LATITUDE && latitude <= MAX_LATITUDE
-            && longitude >= MIN_LONGITUDE && longitude <= MAX_LONGITUDE;
     }
 
     Area nearestArea(double latitude, double longitude) {

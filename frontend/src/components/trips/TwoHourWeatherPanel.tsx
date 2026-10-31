@@ -1,12 +1,12 @@
-
 import { useAuth } from '@clerk/react'
 import { useEffect, useState } from 'react'
 import { getTwoHourWeatherForecast } from '../../lib/api'
+import { useTripCapabilities } from '../../lib/useTripCapabilities'
 import type { TwoHourWeatherForecast } from '../../types/trip'
 
-function formatSingaporeTime(value: string): string {
-  return new Intl.DateTimeFormat('en-SG', {
-    timeZone: 'Asia/Singapore',
+function formatTime(value: string, locale: string, zone: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: zone,
     hour: 'numeric',
     minute: '2-digit',
     day: 'numeric',
@@ -14,15 +14,40 @@ function formatSingaporeTime(value: string): string {
   }).format(new Date(value))
 }
 
-export function TwoHourWeatherPanel() {
+export function TwoHourWeatherPanel({
+  countryCode,
+}: {
+  countryCode: string
+}) {
   const { getToken } = useAuth()
+  const [token, setToken] = useState<string | null>(null)
 
   const [forecasts, setForecasts] =
     useState<TwoHourWeatherForecast[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const { region, hasNeaForecast, locale, timeZone } = useTripCapabilities(
+    token,
+    countryCode,
+  )
+  const regionName = region?.name ?? countryCode.toUpperCase()
+
   useEffect(() => {
+    let cancelled = false
+
+    void getToken().then((value) => {
+      if (!cancelled) setToken(value)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [getToken])
+
+  useEffect(() => {
+    if (!hasNeaForecast) return
+
     let cancelled = false
 
     async function loadForecast() {
@@ -51,7 +76,9 @@ export function TwoHourWeatherPanel() {
     return () => {
       cancelled = true
     }
-  }, [getToken])
+  }, [hasNeaForecast, getToken])
+
+  if (!hasNeaForecast) return null
 
   // Keep the most recent validity period for each area.
   const latestByArea = new Map<string, TwoHourWeatherForecast>()
@@ -84,7 +111,7 @@ export function TwoHourWeatherPanel() {
             Current weather outlook
           </h2>
           <p className="mt-1 text-sm text-muted">
-            Singapore · Two-hour forecast by area
+            {regionName} · Two-hour forecast by area
           </p>
         </div>
         <span aria-hidden="true" className="text-2xl">🌦️</span>
@@ -107,11 +134,11 @@ export function TwoHourWeatherPanel() {
           <p className="mt-4 text-sm text-muted">
             Forecast validity:
             {' '}
-            {formatSingaporeTime(latestForecasts[0].validFrom)}
+            {formatTime(latestForecasts[0].validFrom, locale, timeZone)}
             {' – '}
-            {formatSingaporeTime(latestForecasts[0].validUntil)}
+            {formatTime(latestForecasts[0].validUntil, locale, timeZone)}
             {' '}
-            (Singapore time)
+            ({regionName} time)
           </p>
 
           <ul className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">

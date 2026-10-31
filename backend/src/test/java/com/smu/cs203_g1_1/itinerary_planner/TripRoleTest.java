@@ -99,8 +99,7 @@ class TripRoleTest {
 
     @Test
     void createTrip_creatorBecomesOwnerMember() {
-        List<String> countries = List.of("sg");
-        Trip created = tripService.createTrip("New", LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 2), OWNER, countries);
+        Trip created = tripService.createTrip("New", LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 2), OWNER, "sg");
 
         assertTrue(created.isOwner(owner));
         assertEquals(TripRole.OWNER, created.findRole(OWNER).orElseThrow());
@@ -186,9 +185,8 @@ class TripRoleTest {
 
     @Test
     void owner_canUpdateAndDeleteTrip() {
-        List<String> countries = List.of("my");
         Trip updated = tripService.updateTrip(OWNER, TRIP_ID, "Renamed",
-                LocalDate.of(2026, 10, 2), LocalDate.of(2026, 10, 6), countries);
+                LocalDate.of(2026, 10, 2), LocalDate.of(2026, 10, 6), "my");
         assertEquals("Renamed", updated.getName());
 
         tripService.deleteTrip(OWNER, TRIP_ID);
@@ -215,13 +213,13 @@ class TripRoleTest {
                 "Japan Trip",
                 LocalDate.of(2026, 11, 1),
                 LocalDate.of(2026, 11, 7),
-                List.of("jp")
+                "jp"
         );
 
         assertEquals("Japan Trip", updated.getName());
         assertEquals(LocalDate.of(2026, 11, 1), updated.getStartDate());
         assertEquals(LocalDate.of(2026, 11, 7), updated.getEndDate());
-        assertEquals(List.of("jp"), updated.getCountries());
+        assertEquals("jp", updated.getCountryCode());
 
         assertStatus(
                 HttpStatus.FORBIDDEN,

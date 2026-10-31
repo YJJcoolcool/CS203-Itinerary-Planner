@@ -54,6 +54,7 @@ class PlaceSeederTest {
             assertTrue(location.isSeeded(), "location should be marked seeded: " + location.getId());
             assertNotNull(location.getCategoryGroup(),
                     "seeded location should have a category group: " + location.getId());
+            assertEquals("sg", location.getCountryCode());
         }
 
         List<PlaceScore> scores = placeScoreRepository.findAll();

@@ -55,8 +55,7 @@ class ActivityMembershipTest {
         owner = saveUser("OwnerUs1", "clerk-owner");
         outsider = saveUser("Outsidr1", "clerk-outsider");
 
-        List<String> countries = List.of("jp");
-        trip = tripService.createTrip("Japan", LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 5), owner.getId(), countries);
+        trip = tripService.createTrip("Japan", LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 5), owner.getId(), "jp");
         location = locationService.createLocation(new Location("Senso-ji", "Temple", 35.7148, 139.7967, false));
         activity = activityService.createActivity(owner.getId(), trip.getId(), newActivity("Visit Senso-ji"));
     }

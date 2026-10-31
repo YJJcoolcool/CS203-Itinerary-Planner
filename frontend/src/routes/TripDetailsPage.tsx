@@ -10,6 +10,7 @@ import { TripMembersPanel } from '../components/trips/TripMembersPanel'
 import { TripSettingsPanel } from '../components/trips/TripSettingsPanel'
 import { roleOf } from '../components/trips/tripUtils'
 import { WeatherForecastPanel } from '../components/trips/WeatherForecastPanel'
+import { WeatherOutlookPanel } from '../components/trips/WeatherOutlookPanel'
 import { useCurrentUser, useTrip } from '../lib/useTrips'
 import type { Trip } from '../types/trip'
 import { NotFoundPage } from './NotFoundPage'
@@ -137,12 +138,18 @@ function TripDetailsContent({ tripId }: { tripId: string }) {
             <WeatherForecastPanel
               startDate={displayedTrip.startDate}
               endDate={displayedTrip.endDate}
-              countries={displayedTrip.countries ?? []}
+              countryCode={displayedTrip.countryCode}
+            />
+
+            <WeatherOutlookPanel
+              tripId={displayedTrip.id}
+              countryCode={displayedTrip.countryCode}
             />
 
             <TripItinerary
               key={itineraryRefreshKey}
               tripId={displayedTrip.id}
+              countryCode={displayedTrip.countryCode}
               canEdit={canEdit}
               countries={displayedTrip.countries ?? []}
             />

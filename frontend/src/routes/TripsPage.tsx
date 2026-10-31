@@ -7,11 +7,57 @@ import { TripCard, TripCardSkeleton } from '../components/trips/TripCard'
 import { ApiError, deleteTrip } from '../lib/api'
 import { useCurrentUser, useTrips } from '../lib/useTrips'
 import { Link, useLocation, useNavigate } from 'react-router'
+import type { Trip } from '../types/trip'
 
 /** Sent by the trip settings panel when the owner deletes a trip (see handleDelete there). */
 interface DeletingTrip {
   id: string
   name: string
+}
+
+interface TripGroup {
+  key: string
+  label: string
+  trips: Trip[]
+}
+
+function groupTripsByMonth(trips: Trip[]): TripGroup[] {
+  const groups = new Map<string, Trip[]>()
+
+  for (const trip of trips) {
+    // Trip dates use YYYY-MM-DD, so the first seven characters
+    // identify the year and month.
+    const key = trip.startDate.slice(0, 7)
+
+    const existing = groups.get(key) ?? []
+    existing.push(trip)
+    groups.set(key, existing)
+  }
+
+  return Array.from(groups.entries())
+    .sort(([keyA], [keyB]) => keyB.localeCompare(keyA))
+    .map(([key, groupTrips]) => {
+      // Sort trips within each month, newest first.
+      groupTrips.sort((a, b) => {
+        const dateComparison = b.startDate.localeCompare(a.startDate)
+
+        // Use the trip name as a tie-breaker.
+        return dateComparison !== 0
+          ? dateComparison
+          : a.name.localeCompare(b.name)
+      })
+
+      const date = new Date(`${key}-01T00:00:00`)
+
+      return {
+        key,
+        label: new Intl.DateTimeFormat(undefined, {
+          month: 'long',
+          year: 'numeric',
+        }).format(date),
+        trips: groupTrips,
+      }
+    })
 }
 
 const FOCUS_RING =
@@ -164,6 +210,7 @@ export function TripsPage() {
   const startedDeleteRef = useRef<string | null>(null)
 
   const myTrips = allTrips.filter((trip) => !hiddenIds.includes(trip.id))
+  const tripGroups = groupTripsByMonth(myTrips)
   const deletingTrip = (location.state as { deletingTrip?: DeletingTrip } | null)?.deletingTrip
 
   /*
@@ -265,19 +312,31 @@ export function TripsPage() {
           ) : myTrips.length === 0 ? (
             <EmptyState onCreate={() => setIsCreateOpen(true)} />
           ) : (
-            <ul className="grid list-none gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {myTrips.map((trip) => (
-                <li key={trip.id}>
-                  <Link
-                    to={`/trips/${trip.id}`}
-                    className={`block h-full rounded-2xl ${FOCUS_RING}`}
-                    aria-label={`Open ${trip.name}`}
-                  >
-                    <TripCard trip={trip} />
-                  </Link>
-                </li>
+            <div className="space-y-10">
+              {tripGroups.map((group) => (
+                <section key={group.key}>
+                  <div className="mb-4 border-b border-border pb-3">
+                    <h2 className="font-display text-xl font-medium tracking-tight text-foreground">
+                      {group.label}
+                    </h2>
+                  </div>
+
+                  <ul className="grid list-none gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {group.trips.map((trip) => (
+                      <li key={trip.id}>
+                        <Link
+                          to={`/trips/${trip.id}`}
+                          className={`block h-full rounded-2xl ${FOCUS_RING}`}
+                          aria-label={`Open ${trip.name}`}
+                        >
+                          <TripCard trip={trip} />
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
               ))}
-            </ul>
+            </div>
           )}
         </div>
       </section>

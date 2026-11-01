@@ -47,28 +47,21 @@ function LandingContent() {
     <main className="relative flex min-h-screen flex-col bg-surface text-foreground">
       <Navbar />
 
-      <section className="relative flex flex-1 items-center justify-center overflow-hidden px-6 py-20">
-        {/* Ambient depth — soft accent glow, purely decorative. */}
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute -top-24 left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-accent/10 blur-[130px]" />
-        </div>
-
-        <div className="animate-rise relative mx-auto flex w-full max-w-3xl flex-col items-center text-center">
-          <span className="inline-flex items-center gap-2 font-mono text-[11px] tracking-[0.28em] text-faint uppercase">
-            <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
-            Collaborative itinerary planner
-          </span>
-
+      <section className="relative flex flex-1 items-center justify-center overflow-hidden bg-[url('/images/background.png')] dark:bg-[url('/images/background-dark.png')] bg-cover bg-center bg-no-repeat px-6 py-20">
+        <div className="animate-rise relative mx-auto flex w-full max-w-3xl flex-col items-center text-center p-8 bg-white/90 dark:bg-accent-contrast/90 rounded-xl shadow-2xl">
           <h1 className="mt-5 font-display text-5xl font-medium tracking-tight text-foreground sm:text-6xl">
             Agile Trips
           </h1>
 
           <p className="mt-6 max-w-2xl text-lg leading-8 text-muted">
-            Plan your trips, organise your itinerary, and adapt your plans
-            when things change.
+            Plan your trips with others, organise your itinerary, and adapt when things change.
           </p>
 
           <HomepageAuthActions />
+
+          <p className="mt-6 max-w-2xl text-xs leading-8 text-muted">
+            A project as part of SMU's CS203 Human-AI Collaborative Software Development course.
+          </p>
         </div>
       </section>
     </main>

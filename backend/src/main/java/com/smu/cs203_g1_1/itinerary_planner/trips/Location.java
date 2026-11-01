@@ -5,12 +5,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 import org.hibernate.type.SqlTypes;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToMany;
@@ -89,6 +92,17 @@ public class Location {
     /** True when the row came from the curated seed set. */
     @Column(name = "seeded", nullable = false)
     private boolean seeded = false;
+
+    /**
+     * The trip a manually entered place belongs to (CGT-142). Only that trip's
+     * members can see or use it, and it is deleted with the trip. Null for
+     * shared places (seeded or OpenStreetMap).
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "trip_id")
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    @JsonIgnore
+    private Trip trip;
 
     @ManyToOne
     @JoinColumn(name = "parent_location_id")
@@ -277,6 +291,19 @@ public class Location {
 
     public void setSeeded(boolean seeded) {
         this.seeded = seeded;
+    }
+
+    public Trip getTrip() {
+        return trip;
+    }
+
+    public void setTrip(Trip trip) {
+        this.trip = trip;
+    }
+
+    /** True for a place a user typed in themselves: not seeded and not from OpenStreetMap. */
+    public boolean isManual() {
+        return !seeded && osmId == null;
     }
 
     // Utility methods

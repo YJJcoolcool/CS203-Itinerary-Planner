@@ -139,7 +139,7 @@ public class ActivityService {
                 activity.getEndDateTime());
 
         List<Location> locations
-                = resolveLocations(activity.getLocations());
+                = resolveLocations(tripId, activity.getLocations());
 
         activity.setLocations(locations);
 
@@ -221,6 +221,7 @@ public class ActivityService {
 
         List<Location> locations
                 = resolveLocations(
+                        tripId,
                         updatedActivity.getLocations());
 
         activity.setName(
@@ -277,9 +278,10 @@ public class ActivityService {
     /*
      * Takes the Location objects supplied in the incoming Activity,
      * extracts their IDs, and retrieves the actual persisted
-     * Location objects.
+     * Location objects. A place private to another trip is rejected (CGT-142).
      */
     private List<Location> resolveLocations(
+            String tripId,
             List<Location> requestedLocations) {
 
         if (requestedLocations == null
@@ -306,6 +308,7 @@ public class ActivityService {
             }
 
             Location resolvedLocation = locationService.getLocationById(location.getId());
+            locationService.requireUsableInTrip(resolvedLocation, tripId);
 
             resolvedLocations.add(resolvedLocation);
         }

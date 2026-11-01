@@ -7,6 +7,7 @@ import { useCreateActivity } from '../../lib/useTrips'
 import { LocationSearch } from '../locations/LocationSearch'
 import type { Activity, GeoPlace, Location } from '../../types/trip'
 import ManualLocationModal from '../locations/ManualLocationModal'
+import { LocationOrderList } from './LocationOrderList'
 
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface'
@@ -107,6 +108,23 @@ export function CreateActivityModal({
     return locations.some(
       (location) => location.osmType === place.osmType && location.osmId === place.osmId,
     )
+  }
+
+  /** The ticked places in visit order, which is the order they are saved in (CGT-152). */
+  const orderedLocations = selectedLocationIds
+    .map((id) => locations.find((location) => location.id === id))
+    .filter((location): location is Location => location !== undefined)
+
+  /** Moves a ticked place from one position in the visit order to another. */
+  function moveLocation(from: number, to: number) {
+    if (to < 0 || to >= selectedLocationIds.length) return
+
+    setSelectedLocationIds((current) => {
+      const next = [...current]
+      const [moved] = next.splice(from, 1)
+      next.splice(to, 0, moved)
+      return next
+    })
   }
 
   function validate(): FieldErrors {
@@ -306,6 +324,15 @@ export function CreateActivityModal({
                   </li>
                 ))}
               </ul>
+            )}
+
+            {/* Order only matters once there are two or more places to visit. */}
+            {orderedLocations.length > 1 && (
+              <LocationOrderList
+                locations={orderedLocations}
+                onMove={moveLocation}
+                disabled={isBusy}
+              />
             )}
 
             {errors.locations && (

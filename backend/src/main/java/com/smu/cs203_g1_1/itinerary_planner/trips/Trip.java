@@ -9,7 +9,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
-import java.util.Set;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -48,6 +47,10 @@ public class Trip {
     /** One trip has exactly one country; Singapore is the default. */
     @Column(name = "country_code", nullable = false, length = 2)
     private String countryCode = "sg";
+
+    // Cover image for My Trips page
+    @Column(name = "cover_image_url", length = 2048)
+    private String coverImageUrl;
 
     /*
      * Many trips belong to one User (the owner).
@@ -144,6 +147,14 @@ public class Trip {
 
     public void setEndDate(LocalDate endDate) {
         this.endDate = endDate;
+    }
+
+    public String getCoverImageUrl() {
+        return coverImageUrl;
+    }
+
+    public void setCoverImageUrl(String coverImageUrl) {
+        this.coverImageUrl = coverImageUrl;
     }
 
     public User getOwner() {

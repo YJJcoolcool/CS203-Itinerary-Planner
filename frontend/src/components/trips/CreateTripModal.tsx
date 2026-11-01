@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useCreateTrip } from '../../lib/useTrips'
 import { CountrySelect } from './CountrySelect'
+import { TripCoverImagePicker } from './TripCoverImagePicker'
 
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface'
@@ -39,6 +40,7 @@ export function CreateTripModal({
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [countryCode, setCountryCode] = useState('sg')
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null)
   const [errors, setErrors] = useState<FieldErrors>({})
   const nameRef = useRef<HTMLInputElement>(null)
   const titleId = useId()
@@ -92,6 +94,7 @@ export function CreateTripModal({
         startDate,
         endDate,
         countryCode: countryCode.trim().toLowerCase(),
+        coverImageUrl,
       })
       onCreated()
       onClose()
@@ -111,7 +114,7 @@ export function CreateTripModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="animate-rise w-full max-w-md rounded-2xl border border-border bg-surface-raised p-6 shadow-2xl"
+        className="animate-rise w-full max-w-2xl rounded-2xl border border-border bg-surface-raised p-6 shadow-2xl"
       >
         <h2
           id={titleId}
@@ -210,6 +213,12 @@ export function CreateTripModal({
               </p>
             )}
           </div>
+
+          <TripCoverImagePicker
+            value={coverImageUrl}
+            onChange={setCoverImageUrl}
+            disabled={isCreating}
+          />
 
           {errors.form && (
             <p

@@ -8,6 +8,10 @@ import {
   initials,
   uniqueMembers,
 } from './tripUtils'
+import {
+  DEFAULT_COVER_IMAGE,
+  BROKEN_URL_IMAGE,
+} from './tripCoverImages'
 
 const PILL =
   'inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-subtle px-3 py-1 font-mono text-xs text-muted'
@@ -34,8 +38,20 @@ export function TripDetailsCard({
   const countryName = getName(trip.countryCode.toUpperCase())
 
   return (
-    <section className="animate-rise rounded-2xl border border-border bg-surface-raised p-6">
-      <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
+    <section className="animate-rise rounded-2xl border border-border bg-surface-raised overflow-hidden">
+      <div className="relative">
+        <img
+          src={trip.coverImageUrl || DEFAULT_COVER_IMAGE}
+          alt={`${trip.name} cover`}
+          onError={(event) => {
+            event.currentTarget.onerror = null
+            event.currentTarget.src = BROKEN_URL_IMAGE
+          }}
+          className="h-32 w-full object-cover sm:h-64"
+        />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white to-transparent dark:from-slate-900" />
+      </div>
+      <div className="flex flex-col items-start justify-between p-6 gap-6 md:flex-row md:items-center">
         <div>
           <h1 className="font-display text-3xl font-medium tracking-tight text-foreground sm:text-4xl">
             {trip.name}

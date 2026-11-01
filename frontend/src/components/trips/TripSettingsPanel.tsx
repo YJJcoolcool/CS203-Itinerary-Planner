@@ -13,6 +13,7 @@ import type { TripRole } from '../../types/invitation'
 import type { Trip } from '../../types/trip'
 import { CountrySelect } from './CountrySelect'
 import { DeleteTripDialog } from './DeleteTripDialog'
+import { TripCoverImagePicker } from './TripCoverImagePicker'
 
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface'
@@ -257,6 +258,7 @@ export function TripSettingsPanel({
   const [startDate, setStartDate] = useState(trip.startDate)
   const [endDate, setEndDate] = useState(trip.endDate)
   const [countryCode, setCountryCode] = useState(trip.countryCode)
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(trip.coverImageUrl ?? null)
 
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -275,7 +277,8 @@ export function TripSettingsPanel({
     name.trim() !== trip.name ||
     startDate !== trip.startDate ||
     endDate !== trip.endDate ||
-    countryCodeChanged
+    countryCodeChanged ||
+    coverImageUrl !== (trip.coverImageUrl ?? null)
 
   useEffect(() => {
     headingRef.current?.focus()
@@ -324,6 +327,7 @@ export function TripSettingsPanel({
         startDate,
         endDate,
         countryCode: normalizedCountryCode,
+        coverImageUrl,
       })
 
       onUpdated(updated)
@@ -351,7 +355,7 @@ export function TripSettingsPanel({
 
   const panel = (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-3 backdrop-blur-sm sm:p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 backdrop-blur-sm sm:p-6"
       onMouseDown={(event) => {
         if (
           event.target === event.currentTarget &&
@@ -481,6 +485,16 @@ export function TripSettingsPanel({
                     setSaveSuccess(false)
                     setSaveError(null)
                   }}
+                />
+
+                <TripCoverImagePicker
+                  value={coverImageUrl}
+                  onChange={(next) => {
+                    setCoverImageUrl(next)
+                    setSaveSuccess(false)
+                    setSaveError(null)
+                  }}
+                  disabled={isSaving}
                 />
               </div>
 

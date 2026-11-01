@@ -1,7 +1,10 @@
 package com.smu.cs203_g1_1.itinerary_planner.trips;
 
+import java.net.URI;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,6 +21,8 @@ import com.smu.cs203_g1_1.itinerary_planner.util.ID;
 public class TripService {
 
     private static final Logger log = LoggerFactory.getLogger(TripService.class);
+    private static final int MAX_COVER_URL_LENGTH = 2048;
+    private static final Set<String> ALLOWED_IMAGE_EXTENSIONS = Set.of(".jpg", ".jpeg", ".png", ".webp");
 
     private final TripRepository tripRepository;
     private final UserRepository userRepository;
@@ -74,7 +79,8 @@ public class TripService {
             LocalDate startDate,
             LocalDate endDate,
             String ownerId,
-            String country) {
+            String country,
+            String coverImageUrl) {
 
         validateDates(startDate, endDate);
 
@@ -85,7 +91,8 @@ public class TripService {
         Trip trip = new Trip(name, startDate, endDate, owner);
         trip.setId(id);
         trip.setCountryCode(country == null || country.isBlank() ? "sg" : country);
-
+        trip.setCoverImageUrl(validateCoverImageUrl(coverImageUrl));
+        
         // The owner is also a member of the trip.
         trip.addMember(owner);
 
@@ -93,6 +100,18 @@ public class TripService {
         log.info("Created trip id={} (ownerId={})", saved.getId(), ownerId);
 
         return saved;
+    }
+
+    // If coverImageUrl is not provided, default to null
+    @Transactional
+    public Trip createTrip(
+            String name,
+            LocalDate startDate,
+            LocalDate endDate,
+            String ownerId,
+            String country) {
+
+        return createTrip(name, startDate, endDate, ownerId, country, null);
     }
 
     // Owner & Editor
@@ -103,7 +122,8 @@ public class TripService {
             String name,
             LocalDate startDate,
             LocalDate endDate,
-            String country) {
+            String country,
+            String coverImageUrl) {
 
         validateDates(startDate, endDate);
 
@@ -113,6 +133,7 @@ public class TripService {
         trip.setName(name);
         trip.setStartDate(startDate);
         trip.setEndDate(endDate);
+        trip.setCoverImageUrl(validateCoverImageUrl(coverImageUrl));
 
         // Omitted/null means "leave the country unchanged".
         if (country != null) {
@@ -129,6 +150,20 @@ public class TripService {
         Trip saved = tripRepository.save(trip);
         log.info("Updated trip id={}", tripId);
         return saved;
+    }
+
+    // If coverImageUrl is not provided, default to null
+    @Transactional
+    public Trip updateTrip(
+            String userId,
+            String tripId,
+            String name,
+            LocalDate startDate,
+            LocalDate endDate,
+            String country) {
+
+        return updateTrip(
+                userId, tripId, name, startDate, endDate, country, null);
     }
 
     // OWNER only
@@ -227,6 +262,68 @@ public class TripService {
 
             log.warn("Rejected trip: endDate {} is before startDate {}", endDate, startDate);
             throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "Trip end date cannot be before start date");
+        }
+    }
+
+    private String validateCoverImageUrl(String url) {
+        if (url == null || url.isBlank()) {
+            return null;
+        }
+
+        String trimmed = url.trim();
+
+        if (trimmed.length() > MAX_COVER_URL_LENGTH) {
+            throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "Cover image URL must not exceed 2048 characters"
+            );
+        }
+
+        try {
+            URI uri = URI.create(trimmed);
+            String path;
+
+            if (trimmed.startsWith("/")) {
+                // Only allow our own predefined trip cover assets.
+                if (!trimmed.startsWith("/images/trip_covers/")
+                        || trimmed.startsWith("//")
+                        || uri.getQuery() != null
+                        || uri.getFragment() != null) {
+                    throw new IllegalArgumentException();
+                }
+
+                path = uri.getPath();
+            } else {
+                // External custom image URLs must use HTTPS.
+                if (!"https".equalsIgnoreCase(uri.getScheme())
+                        || uri.getHost() == null
+                        || uri.getUserInfo() != null) {
+                    throw new IllegalArgumentException();
+                }
+
+                path = uri.getPath();
+            }
+
+            if (path == null || path.isBlank()) {
+                throw new IllegalArgumentException();
+            }
+
+            String lowerPath = path.toLowerCase(Locale.ROOT);
+
+            boolean validExtension = ALLOWED_IMAGE_EXTENSIONS.stream()
+                    .anyMatch(lowerPath::endsWith);
+
+            if (!validExtension) {
+                throw new IllegalArgumentException();
+            }
+
+            return trimmed;
+
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "Cover image must be a valid local trip cover path or an HTTPS URL ending in .jpg, .jpeg, .png, or .webp"
+            );
         }
     }
 }

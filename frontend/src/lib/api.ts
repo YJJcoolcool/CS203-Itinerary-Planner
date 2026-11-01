@@ -192,6 +192,7 @@ export function updateTrip(
     startDate: string
     endDate: string
     countryCode: string
+    coverImageUrl: string | null
   },
 ): Promise<Trip> {
   return request<Trip>(`/api/trips/${tripId}`, {

@@ -55,7 +55,7 @@ class TripControllerTest {
 
         controller.createTrip(
                 jwt,
-                new TripRequest("Singapore Trip", START, END, country)
+                new TripRequest("Singapore Trip", START, END, country, null)
         );
 
         verify(tripService).createTrip(
@@ -63,7 +63,8 @@ class TripControllerTest {
                 START,
                 END,
                 "OwnerUs1",
-                country
+                country,
+                null
         );
     }
 
@@ -100,7 +101,8 @@ class TripControllerTest {
                         "Japan",
                         START,
                         END,
-                        country
+                        country,
+                        null
                 )
         );
 
@@ -110,7 +112,8 @@ class TripControllerTest {
                 "Japan",
                 START,
                 END,
-                country
+                country,
+                null
         );
     }
 }

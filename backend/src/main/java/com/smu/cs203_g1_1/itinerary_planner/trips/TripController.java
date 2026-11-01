@@ -34,14 +34,16 @@ public class TripController {
         String name,
         LocalDate startDate,
         LocalDate endDate,
-        String countryCode
+        String countryCode,
+        String coverImageUrl
     ) {}
 
     public record TripUpdateRequest(
         String name,
         LocalDate startDate,
         LocalDate endDate,
-        String countryCode
+        String countryCode,
+        String coverImageUrl
     ) {}
 
     // role is optional when adding a member (defaults to VIEWER)
@@ -58,7 +60,8 @@ public class TripController {
             request.startDate(),
             request.endDate(),
             userService.getCurrentUserId(jwt),
-            request.countryCode()
+            request.countryCode(),
+            request.coverImageUrl()
         );
     }
 
@@ -86,7 +89,8 @@ public class TripController {
             request.name(),
             request.startDate(),
             request.endDate(),
-            request.countryCode()
+            request.countryCode(),
+            request.coverImageUrl()
         );
     }
 

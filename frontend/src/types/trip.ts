@@ -52,6 +52,8 @@ export interface Trip {
   endDate: string
   /** Lowercase ISO 3166-1 alpha-2 country code, e.g. `"sg"`. */
   countryCode: string
+  /** Custom or predefined cover image URL. Null uses the default cover. */
+  coverImageUrl: string | null
   owner: User
   users: User[]
   /** User id -> role. A member missing from this map is a VIEWER (see `roleOf`). */
@@ -65,6 +67,7 @@ export interface CreateTripInput {
   startDate: string
   endDate: string
   countryCode: string
+  coverImageUrl: string | null
 }
 
 /** Client-supplied fields for creating an activity. */

@@ -2,6 +2,8 @@
 @import 'tailwindcss';
 @import 'leaflet/dist/leaflet.css';
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 /*
  * Design tokens — dark editorial travel journal (FRONTEND_PAGES.md §2).
  *

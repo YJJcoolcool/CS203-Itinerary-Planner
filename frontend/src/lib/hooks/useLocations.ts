@@ -57,19 +57,20 @@ function useUnconfiguredImportLocation(): UseImportLocationResult {
 }
 
 
-function useConfiguredCreateLocation(): UseCreateLocationResult {
+/** Creates a manual place private to `tripId` (CGT-142). */
+function useConfiguredCreateLocation(tripId: string): UseCreateLocationResult {
  const { getToken } = useAuth()
  const [isCreating, setIsCreating] = useState(false)
  const [error, setError] = useState<string | null>(null)
  const create = useCallback(async (input: CreateLocationInput): Promise<Location> => {
   setIsCreating(true); setError(null)
-  try { const token = await getToken(); if (!token) throw new ApiError(401, NO_SESSION_MESSAGE); return await createLocationRequest(token, input) }
+  try { const token = await getToken(); if (!token) throw new ApiError(401, NO_SESSION_MESSAGE); return await createLocationRequest(token, tripId, input) }
   catch (cause) { setError(describeError(cause)); throw cause instanceof Error ? cause : new Error(describeError(cause)) }
   finally { setIsCreating(false) }
- }, [getToken])
+ }, [getToken, tripId])
  return { createLocation: create, isCreating, error }
 }
 function rejectLocationWithNotConfigured(): Promise<Location> { return Promise.reject(new ApiError(0, NOT_CONFIGURED_MESSAGE)) }
 function useUnconfiguredCreateLocation(): UseCreateLocationResult { return { createLocation: rejectLocationWithNotConfigured, isCreating: false, error: NOT_CONFIGURED_MESSAGE } }
 export const useImportLocationFromOsm: () => UseImportLocationResult = CLERK_CONFIGURED ? useConfiguredImportLocation : useUnconfiguredImportLocation
-export const useCreateLocation: () => UseCreateLocationResult = CLERK_CONFIGURED ? useConfiguredCreateLocation : useUnconfiguredCreateLocation
+export const useCreateLocation: (tripId: string) => UseCreateLocationResult = CLERK_CONFIGURED ? useConfiguredCreateLocation : useUnconfiguredCreateLocation

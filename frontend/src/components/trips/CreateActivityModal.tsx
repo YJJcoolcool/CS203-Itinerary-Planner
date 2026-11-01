@@ -273,6 +273,7 @@ export function CreateActivityModal({
 
               {isManualLocationOpen && (
                 <ManualLocationModal
+                  tripId={tripId}
                   onClose={() => setIsManualLocationOpen(false)}
                   onCreated={(location) => {
                     handleLocationAdded(location)

@@ -320,6 +320,7 @@ export function LocationSearch({
 
                 {isManualLocationOpen && (
                   <ManualLocationModal
+                    tripId={tripId}
                     onClose={() => setIsManualLocationOpen(false)}
                     onCreated={(location) => {
                       onAdded(location)

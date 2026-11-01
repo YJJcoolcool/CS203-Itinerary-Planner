@@ -398,20 +398,26 @@ export function importLocationFromOsm(
   })
 }
 
+/** Indoor/outdoor choice for a manual place; null means "not sure" (CGT-141). */
+export type ManualIndoorClass = 'INDOOR' | 'OUTDOOR' | null
+
 export interface CreateLocationInput {
   name: string
   latitude: number
   longitude: number
+  indoorClass: ManualIndoorClass
 }
 
 /**
- * For manual entry of Locations
+ * For manual entry of Locations. The place is private to `tripId`: only that
+ * trip's members can see or use it (CGT-142). Editor or owner only.
  */
 export function createLocation(
   token: string | null,
+  tripId: string,
   input: CreateLocationInput,
 ): Promise<Location> {
-  return request<Location>('/api/locations', {
+  return request<Location>(`/api/trips/${tripId}/locations`, {
     method: 'POST',
     body: input,
     token,

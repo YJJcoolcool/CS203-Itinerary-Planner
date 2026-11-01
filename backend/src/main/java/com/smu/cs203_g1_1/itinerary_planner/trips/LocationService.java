@@ -1,12 +1,16 @@
 package com.smu.cs203_g1_1.itinerary_planner.trips;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.smu.cs203_g1_1.itinerary_planner.geo.GeoNotFoundException;
 import com.smu.cs203_g1_1.itinerary_planner.geo.GeoService;
@@ -22,21 +26,91 @@ import com.smu.cs203_g1_1.itinerary_planner.util.ID;
 public class LocationService {
     private static final Logger log = LoggerFactory.getLogger(LocationService.class);
 
+    /** What a user may pick for a manual place (CGT-141); "not sure" is sent as null. */
+    private static final Set<String> MANUAL_INDOOR_CLASSES = Set.of("INDOOR", "OUTDOOR");
+
     private final LocationRepository locationRepository;
     private final GeoService geoService;
+    private final TripService tripService;
     private final IndoorClassifier indoorClassifier = new IndoorClassifier();
 
     /**
      * @param locationRepository persistence for stored locations
      * @param geoService         hydrates new locations from OSM when a row is not already stored
+     * @param tripService        trip membership and role checks for trip-private places
      */
-    public LocationService(LocationRepository locationRepository, GeoService geoService) {
+    public LocationService(LocationRepository locationRepository, GeoService geoService, TripService tripService) {
         this.locationRepository = locationRepository;
         this.geoService = geoService;
+        this.tripService = tripService;
     }
 
-    public List<Location> getAllLocations() {
-        return locationRepository.findAll();
+    /** Shared places only (seeded or OpenStreetMap); trip-private places never appear here. */
+    public List<Location> getSharedLocations() {
+        return locationRepository.findTrusted();
+    }
+
+    /**
+     * Returns a location the user may see (CGT-142): a shared place, or a place
+     * private to a trip they are a member of (403 otherwise). Old manual places
+     * that belong to no trip are hidden (404).
+     */
+    @Transactional(readOnly = true)
+    public Location getVisibleLocation(String id, String userId) {
+        Location location = getLocationById(id);
+
+        if (location.getTrip() != null) {
+            tripService.getTripForMember(location.getTrip().getId(), userId);
+        } else if (location.isManual()) {
+            log.warn("Hidden unowned manual location requested: id={}", id);
+            throw new LocationNotFoundException(id);
+        }
+
+        return location;
+    }
+
+    /**
+     * Creates a place the user typed in, private to {@code tripId} (CGT-142).
+     * Requires EDITOR or above on that trip. The optional indoor/outdoor choice
+     * (CGT-141) lets rain checks treat the place like any classified one.
+     */
+    @Transactional
+    public Location createManualLocation(String tripId, String userId, ManualLocationRequest request) {
+        Trip trip = tripService.requireTripRole(tripId, userId, TripRole.EDITOR);
+        String indoorClass = manualIndoorClass(request.indoorClass());
+
+        Location location = new Location(
+                request.name() == null ? null : request.name().trim(),
+                trimToNull(request.category()),
+                request.latitude(),
+                request.longitude(),
+                legacyIndoorFlag(indoorClass));
+        location.setTrip(trip);
+        location.setCountryCode(trip.getCountryCode());
+
+        if (indoorClass != null) {
+            location.setIndoorClass(indoorClass);
+            location.setIndoorSource("MANUAL");
+            location.setIndoorConfidence(1.0);
+        }
+
+        Location saved = createLocation(location);
+        log.info("Created manual location id={} for trip id={} (indoor={})", saved.getId(), tripId, indoorClass);
+        return saved;
+    }
+
+    /** INDOOR or OUTDOOR, or null for blank/"not sure"; anything else is a 400. */
+    private static String manualIndoorClass(String value) {
+        String trimmed = trimToNull(value);
+        if (trimmed == null) {
+            return null;
+        }
+
+        String upper = trimmed.toUpperCase(Locale.ROOT);
+        if (!MANUAL_INDOOR_CLASSES.contains(upper)) {
+            throw new IllegalArgumentException("indoorClass must be INDOOR, OUTDOOR, or empty");
+        }
+        return upper;
     }
 
     public Location getLocationById(String id) {
@@ -174,14 +248,38 @@ public class LocationService {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
-    public boolean deleteLocation(String id) {
-        if (locationRepository.existsById(id)) {
-            locationRepository.deleteById(id);
-            log.info("Deleted location id={}", id);
-            return true;
+    /**
+     * Deletes a trip-private place (CGT-142). Requires EDITOR or above on its
+     * trip. Shared places (and old unowned manual ones) can't be deleted, since
+     * other trips may rely on them; a place still used by an activity is a 409.
+     */
+    @Transactional
+    public void deleteLocation(String id, String userId) {
+        Location location = getLocationById(id);
+
+        if (location.getTrip() == null) {
+            log.warn("Rejected delete of shared location id={} by user id={}", id, userId);
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Only places added to a trip can be deleted");
         }
 
-        log.warn("Location not found for deletion: id={}", id);
-        return false;
+        tripService.requireTripRole(location.getTrip().getId(), userId, TripRole.EDITOR);
+
+        if (!location.getActivities().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "This place is still used by an activity; remove it from the activity first");
+        }
+
+        locationRepository.delete(location);
+        log.info("Deleted location id={}", id);
+    }
+
+    /** CGT-142: a trip-private place can only be used in its own trip's activities. */
+    public void requireUsableInTrip(Location location, String tripId) {
+        if (location.getTrip() != null && !location.getTrip().getId().equals(tripId)) {
+            log.warn("Rejected use of location id={} from another trip in trip id={}", location.getId(), tripId);
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "That place belongs to another trip");
+        }
     }
 }

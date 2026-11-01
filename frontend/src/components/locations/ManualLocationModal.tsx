@@ -11,10 +11,19 @@ import { divIcon, type LatLng } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
 import type { Location } from '../../types/trip'
-import type { RegionTiles } from '../../lib/api'
+import type { ManualIndoorClass, RegionTiles } from '../../lib/api'
 import { useCreateLocation } from '../../lib/useTrips'
 
+/** The three choices for CGT-141; "Not sure" sends null so rain checks skip the place. */
+const INDOOR_OPTIONS: { value: ManualIndoorClass; label: string }[] = [
+  { value: 'OUTDOOR', label: 'Outdoor' },
+  { value: 'INDOOR', label: 'Indoor' },
+  { value: null, label: 'Not sure' },
+]
+
 interface ManualLocationModalProps {
+  /** The trip the new place belongs to; only its members can see it (CGT-142). */
+  tripId: string
   onClose: () => void
   onCreated: (location: Location) => void
   tiles?: RegionTiles
@@ -70,6 +79,7 @@ function MapClickHandler({
 }
 
 export default function ManualLocationModal({
+  tripId,
   onClose,
   onCreated,
   tiles,
@@ -88,8 +98,9 @@ export default function ManualLocationModal({
   const [validationError, setValidationError] = useState<string | null>(
     null,
   )
+  const [indoorClass, setIndoorClass] = useState<ManualIndoorClass>(null)
 
-  const { createLocation, isCreating, error } = useCreateLocation()
+  const { createLocation, isCreating, error } = useCreateLocation(tripId)
 
   function updateCoordinates(next: Coordinates) {
     setCoordinates(next)
@@ -183,6 +194,7 @@ export default function ManualLocationModal({
         name: name.trim(),
         latitude: Number(latitudeInput),
         longitude: Number(longitudeInput),
+        indoorClass,
       })
 
       onCreated(location)
@@ -260,6 +272,41 @@ export default function ManualLocationModal({
                 className="w-full rounded-md border border-border bg-surface-subtle px-3 py-2 text-sm text-foreground outline-none placeholder:text-faint focus:border-accent focus:ring-2 focus:ring-accent/20"
               />
             </div>
+
+            <fieldset className="space-y-1.5">
+              <legend className="block text-sm font-medium text-foreground">
+                Indoor or outdoor?
+              </legend>
+              <div
+                role="radiogroup"
+                aria-label="Indoor or outdoor"
+                className="inline-flex rounded-md border border-border bg-surface-subtle p-1"
+              >
+                {INDOOR_OPTIONS.map((option) => {
+                  const isSelected = indoorClass === option.value
+                  return (
+                    <button
+                      key={option.label}
+                      type="button"
+                      role="radio"
+                      aria-checked={isSelected}
+                      onClick={() => setIndoorClass(option.value)}
+                      disabled={isCreating}
+                      className={`rounded px-3 py-1.5 text-sm transition-colors disabled:opacity-50 ${
+                        isSelected
+                          ? 'bg-accent text-accent-contrast'
+                          : 'text-muted hover:text-foreground'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="text-xs text-muted">
+                Outdoor places get a rain warning and an indoor alternative when bad weather is forecast.
+              </p>
+            </fieldset>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">

@@ -44,11 +44,20 @@ function LocationList({
     return <p className="text-xs text-faint italic">No locations added yet.</p>
   }
 
+  // With several places, number them so the visit order is visible (CGT-145).
+  const showOrder = locations.length > 1
+
   return (
-    <ul className="flex flex-col gap-1">
-      {locations.map((location) => (
+    <ol className="flex flex-col gap-1">
+      {locations.map((location, index) => (
         <li key={location.id} className="flex flex-wrap items-center gap-2 text-sm text-muted">
-          <span aria-hidden="true">📍</span>
+          {showOrder ? (
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent/15 font-mono text-[11px] text-accent">
+              {index + 1}
+            </span>
+          ) : (
+            <span aria-hidden="true">📍</span>
+          )}
           <span className="text-foreground">{location.name}</span>
           {location.category && <span className={PILL}>{location.category}</span>}
           {location.isIndoor !== null && (
@@ -56,7 +65,7 @@ function LocationList({
           )}
         </li>
       ))}
-    </ul>
+    </ol>
   )
 }
 

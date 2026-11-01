@@ -26,6 +26,8 @@ import com.smu.cs203_g1_1.itinerary_planner.trips.TripService;
 import com.smu.cs203_g1_1.itinerary_planner.user.User;
 import com.smu.cs203_g1_1.itinerary_planner.user.UserRepository;
 
+import jakarta.persistence.EntityManager;
+
 // editing an activity's name, times and locations through PUT.
 @DataJpaTest
 @Import({ActivityService.class, TripService.class, LocationService.class})
@@ -47,6 +49,9 @@ class ActivityUpdateTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private EntityManager entityManager;
 
     private User owner;
     private Trip trip;
@@ -124,6 +129,41 @@ class ActivityUpdateTest {
 
         assertStatus(HttpStatus.NOT_FOUND,
                 () -> activityService.updateActivity(owner.getId(), otherTrip.getId(), activity.getId(), changes));
+    }
+
+    // ----- CGT-151: the order of locations is the order of visits -----
+
+    @Test
+    void create_savesLocationsInTheOrderSent() {
+        Activity created = activityService.createActivity(owner.getId(), trip.getId(),
+                new Activity("Asakusa loop", List.of(ueno, sensoji, skytree), START, START.plusHours(4), "PLANNED"));
+        flushAndClear();
+
+        assertEquals(List.of("Ueno Park", "Senso-ji", "Skytree"), savedLocationNames(created.getId()));
+    }
+
+    @Test
+    void update_reorderingTheSameLocationsIsSaved() {
+        Activity created = activityService.createActivity(owner.getId(), trip.getId(),
+                new Activity("Asakusa loop", List.of(sensoji, skytree, ueno), START, START.plusHours(4), "PLANNED"));
+        flushAndClear();
+
+        Activity reordered = new Activity("Asakusa loop", List.of(ueno, sensoji, skytree), START, START.plusHours(4), null);
+        activityService.updateActivity(owner.getId(), trip.getId(), created.getId(), reordered);
+        flushAndClear();
+
+        assertEquals(List.of("Ueno Park", "Senso-ji", "Skytree"), savedLocationNames(created.getId()));
+    }
+
+    /** Reads the order back from the database, not from Hibernate's in-memory copy. */
+    private List<String> savedLocationNames(String activityId) {
+        return activityService.getActivityLocations(owner.getId(), trip.getId(), activityId)
+                .stream().map(Location::getName).toList();
+    }
+
+    private void flushAndClear() {
+        entityManager.flush();
+        entityManager.clear();
     }
 
     private void assertStatus(HttpStatus expected, org.junit.jupiter.api.function.Executable call) {

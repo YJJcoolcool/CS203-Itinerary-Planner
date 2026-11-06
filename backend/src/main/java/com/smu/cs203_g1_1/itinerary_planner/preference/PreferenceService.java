@@ -137,6 +137,42 @@ public class PreferenceService {
         return tripPreferences.save(preference);
     }
 
+    @Transactional
+    public TripPreference updateTripSummary(
+            String tripId,
+            String userId,
+            String summary) {
+
+        Trip trip = tripService.requireTripRole(tripId, userId, TripRole.EDITOR);
+        validateLength("summary", summary, MAX_TEXT_CHARS);
+
+        TripPreference preference = tripPreferences.findById(tripId)
+            .orElseGet(() -> new TripPreference(trip.getId()));
+
+        preference.setSummary(
+            summary == null || summary.isBlank() ? null : summary.trim()
+        );
+        preference.setSummaryStale(false);
+        preference.touch(userId);
+
+        return tripPreferences.save(preference);
+    }
+
+    private String generateTripSummary(
+            Trip trip,
+            TripPreference preference) {
+
+        List<UserPreference> members = trip.getUsers().stream()
+            .map(member -> userPreferences.findById(member.getId()).orElse(null))
+            .filter(Objects::nonNull)
+            .toList();
+
+        String summary = summaryGenerator.summariseGroup(members, preference)
+            .orElseGet(() -> fallbackSummary(members, preference));
+
+        return truncate(summary);
+    }
+
     /**
      * Regenerates the group summary from every member's preference plus the
      * trip goal, falling back to a deterministic sentence when the model is
@@ -149,19 +185,21 @@ public class PreferenceService {
         TripPreference preference = tripPreferences.findById(tripId)
             .orElseGet(() -> new TripPreference(trip.getId()));
 
-        List<UserPreference> members = trip.getUsers().stream()
-            .map(member -> userPreferences.findById(member.getId()).orElse(null))
-            .filter(Objects::nonNull)
-            .toList();
-
-        String summary = summaryGenerator.summariseGroup(members, preference)
-            .orElseGet(() -> fallbackSummary(members, preference));
-
-        preference.setSummary(truncate(summary));
+        preference.setSummary(generateTripSummary(trip, preference));
         preference.touch(userId);
         preference.setSummaryStale(false);
 
         return tripPreferences.save(preference);
+    }
+
+    @Transactional(readOnly = true)
+    public String previewTripSummary(String tripId, String userId) {
+        Trip trip = tripService.requireTripRole(tripId, userId, TripRole.EDITOR);
+
+        TripPreference preference = tripPreferences.findById(tripId)
+            .orElseGet(() -> new TripPreference(trip.getId()));
+
+        return generateTripSummary(trip, preference);
     }
 
     /**

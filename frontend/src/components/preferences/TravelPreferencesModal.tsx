@@ -476,7 +476,7 @@ export function TravelPreferencesModal({ onClose }: { onClose: () => void }) {
                     disabled={isSaving}
                     className={SECONDARY_BUTTON}
                   >
-                    Generate from my trips
+                    ✨ Generate from my trips
                   </button>
                 </div>
                 <p className="mt-1 text-xs text-muted">

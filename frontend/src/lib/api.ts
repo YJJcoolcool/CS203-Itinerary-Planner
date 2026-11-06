@@ -554,6 +554,38 @@ export function summariseTripPreferences(
   })
 }
 
+/** Generates a group summary preview without saving it. */
+export async function previewTripSummary(
+  token: string | null,
+  tripId: string,
+): Promise<string> {
+  const response = await request<{ summary: string }>(
+    `/api/trips/${tripId}/preferences/summarise/preview`,
+    {
+      method: 'POST',
+      token,
+    },
+  )
+
+  return response.summary
+}
+
+/** Saves an edited group summary. Owner or editor only. */
+export function updateTripSummary(
+  token: string | null,
+  tripId: string,
+  summary: string | null,
+): Promise<TripPreferences> {
+  return request<TripPreferences>(
+    `/api/trips/${tripId}/preferences/summary`,
+    {
+      method: 'PUT',
+      body: { summary },
+      token,
+    },
+  )
+}
+
 /** Fetches the four-day weather forecast from the backend. */
 export function getFourDayWeatherForecast(
   token: string | null,

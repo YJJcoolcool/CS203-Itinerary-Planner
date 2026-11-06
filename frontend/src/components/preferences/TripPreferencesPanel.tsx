@@ -57,7 +57,8 @@ export function TripPreferencesPanel({
     isSummarising,
     actionError,
     save,
-    summarise,
+    saveSummary,
+    previewSummary,
     refresh,
   } = useTripPreferences(trip.id)
 
@@ -65,6 +66,8 @@ export function TripPreferencesPanel({
   // render and unsaved edits survive a background refresh.
   const [editedGoals, setEditedGoals] = useState<TripGoal[] | null>(null)
   const [status, setStatus] = useState<string | null>(null)
+  const [summaryDraft, setSummaryDraft] = useState<string | null>(null)
+  const [summaryPreview, setSummaryPreview] = useState<string | null>(null)
 
   const goals = editedGoals ?? preferences?.goals ?? []
   const goalsDirty =
@@ -74,6 +77,12 @@ export function TripPreferencesPanel({
   const updatedBy = preferences?.updatedBy
     ? uniqueMembers(trip).find((member) => member.id === preferences.updatedBy)
     : undefined
+  
+  const currentSummary = summaryDraft ?? preferences?.summary ?? ''
+
+  const summaryDirty =
+    summaryDraft !== null &&
+    summaryDraft !== (preferences?.summary ?? '')
 
   function toggleGoal(goal: TripGoal) {
     setStatus(null)
@@ -99,15 +108,44 @@ export function TripPreferencesPanel({
     }
   }
 
-  async function handleSummarise() {
-    if (!canEdit || isSaving || isSummarising || goalsDirty) return
+  async function handlePreviewSummary() {
+    if (!canEdit || isSummarising || isSaving || goalsDirty) return
 
     setStatus(null)
+    setSummaryPreview(null)
+
     try {
-      await summarise()
-      setStatus('Summary regenerated.')
+      const generated = await previewSummary()
+      setSummaryPreview(generated)
     } catch {
-      // The hook records a friendly message in `actionError`, shown below.
+      // The hook records the error in actionError.
+    }
+  }
+
+  function handleAcceptPreview() {
+    if (summaryPreview === null) return
+
+    setSummaryDraft(summaryPreview)
+    setSummaryPreview(null)
+    setStatus(null)
+  }
+
+  function handleRejectPreview() {
+    setSummaryPreview(null)
+  }
+
+  async function handleSaveSummary() {
+    if (!canEdit || !summaryDirty || isSaving) return
+
+    setStatus(null)
+
+    try {
+      await saveSummary(currentSummary)
+      setSummaryDraft(null)
+      setSummaryPreview(null)
+      setStatus('Group summary saved.')
+    } catch {
+      // The hook records the error in actionError.
     }
   }
 
@@ -215,44 +253,105 @@ export function TripPreferencesPanel({
               {canEdit && (
                 <button
                   type="button"
-                  onClick={() => void handleSummarise()}
+                  onClick={() => void handlePreviewSummary()}
                   disabled={isSummarising || isSaving || goalsDirty}
                   aria-busy={isSummarising}
                   title={goalsDirty ? 'Save goal changes first' : undefined}
                   className={SMALL_SECONDARY_BUTTON}
                 >
-                  {isSummarising ? 'Regenerating…' : 'Regenerate summary'}
+                  {isSummarising ? '✨ Generating summary…' : '✨ Generate summary'}
                 </button>
               )}
             </div>
 
-            {preferences.summary ? (
-              <p className="mt-3 text-sm leading-relaxed text-foreground">
+            {canEdit ? (
+              <>
+                <textarea
+                  value={currentSummary}
+                  onChange={(event) => {
+                    setSummaryDraft(event.target.value)
+                    setStatus(null)
+                  }}
+                  maxLength={1024}
+                  rows={5}
+                  placeholder="Describe the group's shared interests and preferences…"
+                  disabled={isSaving}
+                  className="mt-3 w-full resize-y rounded-xl border border-border bg-surface px-3 py-2.5 text-sm leading-relaxed text-foreground placeholder:text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                />
+
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs text-muted">
+                    {currentSummary.length}/1024 characters
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={() => void handleSaveSummary()}
+                    disabled={!summaryDirty || isSaving}
+                    className={PRIMARY_BUTTON}
+                  >
+                    {isSaving ? 'Saving…' : 'Save summary'}
+                  </button>
+                </div>
+              </>
+            ) : preferences.summary ? (
+              <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground">
                 {preferences.summary}
               </p>
             ) : (
-              <p className="mt-3 text-sm text-muted">
-                No summary yet. An owner or editor can generate one.
-              </p>
+              <p className="mt-3 text-sm text-muted">No summary yet.</p>
+            )}
+
+            {summaryPreview !== null && (
+              <div className="mt-4 rounded-xl border border-accent/40 bg-accent/5 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <h4 className="text-sm font-semibold text-foreground">
+                    Generated summary preview
+                  </h4>
+                  <span className="text-xs text-muted">Not saved yet</span>
+                </div>
+
+                <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">
+                  {summaryPreview}
+                </p>
+
+                <div className="mt-4 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={handleRejectPreview}
+                    disabled={isSaving}
+                    className={SMALL_SECONDARY_BUTTON}
+                  >
+                    Reject
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleAcceptPreview}
+                    disabled={isSaving}
+                    className={PRIMARY_BUTTON}
+                  >
+                    Accept
+                  </button>
+                </div>
+              </div>
             )}
 
             {preferences.summary && preferences.summaryStale && (
               <p className="mt-3 text-xs text-terracotta">
-                This summary no longer reflects the latest goals or member preferences.
+                Your group preferences have changed since this summary was last updated. Consider regenerating it to reflect the latest goals and member preferences.
               </p>
             )}
 
             <p className="mt-3 text-xs text-faint">
               Updated {formatUpdatedAt(preferences.updatedAt)}
-              {updatedBy
-                ? ` by ${updatedBy.displayName ?? 'a traveler'}`
-                : ''}
+              {updatedBy ? ` by ${updatedBy.displayName ?? 'a traveler'}` : ''}
             </p>
           </div>
 
           {!canEdit && (
             <p className="mt-4 text-xs text-muted">
-              Only the owner and editors can change the goals or regenerate the summary.
+              Only the owner and editors can change the goals or group summary.
             </p>
           )}
         </>

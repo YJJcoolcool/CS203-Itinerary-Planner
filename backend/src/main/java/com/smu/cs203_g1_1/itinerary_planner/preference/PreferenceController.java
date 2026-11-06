@@ -175,4 +175,32 @@ public class PreferenceController {
         return TripPreferenceResponse.from(
             preferenceService.summariseTrip(tripId, userService.getCurrentUserId(jwt)));
     }
+
+    @PostMapping("/trips/{tripId}/preferences/summarise/preview")
+    public SummaryPreviewResponse previewTripSummary(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable("tripId") String tripId) {
+
+        return new SummaryPreviewResponse(
+            preferenceService.previewTripSummary(
+                tripId,
+                userService.getCurrentUserId(jwt)
+            )
+        );
+    }
+
+    @PutMapping("/trips/{tripId}/preferences/summary")
+    public TripPreferenceResponse updateTripSummary(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable("tripId") String tripId,
+            @RequestBody UpdateSummaryRequest request) {
+
+        return TripPreferenceResponse.from(
+            preferenceService.updateTripSummary(
+                tripId,
+                userService.getCurrentUserId(jwt),
+                request.summary()
+            )
+        );
+    }
 }

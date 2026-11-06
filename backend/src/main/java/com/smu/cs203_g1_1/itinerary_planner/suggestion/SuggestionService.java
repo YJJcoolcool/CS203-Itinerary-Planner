@@ -34,6 +34,7 @@ import com.smu.cs203_g1_1.itinerary_planner.planner.Candidate;
 import com.smu.cs203_g1_1.itinerary_planner.planner.CandidateFinder;
 import com.smu.cs203_g1_1.itinerary_planner.planner.CandidateRequest;
 import com.smu.cs203_g1_1.itinerary_planner.planner.CategoryGoalMapper;
+import com.smu.cs203_g1_1.itinerary_planner.planner.OpeningHours;
 import com.smu.cs203_g1_1.itinerary_planner.preference.TripPreference;
 import com.smu.cs203_g1_1.itinerary_planner.preference.TripPreferenceRepository;
 import com.smu.cs203_g1_1.itinerary_planner.preference.UserPreferenceRepository;
@@ -432,7 +433,7 @@ public class SuggestionService {
                 Location location = candidate.location();
                 String description = entry.description();
                 if (description == null || description.isBlank()) {
-                    description = fallbackDescription(location, candidate.distanceKm());
+                    description = fallbackDescription(location);
                 }
                 options.add(new SuggestionResponse.Option(
                         SuggestionResponse.ref(location),
@@ -455,7 +456,7 @@ public class SuggestionService {
                         SuggestionResponse.ref(candidate.location()),
                         options.size() + 1,
                         fallbackReason(candidate),
-                        fallbackDescription(candidate.location(), candidate.distanceKm()),
+                        fallbackDescription(candidate.location()),
                         false));
             }
 
@@ -545,6 +546,8 @@ public class SuggestionService {
                 location.getName(),
                 location.getCategory(),
                 location.getCategoryGroup(),
+                location.getAddress(),
+                location.getOpeningHours(),
                 candidate.distanceKm(),
                 candidate.openStatus().name(),
                 "INDOOR".equalsIgnoreCase(location.getIndoorClass()),
@@ -558,22 +561,59 @@ public class SuggestionService {
                 .orElse(null);
     }
 
-    /** Keeps the historic fallback wording so existing clients/tests stay stable. */
+    /**
+     * Why the candidate is a reasonable swap. Distance belongs here; the
+     * description answers what the place actually is.
+     */
     private static String fallbackReason(Candidate candidate) {
-        return candidate.location().getName()
-                + " is an indoor option about "
-                + String.format(Locale.ROOT, "%.1f", candidate.distanceKm())
-                + " km away.";
+        StringBuilder reason = new StringBuilder("This is an indoor option about ")
+                .append(String.format(Locale.ROOT, "%.1f", candidate.distanceKm()))
+                .append(" km away");
+
+        if (candidate.openStatus() == OpeningHours.Status.OPEN) {
+            reason.append(", open at your arrival time");
+        } else if (candidate.openStatus() == OpeningHours.Status.CLOSED) {
+            reason.append(", but check its opening hours");
+        }
+
+        return reason.append(".").toString();
     }
 
-    private static String fallbackDescription(Location location, double distanceKm) {
-        String category = location.getCategory();
-        String subject = category == null || category.isBlank()
-                ? location.getName() + " is a place"
-                : location.getName() + " is a " + category + " place";
-        return subject
-                + " about " + String.format(Locale.ROOT, "%.1f", distanceKm)
-                + " km from the original stop.";
+    /**
+     * What the place is, built only from fields we actually hold: category,
+     * category group, address and opening hours. Never invents a specialty.
+     */
+    private static String fallbackDescription(Location location) {
+        StringBuilder description = new StringBuilder(location.getName());
+        String category = trimmedOrNull(location.getCategory());
+        String group = trimmedOrNull(location.getCategoryGroup());
+
+        if (category != null) {
+            description.append(" is a ").append(category);
+            if (group != null && !category.equalsIgnoreCase(group)) {
+                description.append(" in the ").append(group).append(" category");
+            }
+        } else if (group != null) {
+            description.append(" is a ").append(group).append(" place");
+        } else {
+            description.append(" is an indoor place");
+        }
+
+        String address = trimmedOrNull(location.getAddress());
+        if (address != null) {
+            description.append(" at ").append(address);
+        }
+
+        String hours = trimmedOrNull(location.getOpeningHours());
+        if (hours != null) {
+            description.append(", open ").append(hours);
+        }
+
+        return description.append(".").toString();
+    }
+
+    private static String trimmedOrNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     private String serialiseOptions(List<SuggestionResponse.Option> options) {

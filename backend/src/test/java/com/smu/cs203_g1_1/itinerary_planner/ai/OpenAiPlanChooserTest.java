@@ -63,6 +63,8 @@ class OpenAiPlanChooserTest {
                         "National Museum",
                         "museum",
                         "culture",
+                        "93 Stamford Road Singapore",
+                        "Mo-Su 10:00-19:00",
                         0.8,
                         "OPEN",
                         true,

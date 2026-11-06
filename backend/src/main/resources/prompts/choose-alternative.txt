@@ -18,5 +18,12 @@ Return JSON only, with exactly this shape:
 {"ranking":[{"id":"...","rank":1,"score":0.0,"reason":"...","description":"..."}],"no_suitable_option":false}
 
 Every entry must have BOTH a reason (why it fits this stop/trip) and a
-description (what the place is). Both must be one short sentence grounded only
-in the supplied fields; never invent facts.
+description (what the place is). Both must be one short sentence.
+
+- reason: explain the fit - indoor, distance, open at the arrival time, interests
+  and constraints. Distance belongs here, not in the description.
+- description: describe the venue itself - its type, cuisine or specialty
+  suggested by its name/category, and its setting/address/opening hours when
+  supplied. Do not merely repeat the distance.
+- Use only the supplied fields. Do not invent ratings, awards, history, events
+  or other unverifiable claims.

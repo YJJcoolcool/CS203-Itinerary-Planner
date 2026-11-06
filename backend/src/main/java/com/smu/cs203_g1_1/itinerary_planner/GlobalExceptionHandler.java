@@ -4,6 +4,7 @@ import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -14,6 +15,7 @@ import com.smu.cs203_g1_1.itinerary_planner.geo.ApiError;
 import com.smu.cs203_g1_1.itinerary_planner.geo.GeoBadRequestException;
 import com.smu.cs203_g1_1.itinerary_planner.geo.GeoNotFoundException;
 import com.smu.cs203_g1_1.itinerary_planner.geo.GeoUnavailableException;
+import com.smu.cs203_g1_1.itinerary_planner.ratelimit.RateLimitExceededException;
 import com.smu.cs203_g1_1.itinerary_planner.routing.OneMapException;
 import com.smu.cs203_g1_1.itinerary_planner.routing.RoutingUnavailableException;
 import com.smu.cs203_g1_1.itinerary_planner.trips.LocationNotFoundException;
@@ -37,6 +39,13 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> handleResponseStatus(ResponseStatusException e) {
         String message = e.getReason() != null ? e.getReason() : e.getStatusCode().toString();
         return ResponseEntity.status(e.getStatusCode()).body(Map.of("message", message));
+    }
+
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<Map<String, String>> handleRateLimitExceeded(RateLimitExceededException e) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(e.getRetryAfterSeconds()))
+                .body(Map.of("message", e.getMessage()));
     }
 
     /** Maps invalid geo/POI input to 400 with a {@code BAD_REQUEST} envelope. */

@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.smu.cs203_g1_1.itinerary_planner.ratelimit.AiRateLimited;
 import com.smu.cs203_g1_1.itinerary_planner.user.UserService;
 
 @RestController
@@ -52,6 +53,7 @@ public class SuggestionController {
         return suggestionService.reject(suggestionId, userService.getCurrentUserId(jwt));
     }
 
+    @AiRateLimited
     @PostMapping("/trips/{tripId}/replan")
     public List<SuggestionResponse> replan(
             @AuthenticationPrincipal Jwt jwt,

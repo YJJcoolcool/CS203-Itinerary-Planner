@@ -174,8 +174,8 @@ public class PreferenceService {
     }
 
     /**
-     * Regenerates the group summary from every member's preference plus the
-     * trip goal, falling back to a deterministic sentence when the model is
+     * Regenerates the group summary from every member's preference and personal
+     * summary plus the trip goal, falling back to a deterministic sentence when the model is
      * unavailable.
      */
     @Transactional
@@ -215,7 +215,10 @@ public class PreferenceService {
         preference.setSummaryStale(false);
         preference.touch();
 
-        return userPreferences.save(preference);
+        UserPreference saved = userPreferences.save(preference);
+        markTripsSummaryStale(userId);
+
+        return saved;
     }
 
     /**
@@ -231,7 +234,10 @@ public class PreferenceService {
         preference.setSummaryStale(false);
         preference.touch();
 
-        return userPreferences.save(preference);
+        UserPreference saved = userPreferences.save(preference);
+        markTripsSummaryStale(userId);
+
+        return saved;
     }
 
     /**

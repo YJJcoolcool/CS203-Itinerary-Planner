@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.smu.cs203_g1_1.itinerary_planner.ratelimit.AiRateLimited;
 import com.smu.cs203_g1_1.itinerary_planner.user.UserService;
 
 /**
@@ -124,6 +125,7 @@ public class PreferenceController {
             request.notes()));
     }
 
+    @AiRateLimited
     @PostMapping("/users/me/preferences/summarise")
     public UserPreferenceResponse summariseMine(@AuthenticationPrincipal Jwt jwt) {
         return UserPreferenceResponse.self(
@@ -169,6 +171,7 @@ public class PreferenceController {
             request.tags()));
     }
 
+    @AiRateLimited
     @PostMapping("/trips/{tripId}/preferences/summarise")
     public TripPreferenceResponse summarise(@AuthenticationPrincipal Jwt jwt,
                                             @PathVariable("tripId") String tripId) {

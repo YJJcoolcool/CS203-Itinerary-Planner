@@ -374,6 +374,39 @@ class PreferenceServiceTest {
     }
 
     @Test
+    void editingAPersonalSummaryMarksTheGroupSummaryStale() {
+        TripPreference group = currentGroupSummaryOnTrip();
+        when(userPreferences.findById("user0001")).thenReturn(Optional.of(new UserPreference("user0001")));
+        when(userPreferences.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.updateUserSummary("user0001", "Loves quiet museums.");
+
+        assertTrue(group.isSummaryStale());
+        assertEquals("kept", group.getSummary());
+    }
+
+    @Test
+    void regeneratingAPersonalSummaryMarksTheGroupSummaryStale() {
+        TripPreference group = currentGroupSummaryOnTrip();
+        when(userPreferences.findById("user0001")).thenReturn(Optional.of(new UserPreference("user0001")));
+        when(userPreferences.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.summariseUser("user0001");
+
+        assertTrue(group.isSummaryStale());
+    }
+
+    private TripPreference currentGroupSummaryOnTrip() {
+        TripPreference group = new TripPreference("trip0001");
+        group.setSummary("kept");
+        group.setSummaryStale(false);
+        when(trip.getId()).thenReturn("trip0001");
+        when(tripService.getTripsForUser("user0001")).thenReturn(List.of(trip));
+        when(tripPreferences.findById("trip0001")).thenReturn(Optional.of(group));
+        return group;
+    }
+
+    @Test
     void blankSummaryClearsIt() {
         UserPreference existing = preferenceOf("user0001", List.of());
         existing.setSummary("Old summary.");

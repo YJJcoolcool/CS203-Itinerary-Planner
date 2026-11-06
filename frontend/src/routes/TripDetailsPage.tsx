@@ -171,6 +171,7 @@ function TripDetailsContent({ tripId }: { tripId: string }) {
             />
 
             <SuggestionsPanel
+              key={displayedTrip.id}
               tripId={displayedTrip.id}
               canEdit={canEdit}
               onAccepted={() => setItineraryRefreshKey((key) => key + 1)}

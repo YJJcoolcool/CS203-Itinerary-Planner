@@ -69,7 +69,10 @@ export interface RegionInfo {
 
 /** Extract a human-readable message from an error response body. */
 async function readErrorMessage(response: Response): Promise<string> {
-  const fallback = `Request failed with status ${response.status}.`
+  const fallback =
+    response.status === 429
+      ? 'Too many requests. Please wait a moment and try again.'
+      : `Request failed with status ${response.status}.`
 
   try {
     const raw = await response.text()

@@ -1,5 +1,5 @@
 import { useAuth } from '@clerk/react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { publishableKey } from '../auth/authConfiguration'
 import type { Suggestion } from '../types/suggestion'
 import {
@@ -43,11 +43,18 @@ function useConfiguredSuggestions(tripId: string): UseSuggestionsResult {
 
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  // Kept apart so a successful poll can't wipe a message from something the user just did.
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   const [isReplanning, setIsReplanning] = useState(false)
   const [reloadCount, setReloadCount] = useState(0)
+  const hasLoaded = useRef(false)
 
-  const refresh = useCallback(() => setReloadCount((count) => count + 1), [])
+  const reload = useCallback(() => setReloadCount((count) => count + 1), [])
+  const refresh = useCallback(() => {
+    setActionError(null)
+    reload()
+  }, [reload])
 
   // Fetch whenever signed in or refresh() is called.
   useEffect(() => {
@@ -62,12 +69,16 @@ function useConfiguredSuggestions(tripId: string): UseSuggestionsResult {
         const result = await getSuggestions(token, tripId)
         if (!cancelled) {
           setSuggestions(result)
-          setError(null)
+          setLoadError(null)
+          hasLoaded.current = true
         }
       } catch (cause) {
+        // A rate-limited poll retries by itself, so don't alarm anyone over a list that's still fine.
+        const isQuietPoll =
+          cause instanceof ApiError && cause.status === 429 && hasLoaded.current
         // Keep the last good list on a failed poll; just record the error.
-        if (!cancelled) {
-          setError(describeError(cause, 'Could not load weather alternatives.'))
+        if (!cancelled && !isQuietPoll) {
+          setLoadError(describeError(cause, 'Could not load weather alternatives.'))
         }
       } finally {
         if (!cancelled) setIsLoading(false)
@@ -84,18 +95,18 @@ function useConfiguredSuggestions(tripId: string): UseSuggestionsResult {
   useEffect(() => {
     if (!isLoaded || !isSignedIn) return
     const interval = window.setInterval(() => {
-      if (!document.hidden) refresh()
+      if (!document.hidden) reload()
     }, POLL_INTERVAL_MS)
-    window.addEventListener('focus', refresh)
+    window.addEventListener('focus', reload)
     return () => {
       window.clearInterval(interval)
-      window.removeEventListener('focus', refresh)
+      window.removeEventListener('focus', reload)
     }
-  }, [isLoaded, isSignedIn, refresh])
+  }, [isLoaded, isSignedIn, reload])
 
   const replan = useCallback(async () => {
     setIsReplanning(true)
-    setError(null)
+    setActionError(null)
 
     try {
       const token = await getToken()
@@ -105,7 +116,7 @@ function useConfiguredSuggestions(tripId: string): UseSuggestionsResult {
       const result = await getSuggestions(token, tripId)
       setSuggestions(result)
     } catch (cause) {
-      setError(describeError(cause, 'Could not check for weather alternatives. Please try again.'))
+      setActionError(describeError(cause, 'Could not check for weather alternatives. Please try again.'))
     } finally {
       setIsReplanning(false)
     }
@@ -113,7 +124,7 @@ function useConfiguredSuggestions(tripId: string): UseSuggestionsResult {
 
   const accept = useCallback(
     async (suggestionId: string, locationId?: string) => {
-      setError(null)
+      setActionError(null)
 
       try {
         const token = await getToken()
@@ -127,7 +138,7 @@ function useConfiguredSuggestions(tripId: string): UseSuggestionsResult {
         )
         refresh()
       } catch (cause) {
-        setError(describeError(cause, 'Could not accept this alternative. Please try again.'))
+        setActionError(describeError(cause, 'Could not accept this alternative. Please try again.'))
         throw cause
       }
     },
@@ -136,7 +147,7 @@ function useConfiguredSuggestions(tripId: string): UseSuggestionsResult {
 
   const reject = useCallback(
     async (suggestionId: string) => {
-      setError(null)
+      setActionError(null)
 
       try {
         const token = await getToken()
@@ -150,7 +161,7 @@ function useConfiguredSuggestions(tripId: string): UseSuggestionsResult {
         )
         refresh()
       } catch (cause) {
-        setError(describeError(cause, 'Could not dismiss this suggestion. Please try again.'))
+        setActionError(describeError(cause, 'Could not dismiss this suggestion. Please try again.'))
         throw cause
       }
     },
@@ -183,7 +194,16 @@ function useConfiguredSuggestions(tripId: string): UseSuggestionsResult {
     }
   }
 
-  return { suggestions, isLoading, error, isReplanning, replan, accept, reject, refresh }
+  return {
+    suggestions,
+    isLoading,
+    error: actionError ?? loadError,
+    isReplanning,
+    replan,
+    accept,
+    reject,
+    refresh,
+  }
 }
 
 function useUnconfiguredSuggestions(): UseSuggestionsResult {

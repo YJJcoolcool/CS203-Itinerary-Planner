@@ -189,14 +189,32 @@ public class PreferenceService {
         UserPreference preference = getOrCreateUser(userId);
         TravelHistory history = travelHistory(userId);
 
-        String summary = summaryGenerator.summariseUser(preference, history)
-            .orElseGet(() -> fallbackUserSummary(preference, history));
-
-        preference.setSummary(truncate(summary));
+        preference.setSummary(generateUserSummary(preference, history));
         preference.setSummaryStale(false);
         preference.touch();
 
         return userPreferences.save(preference);
+    }
+
+    /**
+     * Generates a summary without saving it or changing the user's preferences.
+     */
+    @Transactional(readOnly = true)
+    public String previewUserSummary(String userId) {
+        UserPreference preference = readUser(userId);
+        TravelHistory history = travelHistory(userId);
+
+        return generateUserSummary(preference, history);
+    }
+
+    private String generateUserSummary(
+            UserPreference preference,
+            TravelHistory history) {
+
+        String summary = summaryGenerator.summariseUser(preference, history)
+            .orElseGet(() -> fallbackUserSummary(preference, history));
+
+        return truncate(summary);
     }
     
     static String fallbackSummary(List<UserPreference> members, TripPreference trip) {

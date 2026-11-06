@@ -97,6 +97,9 @@ public class PreferenceController {
         }
     }
 
+    public record SummaryPreviewResponse(String summary) {
+    }
+
     public record UpdateSummaryRequest(String summary) {
     }
 
@@ -125,6 +128,15 @@ public class PreferenceController {
     public UserPreferenceResponse summariseMine(@AuthenticationPrincipal Jwt jwt) {
         return UserPreferenceResponse.self(
             preferenceService.summariseUser(userService.getCurrentUserId(jwt)));
+    }
+
+    @PostMapping("/users/me/preferences/summarise/preview")
+    public SummaryPreviewResponse previewMySummary(
+            @AuthenticationPrincipal Jwt jwt) {
+
+        return new SummaryPreviewResponse(
+            preferenceService.previewUserSummary(
+                userService.getCurrentUserId(jwt)));
     }
 
     @PutMapping("/users/me/preferences/summary")

@@ -12,6 +12,7 @@ import {
   getMyPreferences,
   getTripPreferences,
   summariseMyPreferences,
+  previewMyPreferencesSummary,
   summariseTripPreferences,
   updateMyPreferences,
   updateMySummary,
@@ -35,12 +36,14 @@ export interface UseMyPreferencesResult {
   isSaving: boolean
   /** Failure to save; cleared when a new save starts. */
   saveError: string | null
+  /** Regenerates the summary from the user's preferences and trips. */
+  summarise: () => Promise<UserPreferences>
+  /** Generates a summary preview without updating the saved preferences. */
+  previewSummary: () => Promise<string>
   /** Saves and returns the server copy. Rejects with the API error. */
   save: (input: UpdateUserPreferencesInput) => Promise<UserPreferences>
   /** Saves the user's own wording of their summary; null clears it. */
   saveSummary: (summary: string | null) => Promise<UserPreferences>
-  /** Regenerates the summary from the user's preferences and trips. */
-  summarise: () => Promise<UserPreferences>
   refresh: () => void
 }
 
@@ -109,6 +112,30 @@ function useConfiguredMyPreferences(): UseMyPreferencesResult {
     [getToken],
   )
 
+  const summarise = useCallback(
+    () => run((token) => summariseMyPreferences(token), 'Could not generate your summary.'),
+    [run],
+  )
+
+  const previewSummary = useCallback(async () => {
+    setIsSaving(true)
+    setSaveError(null)
+
+    try {
+      const token = await getToken()
+      if (!token) throw new ApiError(401, NO_SESSION_MESSAGE)
+
+      return await previewMyPreferencesSummary(token)
+    } catch (cause) {
+      setSaveError(
+        describeError(cause, 'Could not generate your summary preview.'),
+      )
+      throw cause
+    } finally {
+      setIsSaving(false)
+    }
+  }, [getToken])
+
   const save = useCallback(
     (input: UpdateUserPreferencesInput) =>
       run((token) => updateMyPreferences(token, input), 'Could not save your travel preferences.'),
@@ -121,12 +148,7 @@ function useConfiguredMyPreferences(): UseMyPreferencesResult {
     [run],
   )
 
-  const summarise = useCallback(
-    () => run((token) => summariseMyPreferences(token), 'Could not generate your summary.'),
-    [run],
-  )
-
-  const actions = { save, saveSummary, summarise, refresh }
+  const actions = { summarise, previewSummary, save, saveSummary, refresh }
 
   if (!isLoaded) {
     return { preferences, isLoading: true, error: null, isSaving: false, saveError: null, ...actions }
@@ -146,9 +168,10 @@ function useUnconfiguredMyPreferences(): UseMyPreferencesResult {
     error: null,
     isSaving: false,
     saveError: null,
+    summarise: () => Promise.reject(new ApiError(0, 'Authentication is not configured.')),
+    previewSummary: () => Promise.reject(new ApiError(0, 'Authentication is not configured.')),
     save: () => Promise.reject(new ApiError(0, 'Authentication is not configured.')),
     saveSummary: () => Promise.reject(new ApiError(0, 'Authentication is not configured.')),
-    summarise: () => Promise.reject(new ApiError(0, 'Authentication is not configured.')),
     refresh: () => {},
   }
 }

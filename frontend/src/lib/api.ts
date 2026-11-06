@@ -484,6 +484,21 @@ export function summariseMyPreferences(token: string | null): Promise<UserPrefer
   })
 }
 
+/** Generates a summary preview without saving it. */
+export async function previewMyPreferencesSummary(
+  token: string | null,
+): Promise<string> {
+  const response = await request<{ summary: string }>(
+    '/api/users/me/preferences/summarise/preview',
+    {
+      method: 'POST',
+      token,
+    },
+  )
+
+  return response.summary
+}
+
 /** Saves the signed-in user's own edit of their summary; null clears it. */
 export function updateMySummary(
   token: string | null,

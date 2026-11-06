@@ -22,8 +22,9 @@ description (what the place is). Both must be one short sentence.
 
 - reason: explain the fit - indoor, distance, open at the arrival time, interests
   and constraints. Distance belongs here, not in the description.
-- description: describe the venue itself - its type, cuisine or specialty
-  suggested by its name/category, and its setting/address/opening hours when
-  supplied. Do not merely repeat the distance.
-- Use only the supplied fields. Do not invent ratings, awards, history, events
-  or other unverifiable claims.
+- description: describe the venue itself in one short sentence - its type,
+  cuisine or specialty, and its setting. You may use general knowledge about a
+  well-known named place, but do not invent ratings, awards, prices, history or
+  events. Do not merely repeat the distance.
+- Prefer facts from the supplied fields; when unsure, describe only what the
+  name, category, address and opening hours support.

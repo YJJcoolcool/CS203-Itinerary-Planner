@@ -236,7 +236,7 @@ class SuggestionServiceTest {
             assertFalse(option.description().isBlank());
         }
         assertTrue(options.stream().anyMatch(option -> option.location().id().equals(food.getId())));
-        assertTrue(options.get(0).description().contains("culture category"));
+        assertTrue(options.get(0).description().contains("is a test"));
         assertTrue(options.get(0).description().contains("24/7"));
     }
 

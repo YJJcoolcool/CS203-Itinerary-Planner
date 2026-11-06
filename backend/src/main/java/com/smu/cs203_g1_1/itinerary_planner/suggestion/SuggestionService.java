@@ -590,9 +590,6 @@ public class SuggestionService {
 
         if (category != null) {
             description.append(" is a ").append(category);
-            if (group != null && !category.equalsIgnoreCase(group)) {
-                description.append(" in the ").append(group).append(" category");
-            }
         } else if (group != null) {
             description.append(" is a ").append(group).append(" place");
         } else {

@@ -137,6 +137,42 @@ public class PreferenceService {
         return tripPreferences.save(preference);
     }
 
+    @Transactional
+    public TripPreference updateTripSummary(
+            String tripId,
+            String userId,
+            String summary) {
+
+        Trip trip = tripService.requireTripRole(tripId, userId, TripRole.EDITOR);
+        validateLength("summary", summary, MAX_TEXT_CHARS);
+
+        TripPreference preference = tripPreferences.findById(tripId)
+            .orElseGet(() -> new TripPreference(trip.getId()));
+
+        preference.setSummary(
+            summary == null || summary.isBlank() ? null : summary.trim()
+        );
+        preference.setSummaryStale(false);
+        preference.touch(userId);
+
+        return tripPreferences.save(preference);
+    }
+
+    private String generateTripSummary(
+            Trip trip,
+            TripPreference preference) {
+
+        List<UserPreference> members = trip.getUsers().stream()
+            .map(member -> userPreferences.findById(member.getId()).orElse(null))
+            .filter(Objects::nonNull)
+            .toList();
+
+        String summary = summaryGenerator.summariseGroup(members, preference)
+            .orElseGet(() -> fallbackSummary(members, preference));
+
+        return truncate(summary);
+    }
+
     /**
      * Regenerates the group summary from every member's preference and personal
      * summary plus the trip goal, falling back to a deterministic sentence when the model is
@@ -149,19 +185,21 @@ public class PreferenceService {
         TripPreference preference = tripPreferences.findById(tripId)
             .orElseGet(() -> new TripPreference(trip.getId()));
 
-        List<UserPreference> members = trip.getUsers().stream()
-            .map(member -> userPreferences.findById(member.getId()).orElse(null))
-            .filter(Objects::nonNull)
-            .toList();
-
-        String summary = summaryGenerator.summariseGroup(members, preference)
-            .orElseGet(() -> fallbackSummary(members, preference));
-
-        preference.setSummary(truncate(summary));
+        preference.setSummary(generateTripSummary(trip, preference));
         preference.touch(userId);
         preference.setSummaryStale(false);
 
         return tripPreferences.save(preference);
+    }
+
+    @Transactional(readOnly = true)
+    public String previewTripSummary(String tripId, String userId) {
+        Trip trip = tripService.requireTripRole(tripId, userId, TripRole.EDITOR);
+
+        TripPreference preference = tripPreferences.findById(tripId)
+            .orElseGet(() -> new TripPreference(trip.getId()));
+
+        return generateTripSummary(trip, preference);
     }
 
     /**
@@ -192,10 +230,7 @@ public class PreferenceService {
         UserPreference preference = getOrCreateUser(userId);
         TravelHistory history = travelHistory(userId);
 
-        String summary = summaryGenerator.summariseUser(preference, history)
-            .orElseGet(() -> fallbackUserSummary(preference, history));
-
-        preference.setSummary(truncate(summary));
+        preference.setSummary(generateUserSummary(preference, history));
         preference.setSummaryStale(false);
         preference.touch();
 
@@ -203,6 +238,27 @@ public class PreferenceService {
         markTripsSummaryStale(userId);
 
         return saved;
+    }
+
+    /**
+     * Generates a summary without saving it or changing the user's preferences.
+     */
+    @Transactional(readOnly = true)
+    public String previewUserSummary(String userId) {
+        UserPreference preference = readUser(userId);
+        TravelHistory history = travelHistory(userId);
+
+        return generateUserSummary(preference, history);
+    }
+
+    private String generateUserSummary(
+            UserPreference preference,
+            TravelHistory history) {
+
+        String summary = summaryGenerator.summariseUser(preference, history)
+            .orElseGet(() -> fallbackUserSummary(preference, history));
+
+        return truncate(summary);
     }
     
     static String fallbackSummary(List<UserPreference> members, TripPreference trip) {

@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router'
 import { useAuth } from '@clerk/react'
+
+import { useDocumentTitle } from '../lib/useDocumentTitle'
 import { Navbar } from '../components/Navbar'
 import { TravelPreferencesModal } from '../components/preferences/TravelPreferencesModal'
 import { CreateTripModal } from '../components/trips/CreateTripModal'
 import { TripCard, TripCardSkeleton } from '../components/trips/TripCard'
 import { ApiError, deleteTrip } from '../lib/api'
 import { useCurrentUser, useTrips } from '../lib/useTrips'
-import { Link, useLocation, useNavigate } from 'react-router'
 import type { Trip } from '../types/trip'
 
 /** Sent by the trip settings panel when the owner deletes a trip (see handleDelete there). */
@@ -194,6 +196,8 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
 }
 
 export function TripsPage() {
+  useDocumentTitle('My Trips | Agile Trips')
+
   // Creates the backend profile on first sign-in; the result itself is not needed here.
   const { isLoading: isUserLoading } = useCurrentUser()
   const { trips: allTrips, isLoading: isTripsLoading, error, refresh } = useTrips()
@@ -267,10 +271,6 @@ export function TripsPage() {
       <section className="mx-auto w-full max-w-6xl flex-1 px-6 py-10 sm:px-8 sm:py-14">
         <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <span className="flex items-center gap-2 font-mono text-[11px] tracking-[0.28em] text-faint uppercase">
-              <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
-              Trips
-            </span>
             <h1 className="mt-3 font-display text-3xl font-medium tracking-tight text-foreground sm:text-4xl">
               My Trips
             </h1>

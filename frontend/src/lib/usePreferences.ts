@@ -12,10 +12,13 @@ import {
   getMyPreferences,
   getTripPreferences,
   summariseMyPreferences,
+  previewMyPreferencesSummary,
   summariseTripPreferences,
   updateMyPreferences,
   updateMySummary,
   updateTripPreferences,
+  previewTripSummary,
+  updateTripSummary,
 } from './api'
 
 const CLERK_CONFIGURED = Boolean(publishableKey)
@@ -35,12 +38,14 @@ export interface UseMyPreferencesResult {
   isSaving: boolean
   /** Failure to save; cleared when a new save starts. */
   saveError: string | null
+  /** Regenerates the summary from the user's preferences and trips. */
+  summarise: () => Promise<UserPreferences>
+  /** Generates a summary preview without updating the saved preferences. */
+  previewSummary: () => Promise<string>
   /** Saves and returns the server copy. Rejects with the API error. */
   save: (input: UpdateUserPreferencesInput) => Promise<UserPreferences>
   /** Saves the user's own wording of their summary; null clears it. */
   saveSummary: (summary: string | null) => Promise<UserPreferences>
-  /** Regenerates the summary from the user's preferences and trips. */
-  summarise: () => Promise<UserPreferences>
   refresh: () => void
 }
 
@@ -109,6 +114,30 @@ function useConfiguredMyPreferences(): UseMyPreferencesResult {
     [getToken],
   )
 
+  const summarise = useCallback(
+    () => run((token) => summariseMyPreferences(token), 'Could not generate your summary.'),
+    [run],
+  )
+
+  const previewSummary = useCallback(async () => {
+    setIsSaving(true)
+    setSaveError(null)
+
+    try {
+      const token = await getToken()
+      if (!token) throw new ApiError(401, NO_SESSION_MESSAGE)
+
+      return await previewMyPreferencesSummary(token)
+    } catch (cause) {
+      setSaveError(
+        describeError(cause, 'Could not generate your summary preview.'),
+      )
+      throw cause
+    } finally {
+      setIsSaving(false)
+    }
+  }, [getToken])
+
   const save = useCallback(
     (input: UpdateUserPreferencesInput) =>
       run((token) => updateMyPreferences(token, input), 'Could not save your travel preferences.'),
@@ -121,12 +150,7 @@ function useConfiguredMyPreferences(): UseMyPreferencesResult {
     [run],
   )
 
-  const summarise = useCallback(
-    () => run((token) => summariseMyPreferences(token), 'Could not generate your summary.'),
-    [run],
-  )
-
-  const actions = { save, saveSummary, summarise, refresh }
+  const actions = { summarise, previewSummary, save, saveSummary, refresh }
 
   if (!isLoaded) {
     return { preferences, isLoading: true, error: null, isSaving: false, saveError: null, ...actions }
@@ -146,9 +170,10 @@ function useUnconfiguredMyPreferences(): UseMyPreferencesResult {
     error: null,
     isSaving: false,
     saveError: null,
+    summarise: () => Promise.reject(new ApiError(0, 'Authentication is not configured.')),
+    previewSummary: () => Promise.reject(new ApiError(0, 'Authentication is not configured.')),
     save: () => Promise.reject(new ApiError(0, 'Authentication is not configured.')),
     saveSummary: () => Promise.reject(new ApiError(0, 'Authentication is not configured.')),
-    summarise: () => Promise.reject(new ApiError(0, 'Authentication is not configured.')),
     refresh: () => {},
   }
 }
@@ -171,6 +196,10 @@ export interface UseTripPreferencesResult {
   save: (input: UpdateTripPreferencesInput) => Promise<TripPreferences>
   /** Regenerates the group summary. Rejects with the API error. */
   summarise: () => Promise<TripPreferences>
+  /** Saves a manually edited group summary. */
+  saveSummary: (summary: string | null) => Promise<TripPreferences>
+  /** Generates a preview without saving it. */
+  previewSummary: () => Promise<string>
   refresh: () => void
 }
 
@@ -258,6 +287,45 @@ function useConfiguredTripPreferences(tripId: string): UseTripPreferencesResult 
     }
   }, [getToken, tripId])
 
+  const saveSummary = useCallback(
+    async (summary: string | null) => {
+      setIsSaving(true)
+      setActionError(null)
+
+      try {
+        const token = await getToken()
+        if (!token) throw new ApiError(401, NO_SESSION_MESSAGE)
+
+        const updated = await updateTripSummary(token, tripId, summary)
+        setPreferences(updated)
+        return updated
+      } catch (cause) {
+        setActionError(describeError(cause, 'Could not save the group summary.'))
+        throw cause
+      } finally {
+        setIsSaving(false)
+      }
+    },
+    [getToken, tripId],
+  )
+
+  const previewSummary = useCallback(async () => {
+    setIsSummarising(true)
+    setActionError(null)
+
+    try {
+      const token = await getToken()
+      if (!token) throw new ApiError(401, NO_SESSION_MESSAGE)
+
+      return await previewTripSummary(token, tripId)
+    } catch (cause) {
+      setActionError(describeError(cause, 'Could not generate the group summary preview.'))
+      throw cause
+    } finally {
+      setIsSummarising(false)
+    }
+  }, [getToken, tripId])
+
   if (!isLoaded) {
     return {
       preferences,
@@ -268,6 +336,8 @@ function useConfiguredTripPreferences(tripId: string): UseTripPreferencesResult 
       actionError: null,
       save,
       summarise,
+      saveSummary,
+      previewSummary,
       refresh,
     }
   }
@@ -282,6 +352,8 @@ function useConfiguredTripPreferences(tripId: string): UseTripPreferencesResult 
       actionError: null,
       save,
       summarise,
+      saveSummary,
+      previewSummary,
       refresh,
     }
   }
@@ -295,6 +367,8 @@ function useConfiguredTripPreferences(tripId: string): UseTripPreferencesResult 
     actionError,
     save,
     summarise,
+    saveSummary,
+    previewSummary,
     refresh,
   }
 }
@@ -312,6 +386,8 @@ function useUnconfiguredTripPreferences(): UseTripPreferencesResult {
     actionError: null,
     save: notConfigured,
     summarise: notConfigured,
+    saveSummary: notConfigured,
+    previewSummary: notConfigured,
     refresh: () => {},
   }
 }

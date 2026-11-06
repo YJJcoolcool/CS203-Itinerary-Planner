@@ -64,6 +64,26 @@ class PreferenceServiceTest {
     }
 
     @Test
+    void previewUserSummaryDoesNotSaveOrModifyPreferences() {
+        UserPreference existing = preferenceOf("user0001", List.of("art"));
+        existing.setSummary("My existing summary.");
+        existing.setSummaryStale(true);
+
+        when(userPreferences.findById("user0001"))
+            .thenReturn(Optional.of(existing));
+        when(tripService.getTripsForUser("user0001"))
+            .thenReturn(List.of(trip));
+
+        String preview = service.previewUserSummary("user0001");
+
+        assertEquals("Interests: art.", preview);
+        assertEquals("My existing summary.", existing.getSummary());
+        assertTrue(existing.isSummaryStale());
+
+        verify(userPreferences, never()).save(any());
+    }
+
+    @Test
     void updateUserStoresPreferencesAndMarksTheSummaryStale() {
         when(userPreferences.findById("user0001")).thenReturn(Optional.empty());
         when(userPreferences.save(any())).thenAnswer(invocation -> invocation.getArgument(0));

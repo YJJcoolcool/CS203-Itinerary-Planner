@@ -1,5 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
+
+import { useBodyScrollLock } from '../../lib/useBodyScrollLock'
 import { useCreateTrip } from '../../lib/useTrips'
 import { CountrySelect } from './CountrySelect'
 import { TripCoverImagePicker } from './TripCoverImagePicker'
@@ -44,6 +46,9 @@ export function CreateTripModal({
   const [errors, setErrors] = useState<FieldErrors>({})
   const nameRef = useRef<HTMLInputElement>(null)
   const titleId = useId()
+
+  // Prevent scrolling of background elements
+  useBodyScrollLock();
 
   // Focus the first field on open.
   useEffect(() => {

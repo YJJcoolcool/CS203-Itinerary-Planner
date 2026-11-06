@@ -98,6 +98,9 @@ public class PreferenceController {
         }
     }
 
+    public record SummaryPreviewResponse(String summary) {
+    }
+
     public record UpdateSummaryRequest(String summary) {
     }
 
@@ -127,6 +130,15 @@ public class PreferenceController {
     public UserPreferenceResponse summariseMine(@AuthenticationPrincipal Jwt jwt) {
         return UserPreferenceResponse.self(
             preferenceService.summariseUser(userService.getCurrentUserId(jwt)));
+    }
+
+    @PostMapping("/users/me/preferences/summarise/preview")
+    public SummaryPreviewResponse previewMySummary(
+            @AuthenticationPrincipal Jwt jwt) {
+
+        return new SummaryPreviewResponse(
+            preferenceService.previewUserSummary(
+                userService.getCurrentUserId(jwt)));
     }
 
     @PutMapping("/users/me/preferences/summary")
@@ -165,5 +177,33 @@ public class PreferenceController {
                                             @PathVariable("tripId") String tripId) {
         return TripPreferenceResponse.from(
             preferenceService.summariseTrip(tripId, userService.getCurrentUserId(jwt)));
+    }
+
+    @PostMapping("/trips/{tripId}/preferences/summarise/preview")
+    public SummaryPreviewResponse previewTripSummary(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable("tripId") String tripId) {
+
+        return new SummaryPreviewResponse(
+            preferenceService.previewTripSummary(
+                tripId,
+                userService.getCurrentUserId(jwt)
+            )
+        );
+    }
+
+    @PutMapping("/trips/{tripId}/preferences/summary")
+    public TripPreferenceResponse updateTripSummary(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable("tripId") String tripId,
+            @RequestBody UpdateSummaryRequest request) {
+
+        return TripPreferenceResponse.from(
+            preferenceService.updateTripSummary(
+                tripId,
+                userService.getCurrentUserId(jwt),
+                request.summary()
+            )
+        );
     }
 }

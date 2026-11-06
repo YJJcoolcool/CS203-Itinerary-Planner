@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import { Link, useParams } from 'react-router'
 
+import { useDocumentTitle } from '../lib/useDocumentTitle'
 import { Navbar } from '../components/Navbar'
 import { TripPreferencesPanel } from '../components/preferences/TripPreferencesPanel'
 import { SuggestionsPanel } from '../components/suggestions/SuggestionsPanel'
@@ -61,9 +62,19 @@ function ErrorState({
 
 function TripDetailsContent({ tripId }: { tripId: string }) {
   const { trip, isLoading, error, errorStatus, refresh } = useTrip(tripId)
+
+  useDocumentTitle(
+    errorStatus === 404
+      ? 'Not Found | Agile Trips'
+      : trip
+        ? `${trip.name} | Agile Trips`
+        : 'Trip Details | Agile Trips',
+  )
+  
   const { user } = useCurrentUser()
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [scrollToInvitations, setScrollToInvitations] = useState(false)
   const [updatedTrip, setUpdatedTrip] = useState<Trip | null>(null)
   const [itineraryRefreshKey, setItineraryRefreshKey] = useState(0)
 
@@ -72,6 +83,12 @@ function TripDetailsContent({ tripId }: { tripId: string }) {
   }, [])
 
   const openSettings = useCallback(() => {
+    setScrollToInvitations(false)
+    setIsSettingsOpen(true)
+  }, [])
+
+  const openSettingsForInvite = useCallback(() => {
+    setScrollToInvitations(true)
     setIsSettingsOpen(true)
   }, [])
 
@@ -124,7 +141,7 @@ function TripDetailsContent({ tripId }: { tripId: string }) {
             <TripDetailsCard
               trip={displayedTrip}
               myRole={myRole}
-              onInvite={isOwner ? openSettings : undefined}
+              onInvite={isOwner ? openSettingsForInvite : undefined}
             />
 
             <TripMembersPanel
@@ -173,6 +190,7 @@ function TripDetailsContent({ tripId }: { tripId: string }) {
             setIsSettingsOpen(false)
             setUpdatedTrip(null)
           }}
+          scrollToInvitations={scrollToInvitations}
         />
       )}
     </main>

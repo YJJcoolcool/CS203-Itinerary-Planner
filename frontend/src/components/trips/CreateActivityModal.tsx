@@ -2,6 +2,8 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useAuth } from '@clerk/react'
+
+import { useBodyScrollLock } from '../../lib/useBodyScrollLock'
 import { ApiError, updateActivity } from '../../lib/api'
 import { useCreateActivity } from '../../lib/useTrips'
 import { LocationSearch } from '../locations/LocationSearch'
@@ -77,6 +79,9 @@ export function CreateActivityModal({
   const [errors, setErrors] = useState<FieldErrors>({})
   const nameRef = useRef<HTMLInputElement>(null)
   const titleId = useId()
+
+  // Prevent background scrolling
+  useBodyScrollLock();
 
   useEffect(() => {
     nameRef.current?.focus()

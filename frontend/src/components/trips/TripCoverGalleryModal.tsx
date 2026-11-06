@@ -1,4 +1,6 @@
 import { useState } from 'react'
+
+import { useBodyScrollLock } from '../../lib/useBodyScrollLock'
 import { TRIP_GALLERY_IMAGES } from './tripCoverImages'
 
 interface TripCoverGalleryModalProps {
@@ -15,6 +17,9 @@ export function TripCoverGalleryModal({
     const [selectedImage, setSelectedImage] = useState<string | null>(
         initialSelection
     )
+
+    // Prevent background scrolling
+    useBodyScrollLock();
 
     return (
         <div

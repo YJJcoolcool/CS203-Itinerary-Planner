@@ -10,6 +10,7 @@ import {
 import { divIcon, type LatLng } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
+import { useBodyScrollLock } from '../../lib/useBodyScrollLock'
 import type { Location } from '../../types/trip'
 import type { ManualIndoorClass, RegionTiles } from '../../lib/api'
 import { useCreateLocation } from '../../lib/useTrips'
@@ -101,6 +102,9 @@ export default function ManualLocationModal({
   const [indoorClass, setIndoorClass] = useState<ManualIndoorClass>(null)
 
   const { createLocation, isCreating, error } = useCreateLocation(tripId)
+
+  // Prevent background scrolling
+  useBodyScrollLock();
 
   function updateCoordinates(next: Coordinates) {
     setCoordinates(next)

@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 
+import { useBodyScrollLock } from '../../lib/useBodyScrollLock'
 import { useMyPreferences } from '../../lib/usePreferences'
 import {
   INDOOR_PREFERENCES,
@@ -72,7 +73,7 @@ export function TravelPreferencesModal({ onClose }: { onClose: () => void }) {
     saveError,
     save,
     saveSummary,
-    summarise,
+    previewSummary,
     refresh,
   } = useMyPreferences()
 
@@ -85,9 +86,13 @@ export function TravelPreferencesModal({ onClose }: { onClose: () => void }) {
   const [customInterest, setCustomInterest] = useState('')
   const [walkError, setWalkError] = useState<string | null>(null)
   const [isSaved, setIsSaved] = useState(false)
+  const [summaryPreview, setSummaryPreview] = useState<string | null>(null)
 
   const titleId = useId()
   const headingRef = useRef<HTMLHeadingElement>(null)
+
+  // Prevent background scrolling
+  useBodyScrollLock()
 
   // Fill the form once the server copy arrives (and after a save). Copying an
   // external server value into editable form state is intentional; the rule
@@ -194,14 +199,28 @@ export function TravelPreferencesModal({ onClose }: { onClose: () => void }) {
   /** Rebuilds the summary from preferences + trips, replacing the box. */
   async function handleGenerate() {
     if (isSaving) return
-    if (summaryDirty && !window.confirm('Replace your unsaved summary with a newly generated one?')) return
 
     setIsSaved(false)
+    setSummaryPreview(null)
+
     try {
-      await summarise()
+      const generated = await previewSummary()
+      setSummaryPreview(generated)
     } catch {
-      // The hook records a friendly message in `saveError`, shown below.
+      // The hook records a friendly message in saveError.
     }
+  }
+
+  function handleAcceptPreview() {
+    if (summaryPreview === null) return
+
+    setSummaryDraft(summaryPreview)
+    setSummaryPreview(null)
+    setIsSaved(false)
+  }
+
+  function handleRejectPreview() {
+    setSummaryPreview(null)
   }
 
   const extraInterests = normalizedTags.filter(
@@ -457,11 +476,12 @@ export function TravelPreferencesModal({ onClose }: { onClose: () => void }) {
                     disabled={isSaving}
                     className={SECONDARY_BUTTON}
                   >
-                    Generate from my trips
+                    ✨ Generate from my trips
                   </button>
                 </div>
                 <p className="mt-1 text-xs text-muted">
-                  Built from your interests and the places in your trips. Edit it however you like.
+                  Generate a suggested summary from your interests and trip history.
+                  Review it before accepting, or edit your own summary below.
                 </p>
                 <textarea
                   id={`${titleId}-summary`}
@@ -476,6 +496,42 @@ export function TravelPreferencesModal({ onClose }: { onClose: () => void }) {
                   disabled={isSaving}
                   className="input-field mt-3 resize-y"
                 />
+                {summaryPreview !== null && (
+                  <div className="mt-4 rounded-xl border border-accent/40 bg-accent/5 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-foreground">
+                        Generated summary preview
+                      </p>
+                      <span className="text-xs text-muted">
+                        Not saved yet
+                      </span>
+                    </div>
+
+                    <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">
+                      {summaryPreview}
+                    </p>
+
+                    <div className="mt-4 flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={handleRejectPreview}
+                        disabled={isSaving}
+                        className={SECONDARY_BUTTON}
+                      >
+                        Reject
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleAcceptPreview}
+                        disabled={isSaving}
+                        className={PRIMARY_BUTTON}
+                      >
+                        Accept
+                      </button>
+                    </div>
+                  </div>
+                )}
                 {preferences.summary && (
                   <p className="mt-2 text-xs text-faint">
                     Updated {formatUpdatedAt(preferences.updatedAt)}

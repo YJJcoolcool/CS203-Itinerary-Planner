@@ -36,6 +36,19 @@ class PreferenceControllerTest {
     }
 
     @Test
+    void previewMySummaryUsesTheResolvedUserId() {
+        when(userService.getCurrentUserId(jwt)).thenReturn("User0001");
+        when(preferenceService.previewUserSummary("User0001"))
+            .thenReturn("Enjoys museums and food.");
+
+        PreferenceController.SummaryPreviewResponse response =
+            controller.previewMySummary(jwt);
+
+        assertEquals("Enjoys museums and food.", response.summary());
+        verify(preferenceService).previewUserSummary("User0001");
+    }
+
+    @Test
     void mineReturnsTheCallersOwnPreferenceIncludingNotes() {
         UserPreference preference = new UserPreference("User0001");
         preference.setTags(List.of("art"));

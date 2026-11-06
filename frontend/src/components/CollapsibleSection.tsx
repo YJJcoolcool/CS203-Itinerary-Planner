@@ -1,3 +1,4 @@
+
 import { useId, useState } from 'react'
 import type { ReactNode } from 'react'
 
@@ -45,14 +46,22 @@ export function CollapsibleSection({
                 fill="currentColor"
                 className={`h-5 w-5 shrink-0 text-muted transition-[transform,color] duration-200 group-hover/header:text-accent group-active/header:text-accent-strong motion-reduce:transition-none ${isOpen ? 'rotate-90' : ''}`}
               >
-                <path fillRule="evenodd" d="M7.2 14.8a.75.75 0 0 1 0-1.06L10.94 10 7.2 6.26a.75.75 0 1 1 1.06-1.06l4.27 4.27a.75.75 0 0 1 0 1.06l-4.27 4.27a.75.75 0 0 1-1.06 0Z" clipRule="evenodd" />
+                <path
+                  fillRule="evenodd"
+                  d="M7.2 14.8a.75.75 0 0 1 0-1.06L10.94 10 7.2 6.26a.75.75 0 1 1 1.06-1.06l4.27 4.27a.75.75 0 0 1 0 1.06l-4.27 4.27a.75.75 0 0 1-1.06 0Z"
+                  clipRule="evenodd"
+                />
               </svg>
               {title}
             </span>
+
             {subtitle && (
-              <span className="mt-1 block text-sm text-muted">{subtitle}</span>
+              <span className="mt-1 block text-sm text-muted">
+                {subtitle}
+              </span>
             )}
           </span>
+
           {aside ? (
             <span className="flex shrink-0 items-center">{aside}</span>
           ) : null}

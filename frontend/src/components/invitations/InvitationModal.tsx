@@ -1,5 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+
+import { useBodyScrollLock } from '../../lib/useBodyScrollLock'
 import { ApiError } from '../../lib/api'
 import type { UseMyInvitationsResult } from '../../lib/useInvitations'
 import { roleLabel } from '../../types/invitation'
@@ -36,6 +38,9 @@ export function InvitationModal({
   const [error, setError] = useState<string | null>(null)
   const acceptRef = useRef<HTMLButtonElement>(null)
   const titleId = useId()
+
+  // Prevent background scrolling
+  useBodyScrollLock();
 
   // Focus the primary action on open.
   useEffect(() => {

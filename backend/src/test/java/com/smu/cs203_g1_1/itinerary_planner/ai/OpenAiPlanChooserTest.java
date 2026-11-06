@@ -88,7 +88,7 @@ class OpenAiPlanChooserTest {
     @Test
     void configuredChooserReturnsTheParsedChoice() {
         PlanChoice expected = new PlanChoice(List.of(
-                new PlanChoice.RankedChoice("Cult0001", 1, 0.9, "Matches history.")), false);
+                new PlanChoice.RankedChoice("Cult0001", 1, 0.9, "Matches history.", "Museum.")), false);
 
         when(chatClient.prompt()).thenReturn(requestSpec);
         when(requestSpec.system(anyString())).thenReturn(requestSpec);

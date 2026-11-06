@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useSuggestions } from '../../lib/useSuggestions'
-import type { Suggestion } from '../../types/suggestion'
+import type { Suggestion, SuggestionOption } from '../../types/suggestion'
 
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface'
@@ -13,22 +13,22 @@ const SECONDARY_BUTTON =
 
 type Decision = 'accept' | 'reject'
 
-function LocationColumn({
-  label,
-  name,
-  category,
-}: {
-  label: string
-  name: string
-  category: string | null
-}) {
-  return (
-    <div className="min-w-0 flex-1">
-      <p className="text-xs font-medium uppercase tracking-wide text-faint">{label}</p>
-      <p className="mt-0.5 truncate text-sm font-medium text-foreground">{name}</p>
-      {category && <p className="mt-0.5 truncate text-xs text-muted">{category}</p>}
-    </div>
-  )
+/**
+ * Older suggestion payloads do not carry `options`. Build a single-option view
+ * from the compatibility fields so the card stays usable.
+ */
+function optionsFor(suggestion: Suggestion): SuggestionOption[] {
+  if (suggestion.options?.length) return suggestion.options
+
+  return [
+    {
+      location: suggestion.proposedLocation,
+      rank: 1,
+      reason: suggestion.explanation,
+      description: '',
+      aiPick: false,
+    },
+  ]
 }
 
 export interface SuggestionsPanelProps {
@@ -38,25 +38,35 @@ export interface SuggestionsPanelProps {
 }
 
 /**
- * Rain-driven alternatives for a trip. Editors can check for new suggestions
- * and accept or dismiss each one; everyone can see the pending list.
+ * Rain-driven alternatives for a trip. Editors can check for new suggestions,
+ * compare the ranked options for each stop, and apply one or dismiss the whole
+ * suggestion; everyone can see the pending list.
  */
 export function SuggestionsPanel({ tripId, canEdit, onAccepted }: SuggestionsPanelProps) {
   const { suggestions, isLoading, error, isReplanning, replan, accept, reject, refresh } =
     useSuggestions(tripId)
 
   const [acting, setActing] = useState<{ id: string; decision: Decision } | null>(null)
+  const [selectedBySuggestion, setSelectedBySuggestion] = useState<Record<string, string>>({})
 
   const pending = suggestions.filter((suggestion) => suggestion.status === 'PENDING')
 
-  async function handleDecision(suggestion: Suggestion, decision: Decision) {
+  function handleSelect(suggestionId: string, locationId: string) {
+    setSelectedBySuggestion((current) => ({ ...current, [suggestionId]: locationId }))
+  }
+
+  async function handleDecision(
+    suggestion: Suggestion,
+    decision: Decision,
+    locationId?: string,
+  ) {
     if (acting) return
 
     setActing({ id: suggestion.id, decision })
 
     try {
       if (decision === 'accept') {
-        await accept(suggestion.id)
+        await accept(suggestion.id, locationId)
         onAccepted?.()
       } else {
         await reject(suggestion.id)
@@ -123,14 +133,23 @@ export function SuggestionsPanel({ tripId, canEdit, onAccepted }: SuggestionsPan
         ) : (
           <ul className="flex flex-col gap-3">
             {pending.map((suggestion) => {
+              const options = optionsFor(suggestion)
+              const storedId = selectedBySuggestion[suggestion.id]
+              const selectedOption =
+                options.find((option) => option.location.id === storedId) ??
+                options[0]
+              const selectedId = selectedOption.location.id
+
               const isActing = acting?.id === suggestion.id
+              const isBusy = acting !== null
               const isAccepting = isActing && acting.decision === 'accept'
               const isDismissing = isActing && acting.decision === 'reject'
 
               return (
                 <li
                   key={suggestion.id}
-                  className="animate-rise flex flex-col gap-4 rounded-2xl border border-border bg-surface-raised p-5 sm:p-6"
+                  aria-busy={isActing}
+                  className="animate-rise flex flex-col gap-5 rounded-2xl border border-border bg-surface-raised p-5 sm:p-6"
                 >
                   <div>
                     <h3 className="font-display text-xl font-medium tracking-tight text-foreground">
@@ -139,32 +158,108 @@ export function SuggestionsPanel({ tripId, canEdit, onAccepted }: SuggestionsPan
                     <p className="mt-1 text-sm text-muted">{suggestion.reason}</p>
                   </div>
 
-                  <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface-subtle px-4 py-3 sm:flex-row sm:items-center sm:gap-5">
-                    <LocationColumn
-                      label="Current stop"
-                      name={suggestion.currentLocation?.name ?? 'No location set'}
-                      category={suggestion.currentLocation?.category ?? null}
-                    />
-
-                    <span aria-hidden="true" className="hidden shrink-0 text-muted sm:block">
-                      →
-                    </span>
-
-                    <LocationColumn
-                      label="Indoor alternative"
-                      name={suggestion.proposedLocation.name}
-                      category={suggestion.proposedLocation.category}
-                    />
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-border bg-surface-subtle px-4 py-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-faint">
+                      Current stop
+                    </p>
+                    <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                      {suggestion.currentLocation?.name ?? 'No location set'}
+                    </p>
+                    {suggestion.currentLocation?.category && (
+                      <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted">
+                        {suggestion.currentLocation.category}
+                      </span>
+                    )}
                   </div>
 
-                  <p className="text-sm leading-relaxed text-muted">{suggestion.explanation}</p>
+                  <fieldset className="min-w-0" disabled={!canEdit || isBusy}>
+                    <legend className="text-xs font-medium uppercase tracking-wide text-faint">
+                      {options.length > 1
+                        ? `Choose an alternative (${options.length})`
+                        : 'Alternative'}
+                    </legend>
+
+                    <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                      {options.map((option) => {
+                        const isSelected = option.location.id === selectedId
+
+                        return (
+                          <label
+                            key={option.location.id}
+                            className={`flex gap-3 rounded-xl border p-4 transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-surface-raised has-[:focus-visible]:outline-none ${
+                              isSelected
+                                ? 'border-accent bg-accent-soft'
+                                : 'border-border bg-surface-subtle'
+                            } ${
+                              canEdit && !isBusy
+                                ? 'cursor-pointer hover:border-border-strong'
+                                : 'cursor-default'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name={`suggestion-${suggestion.id}-option`}
+                              value={option.location.id}
+                              checked={isSelected}
+                              onChange={() => handleSelect(suggestion.id, option.location.id)}
+                              disabled={!canEdit || isBusy}
+                              className="sr-only"
+                            />
+
+                            <span
+                              aria-hidden="true"
+                              className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
+                                isSelected ? 'border-accent' : 'border-border-strong'
+                              }`}
+                            >
+                              {isSelected && (
+                                <span className="h-2.5 w-2.5 rounded-full bg-accent" />
+                              )}
+                            </span>
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                <span className="font-medium text-foreground">
+                                  {option.location.name}
+                                </span>
+
+                                {option.location.category && (
+                                  <span className="rounded-full border border-border bg-surface-raised px-2 py-0.5 text-[11px] font-medium text-muted">
+                                    {option.location.category}
+                                  </span>
+                                )}
+
+                                {option.rank === 1 && (
+                                  <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-accent">
+                                    Top pick
+                                  </span>
+                                )}
+                              </div>
+
+                              {option.reason && (
+                                <p className="mt-2 text-sm font-medium leading-snug text-foreground">
+                                  {option.reason}
+                                </p>
+                              )}
+
+                              {option.description && option.description !== option.reason && (
+                                <p className="mt-1 text-sm leading-relaxed text-muted">
+                                  {option.description}
+                                </p>
+                              )}
+                            </div>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </fieldset>
 
                   {canEdit && (
-                    <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <button
                         type="button"
                         onClick={() => void handleDecision(suggestion, 'reject')}
-                        disabled={acting !== null}
+                        disabled={isBusy}
                         aria-busy={isDismissing}
                         aria-label={`Dismiss suggestion for ${suggestion.activityName}`}
                         className={SECONDARY_BUTTON}
@@ -174,13 +269,15 @@ export function SuggestionsPanel({ tripId, canEdit, onAccepted }: SuggestionsPan
 
                       <button
                         type="button"
-                        onClick={() => void handleDecision(suggestion, 'accept')}
-                        disabled={acting !== null}
+                        onClick={() =>
+                          void handleDecision(suggestion, 'accept', selectedId)
+                        }
+                        disabled={isBusy}
                         aria-busy={isAccepting}
-                        aria-label={`Accept alternative for ${suggestion.activityName}`}
+                        aria-label={`Apply ${selectedOption.location.name} for ${suggestion.activityName}`}
                         className={PRIMARY_BUTTON}
                       >
-                        {isAccepting ? 'Accepting…' : 'Accept alternative'}
+                        {isAccepting ? 'Applying…' : 'Apply this alternative'}
                       </button>
                     </div>
                   )}

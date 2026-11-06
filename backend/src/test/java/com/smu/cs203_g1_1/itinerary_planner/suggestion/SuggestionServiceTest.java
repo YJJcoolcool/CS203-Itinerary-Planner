@@ -220,15 +220,29 @@ class SuggestionServiceTest {
         Suggestion stored = suggestionRepository.findById(response.id()).orElseThrow();
         assertNotNull(stored.getCandidatesJson());
         assertTrue(stored.getCandidatesJson().contains(culture.getId()));
+        assertNotNull(stored.getOptionsJson());
         assertEquals(culture.getId(), stored.getTopScoreChoiceId());
         assertNull(stored.getAiChoiceId());
+
+        List<SuggestionResponse.Option> options = response.options();
+        assertTrue(options.size() >= 2);
+        assertEquals(response.proposedLocation(), options.get(0).location());
+        assertEquals(response.explanation(), options.get(0).reason());
+        assertFalse(options.get(0).aiPick());
+        for (int i = 0; i < options.size(); i++) {
+            SuggestionResponse.Option option = options.get(i);
+            assertEquals(i + 1, option.rank());
+            assertFalse(option.reason().isBlank());
+            assertFalse(option.description().isBlank());
+        }
+        assertTrue(options.stream().anyMatch(option -> option.location().id().equals(food.getId())));
     }
 
     @Test
     void chooserCanPickADifferentCandidate() {
         TestPlanChooserConfig.CHOICE.set(Optional.of(new PlanChoice(
                 List.of(new PlanChoice.RankedChoice(food.getId(), 1, 0.9,
-                        "Indoor food hall, closer and cheaper.")),
+                        "Indoor food hall, closer and cheaper.", "Indoor food hall.")),
                 false)));
 
         SuggestionResponse response = replan().get(0);
@@ -242,9 +256,41 @@ class SuggestionServiceTest {
     }
 
     @Test
+    void chooserRanksAllOptionsAndMarksThemAiPicked() {
+        TestPlanChooserConfig.CHOICE.set(Optional.of(new PlanChoice(
+                List.of(
+                        new PlanChoice.RankedChoice(culture.getId(), 2, 0.6,
+                                "Second in rank.", "National museum."),
+                        new PlanChoice.RankedChoice(food.getId(), 1, 0.9,
+                                "Best match.", "Indoor food hall.")),
+                false)));
+
+        SuggestionResponse response = replan().get(0);
+
+        List<SuggestionResponse.Option> options = response.options();
+        assertEquals(2, options.size());
+        assertEquals(food.getId(), options.get(0).location().id());
+        assertEquals(1, options.get(0).rank());
+        assertEquals("Best match.", options.get(0).reason());
+        assertTrue(options.get(0).aiPick());
+        assertEquals(culture.getId(), options.get(1).location().id());
+        assertEquals(2, options.get(1).rank());
+        assertEquals("Second in rank.", options.get(1).reason());
+        assertTrue(options.get(1).aiPick());
+
+        assertEquals(options.get(0).location(), response.proposedLocation());
+        assertEquals(options.get(0).reason(), response.explanation());
+        assertTrue(response.aiPick());
+
+        Suggestion stored = suggestionRepository.findById(response.id()).orElseThrow();
+        assertEquals(food.getId(), stored.getAiChoiceId());
+    }
+
+    @Test
     void chooserWithUnknownIdFallsBackToTopScore() {
         TestPlanChooserConfig.CHOICE.set(Optional.of(new PlanChoice(
-                List.of(new PlanChoice.RankedChoice("Nope0001", 1, 0.9, "Invented place.")),
+                List.of(new PlanChoice.RankedChoice("Nope0001", 1, 0.9, "Invented place.",
+                        "Invented place.")),
                 false)));
 
         SuggestionResponse response = replan().get(0);
@@ -327,6 +373,33 @@ class SuggestionServiceTest {
         assertEquals(culture.getId(), reloaded.getLocations().get(0).getId());
         assertEquals(SuggestionStatus.ACCEPTED,
                 suggestionRepository.findById(created.id()).orElseThrow().getStatus());
+    }
+
+    @Test
+    void acceptSwapsInANonTopOption() {
+        SuggestionResponse created = replan().get(0);
+        SuggestionResponse.Option alternative = created.options().stream()
+                .filter(option -> !option.location().id().equals(
+                        created.proposedLocation().id()))
+                .findFirst()
+                .orElseThrow();
+
+        suggestionService.accept(created.id(), owner.getId(), alternative.location().id());
+
+        entityManager.flush();
+        entityManager.clear();
+
+        Activity reloaded = activityRepository.findById(activity.getId()).orElseThrow();
+        assertEquals(1, reloaded.getLocations().size());
+        assertEquals(alternative.location().id(), reloaded.getLocations().get(0).getId());
+    }
+
+    @Test
+    void acceptRejectsAnUnknownOptionId() {
+        SuggestionResponse created = replan().get(0);
+
+        assertStatus(HttpStatus.BAD_REQUEST,
+                () -> suggestionService.accept(created.id(), owner.getId(), "Nope0001"));
     }
 
     @Test

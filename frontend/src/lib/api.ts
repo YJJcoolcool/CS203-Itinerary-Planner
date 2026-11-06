@@ -437,13 +437,18 @@ export function replanTrip(token: string | null, tripId: string): Promise<Sugges
   })
 }
 
-/** Accepts one suggestion and applies its proposed location to the activity. */
+/**
+ * Accepts one suggestion and applies the chosen location to the activity.
+ * Omitting `locationId` keeps the backend's default of using the top option.
+ */
 export function acceptSuggestion(
   token: string | null,
   suggestionId: string,
+  locationId?: string,
 ): Promise<Suggestion> {
   return request<Suggestion>(`/api/suggestions/${suggestionId}/accept`, {
     method: 'POST',
+    body: locationId === undefined ? undefined : { locationId },
     token,
   })
 }

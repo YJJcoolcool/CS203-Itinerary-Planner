@@ -48,9 +48,18 @@ class SuggestionControllerTest {
     void acceptUsesResolvedUserId() {
         when(userService.getCurrentUserId(jwt)).thenReturn("User0001");
 
-        controller.accept(jwt, "Sugg0001");
+        controller.accept(jwt, "Sugg0001", null);
 
-        verify(suggestionService).accept("Sugg0001", "User0001");
+        verify(suggestionService).accept("Sugg0001", "User0001", null);
+    }
+
+    @Test
+    void acceptForwardsTheRequestedLocationId() {
+        when(userService.getCurrentUserId(jwt)).thenReturn("User0001");
+
+        controller.accept(jwt, "Sugg0001", new SuggestionController.AcceptRequest("Loc00001"));
+
+        verify(suggestionService).accept("Sugg0001", "User0001", "Loc00001");
     }
 
     @Test

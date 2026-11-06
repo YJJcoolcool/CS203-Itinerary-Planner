@@ -18,6 +18,7 @@ public record PlanChoice(
         @JsonProperty("no_suitable_option") boolean noSuitableOption) {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record RankedChoice(String id, int rank, double score, String reason) {
+    public record RankedChoice(String id, int rank, double score, String reason,
+                               String description) {
     }
 }

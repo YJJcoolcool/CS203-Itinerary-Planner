@@ -9,6 +9,7 @@ import { useCreateActivity } from '../../lib/useTrips'
 import { LocationSearch } from '../locations/LocationSearch'
 import type { Activity, GeoPlace, Location } from '../../types/trip'
 import ManualLocationModal from '../locations/ManualLocationModal'
+import { DateTimePicker } from './DateTimePicker'
 import { LocationOrderList } from './LocationOrderList'
 
 const FOCUS_RING =
@@ -33,13 +34,18 @@ function describeError(cause: unknown, isEditing: boolean): string {
     : 'Could not create the activity. Please try again.'
 }
 
-/** ISO date-time -> the "YYYY-MM-DDTHH:mm" local value a datetime-local input expects. */
+/** Date -> the "YYYY-MM-DDTHH:mm" local value the picker and submit handler use. */
+function toDateTimeValue(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+/** ISO date-time -> the "YYYY-MM-DDTHH:mm" local value the picker expects. */
 function toDateTimeLocal(iso: string | null): string {
   if (!iso) return ''
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return ''
-  const pad = (value: number) => String(value).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+  return toDateTimeValue(date)
 }
 
 /**
@@ -96,6 +102,37 @@ export function CreateActivityModal({
         ? current.filter((selectedId) => selectedId !== id)
         : [...current, id],
     )
+  }
+
+  /**
+   * Picking a start fills an empty end one hour later, and moving a start that
+   * already has an end carries the same duration across. Clearing start clears
+   * the end so the activity cannot keep a time without a start.
+   */
+  function handleStartChange(nextStart: string) {
+    if (!nextStart) {
+      setStartDateTime('')
+      setEndDateTime('')
+      return
+    }
+
+    const nextStartDate = new Date(nextStart)
+    if (Number.isNaN(nextStartDate.getTime())) return
+
+    const previousStart = startDateTime ? new Date(startDateTime) : null
+    const previousEnd = endDateTime ? new Date(endDateTime) : null
+
+    let duration = 60 * 60 * 1000
+    if (previousStart && previousEnd && previousEnd.getTime() >= previousStart.getTime()) {
+      duration = previousEnd.getTime() - previousStart.getTime()
+    } else if (previousEnd && previousEnd.getTime() >= nextStartDate.getTime()) {
+      // The end was chosen before the start: keep that exact end moment.
+      duration = previousEnd.getTime() - nextStartDate.getTime()
+    }
+
+    const nextEndDate = new Date(nextStartDate.getTime() + duration)
+    setStartDateTime(nextStart)
+    setEndDateTime(toDateTimeValue(nextEndDate))
   }
 
   /** Adds an imported place to the list and selects it straight away. */
@@ -244,29 +281,35 @@ export function CreateActivityModal({
               <label htmlFor={`${titleId}-start`} className="text-xs font-medium text-muted">
                 Start date and time (optional)
               </label>
-              <input
+              <DateTimePicker
                 id={`${titleId}-start`}
-                type="datetime-local"
+                label="Start date and time (optional)"
+                placeholder="Add start time"
                 value={startDateTime}
-                onChange={(event) => setStartDateTime(event.target.value)}
-                className="input-field"
-                aria-invalid={Boolean(errors.startDateTime)}
+                onChange={handleStartChange}
+                invalid={Boolean(errors.startDateTime)}
+                describedBy={errors.startDateTime ? `${titleId}-start-error` : undefined}
               />
+              {errors.startDateTime && (
+                <p id={`${titleId}-start-error`} role="alert" className="text-xs text-terracotta">
+                  {errors.startDateTime}
+                </p>
+              )}
             </div>
 
             <div className="flex flex-col gap-1.5">
               <label htmlFor={`${titleId}-end`} className="text-xs font-medium text-muted">
                 End date and time (optional)
               </label>
-              <input
+              <DateTimePicker
                 id={`${titleId}-end`}
-                type="datetime-local"
-                min={startDateTime || undefined}
+                label="End date and time (optional)"
+                placeholder="Add end time"
                 value={endDateTime}
-                onChange={(event) => setEndDateTime(event.target.value)}
-                className="input-field"
-                aria-invalid={Boolean(errors.endDateTime)}
-                aria-describedby={errors.endDateTime ? `${titleId}-end-error` : undefined}
+                onChange={setEndDateTime}
+                min={startDateTime || undefined}
+                invalid={Boolean(errors.endDateTime)}
+                describedBy={errors.endDateTime ? `${titleId}-end-error` : undefined}
               />
               {errors.endDateTime && (
                 <p id={`${titleId}-end-error`} role="alert" className="text-xs text-terracotta">

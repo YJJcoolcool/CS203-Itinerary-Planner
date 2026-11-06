@@ -22,8 +22,8 @@ export interface UseSuggestionsResult {
   isReplanning: boolean
   /** Checks the weather and reloads the list. Failures are reported via `error`. */
   replan: () => Promise<void>
-  /** Accepts a suggestion. Rejects with the API error after recording a friendly message. */
-  accept: (suggestionId: string) => Promise<void>
+  /** Accepts a suggestion, optionally with a chosen option id. Rejects with the API error after recording a friendly message. */
+  accept: (suggestionId: string, locationId?: string) => Promise<void>
   /** Dismisses a suggestion. Rejects with the API error after recording a friendly message. */
   reject: (suggestionId: string) => Promise<void>
   /** Refetches the list without clearing the current one. */
@@ -112,14 +112,14 @@ function useConfiguredSuggestions(tripId: string): UseSuggestionsResult {
   }, [getToken, tripId])
 
   const accept = useCallback(
-    async (suggestionId: string) => {
+    async (suggestionId: string, locationId?: string) => {
       setError(null)
 
       try {
         const token = await getToken()
         if (!token) throw new ApiError(401, NO_SESSION_MESSAGE)
 
-        const updated = await acceptSuggestion(token, suggestionId)
+        const updated = await acceptSuggestion(token, suggestionId, locationId)
         setSuggestions((current) =>
           current.map((suggestion) =>
             suggestion.id === suggestionId ? updated : suggestion,

@@ -29,6 +29,9 @@ public class SuggestionController {
     public record ReplanRequest(ZonedDateTime at) {
     }
 
+    public record AcceptRequest(String locationId) {
+    }
+
     @GetMapping("/trips/{tripId}/suggestions")
     public List<SuggestionResponse> list(@AuthenticationPrincipal Jwt jwt,
                                          @PathVariable("tripId") String tripId) {
@@ -37,8 +40,10 @@ public class SuggestionController {
 
     @PostMapping("/suggestions/{suggestionId}/accept")
     public SuggestionResponse accept(@AuthenticationPrincipal Jwt jwt,
-                                     @PathVariable("suggestionId") String suggestionId) {
-        return suggestionService.accept(suggestionId, userService.getCurrentUserId(jwt));
+                                     @PathVariable("suggestionId") String suggestionId,
+                                     @RequestBody(required = false) AcceptRequest request) {
+        return suggestionService.accept(suggestionId, userService.getCurrentUserId(jwt),
+                request == null ? null : request.locationId());
     }
 
     @PostMapping("/suggestions/{suggestionId}/reject")

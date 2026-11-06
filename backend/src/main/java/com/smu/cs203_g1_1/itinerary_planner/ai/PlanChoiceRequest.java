@@ -32,6 +32,8 @@ public record PlanChoiceRequest(
             String name,
             String category,
             String categoryGroup,
+            String address,
+            String openingHours,
             double distanceKm,
             String openingStatus,
             boolean indoor,

@@ -63,6 +63,10 @@ public class Suggestion {
     @Column(name = "candidates", length = 4096)
     private String candidatesJson;
 
+    /** Ranked alternatives snapshot: an array of SuggestionResponse.Option entries. */
+    @Column(name = "options_json", length = 8192)
+    private String optionsJson;
+
     /** The candidate the model picked, when the AI chooser ran; null for the fallback. */
     @Column(name = "ai_choice_id", length = 8)
     private String aiChoiceId;
@@ -156,6 +160,14 @@ public class Suggestion {
 
     public void setCandidatesJson(String candidatesJson) {
         this.candidatesJson = candidatesJson;
+    }
+
+    public String getOptionsJson() {
+        return optionsJson;
+    }
+
+    public void setOptionsJson(String optionsJson) {
+        this.optionsJson = optionsJson;
     }
 
     public String getAiChoiceId() {

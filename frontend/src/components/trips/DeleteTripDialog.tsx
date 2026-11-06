@@ -1,6 +1,8 @@
 import { useEffect, useId, useState } from 'react'
 import { createPortal } from 'react-dom'
 
+import { useBodyScrollLock } from '../../lib/useBodyScrollLock'
+
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface'
 
@@ -23,6 +25,9 @@ export function DeleteTripDialog({
   const [confirmation, setConfirmation] = useState('')
   const titleId = useId()
   const inputId = useId()
+
+  // Prevent background scrolling
+  useBodyScrollLock();
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {

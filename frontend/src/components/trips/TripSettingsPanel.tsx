@@ -2,10 +2,11 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { useAuth } from '@clerk/react'
 import { useNavigate } from 'react-router'
+import { useAuth } from '@clerk/react'
 
 import { publishableKey } from '../../auth/authConfiguration'
+import { useBodyScrollLock } from '../../lib/useBodyScrollLock'
 import { ApiError, updateTrip } from '../../lib/api'
 import { useTripInvitations } from '../../lib/useInvitations'
 import { roleLabel } from '../../types/invitation'
@@ -241,12 +242,14 @@ function InvitationsSection({ tripId }: InvitationsSectionProps) {
 export function TripSettingsPanel({
   trip,
   isOwner,
+  scrollToInvitations = false,
   onClose,
   onUpdated,
   onDeleted,
 }: {
   trip: Trip
   isOwner: boolean
+  scrollToInvitations?: boolean
   onClose: () => void
   onUpdated: (trip: Trip) => void
   onDeleted: () => void
@@ -268,6 +271,7 @@ export function TripSettingsPanel({
 
   const titleId = useId()
   const headingRef = useRef<HTMLHeadingElement>(null)
+  const invitationsRef = useRef<HTMLDivElement>(null)
 
   const countryCodeChanged =
     normalizeCountryCode(countryCode) !==
@@ -279,6 +283,9 @@ export function TripSettingsPanel({
     endDate !== trip.endDate ||
     countryCodeChanged ||
     coverImageUrl !== (trip.coverImageUrl ?? null)
+  
+  // Prevent background scrolling
+  useBodyScrollLock();
 
   useEffect(() => {
     headingRef.current?.focus()
@@ -292,6 +299,19 @@ export function TripSettingsPanel({
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [isDeleteOpen, isSaving, onClose])
+
+  useEffect(() => {
+    if (!scrollToInvitations) return
+
+    const frame = requestAnimationFrame(() => {
+      invitationsRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      })
+    })
+
+    return () => cancelAnimationFrame(frame)
+  }, [scrollToInvitations])
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -524,7 +544,9 @@ export function TripSettingsPanel({
 
           <div className="my-7 border-t border-border" />
 
-          <InvitationsSection tripId={trip.id} />
+          <div ref={invitationsRef} className="scroll-mt-6">
+            <InvitationsSection tripId={trip.id} />
+          </div>
 
           <div className="my-7 border-t border-border" />
 

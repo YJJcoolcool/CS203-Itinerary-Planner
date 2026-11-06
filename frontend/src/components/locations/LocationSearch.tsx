@@ -1,6 +1,8 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
+
+import { useBodyScrollLock } from '../../lib/useBodyScrollLock'
 import { useImportLocationFromOsm, useLocationSearch } from '../../lib/useTrips'
 import type { GeoPlace, Location } from '../../types/trip'
 import ManualLocationModal from './ManualLocationModal'
@@ -119,6 +121,9 @@ export function LocationSearch({
       : showResults
         ? `${results.length} ${results.length === 1 ? 'result' : 'results'} for ${trimmed}.`
         : ''
+  
+  // Prevent background scrolling
+  useBodyScrollLock();
 
   // Move focus into the dialog when it opens.
   useEffect(() => {
@@ -134,16 +139,6 @@ export function LocationSearch({
     if (wasOpen.current) {
       wasOpen.current = false
       triggerRef.current?.focus()
-    }
-  }, [open])
-
-  // Lock body scroll while the dialog is open.
-  useEffect(() => {
-    if (!open) return
-    const previous = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = previous
     }
   }, [open])
 

@@ -1,6 +1,8 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { createPortal } from 'react-dom'
+
+import { useBodyScrollLock } from '../../lib/useBodyScrollLock'
 import { useTripInvitations } from '../../lib/useInvitations'
 
 const FOCUS_RING =
@@ -39,6 +41,9 @@ export function TripInviteModal({ tripId, onClose }: { tripId: string; onClose: 
   const inputId = useId()
   const titleId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Prevent background scrolling
+  useBodyScrollLock();
 
   // Focus the email field on open.
   useEffect(() => {

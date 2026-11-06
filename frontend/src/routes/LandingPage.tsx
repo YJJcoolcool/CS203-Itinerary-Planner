@@ -1,6 +1,8 @@
 import { Show, SignInButton, SignUpButton, useAuth, useClerk } from '@clerk/react'
 import { useEffect } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router'
+
+import { useDocumentTitle } from '../lib/useDocumentTitle'
 import { Navbar } from '../components/Navbar'
 import { useAuthConfiguration } from '../auth/authConfiguration'
 
@@ -43,6 +45,7 @@ function HomepageAuthActions() {
 }
 
 function LandingContent() {
+  useDocumentTitle('Agile Trips - AI Powered Itinerary Planner')
   return (
     <main className="relative flex min-h-screen flex-col bg-surface text-foreground">
       <Navbar />

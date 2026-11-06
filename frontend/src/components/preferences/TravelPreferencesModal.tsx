@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 
+import { useBodyScrollLock } from '../../lib/useBodyScrollLock'
 import { useMyPreferences } from '../../lib/usePreferences'
 import {
   INDOOR_PREFERENCES,
@@ -88,6 +89,9 @@ export function TravelPreferencesModal({ onClose }: { onClose: () => void }) {
 
   const titleId = useId()
   const headingRef = useRef<HTMLHeadingElement>(null)
+
+  // Prevent background scrolling
+  useBodyScrollLock()
 
   // Fill the form once the server copy arrives (and after a save). Copying an
   // external server value into editable form state is intentional; the rule

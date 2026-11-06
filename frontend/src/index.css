@@ -91,6 +91,14 @@ html.dark {
     font-family: var(--font-body);
     -webkit-font-smoothing: antialiased;
   }
+
+  button {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
 }
 
 @media (prefers-reduced-motion: no-preference) {

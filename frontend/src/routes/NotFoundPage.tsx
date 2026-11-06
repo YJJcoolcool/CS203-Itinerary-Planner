@@ -1,4 +1,6 @@
 import { Link } from 'react-router'
+
+import { useDocumentTitle } from '../lib/useDocumentTitle'
 import { Navbar } from '../components/Navbar'
 
 function ArrowLeftIcon() {
@@ -19,6 +21,7 @@ function ArrowLeftIcon() {
 }
 
 export function NotFoundPage() {
+  useDocumentTitle('Not Found | Agile Trips')
   return (
     <main className="relative flex min-h-screen flex-col overflow-hidden bg-surface text-foreground">
       {/* Ambient depth — soft accent glow, purely decorative. */}

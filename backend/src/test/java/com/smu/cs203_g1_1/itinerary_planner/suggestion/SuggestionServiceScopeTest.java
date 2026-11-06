@@ -14,6 +14,7 @@ import com.smu.cs203_g1_1.itinerary_planner.preference.TripPreferenceRepository;
 import com.smu.cs203_g1_1.itinerary_planner.preference.UserPreferenceRepository;
 import com.smu.cs203_g1_1.itinerary_planner.rag.QueryEmbedder;
 import com.smu.cs203_g1_1.itinerary_planner.trips.ActivityRepository;
+import com.smu.cs203_g1_1.itinerary_planner.trips.LocationRepository;
 import com.smu.cs203_g1_1.itinerary_planner.trips.Trip;
 import com.smu.cs203_g1_1.itinerary_planner.trips.TripRole;
 import com.smu.cs203_g1_1.itinerary_planner.trips.TripService;
@@ -43,6 +44,7 @@ class SuggestionServiceScopeTest {
 
     @Mock private SuggestionRepository suggestionRepository;
     @Mock private ActivityRepository activityRepository;
+    @Mock private LocationRepository locationRepository;
     @Mock private TripService tripService;
     @Mock private CandidateFinder candidateFinder;
     @Mock private WeatherSource weatherSource;
@@ -62,6 +64,7 @@ class SuggestionServiceScopeTest {
         suggestionService = new SuggestionService(
             suggestionRepository,
             activityRepository,
+            locationRepository,
             tripService,
             candidateFinder,
             weatherSourceResolver,

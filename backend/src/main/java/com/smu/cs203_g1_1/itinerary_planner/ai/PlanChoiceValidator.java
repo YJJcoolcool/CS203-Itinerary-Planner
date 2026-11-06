@@ -2,6 +2,7 @@ package com.smu.cs203_g1_1.itinerary_planner.ai;
 
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -22,13 +23,26 @@ public final class PlanChoiceValidator {
      */
     public static Optional<PlanChoice.RankedChoice> pick(
             PlanChoice choice, Set<String> candidateIds) {
+        return pickAll(choice, candidateIds, 1).stream().findFirst();
+    }
+
+    /**
+     * Returns up to {@code limit} usable choices in rank order.
+     *
+     * <p>Null entries, unknown ids, duplicate ids, non-positive ranks and
+     * ungrounded reasons are dropped rather than repaired. A blank description
+     * is allowed: the service fills it in from the candidate's supplied fields.</p>
+     */
+    public static List<PlanChoice.RankedChoice> pickAll(
+            PlanChoice choice, Set<String> candidateIds, int limit) {
         if (choice == null
                 || choice.noSuitableOption()
                 || choice.ranking() == null
                 || choice.ranking().isEmpty()
                 || candidateIds == null
-                || candidateIds.isEmpty()) {
-            return Optional.empty();
+                || candidateIds.isEmpty()
+                || limit <= 0) {
+            return List.of();
         }
 
         Set<String> seen = new HashSet<>();
@@ -39,7 +53,8 @@ public final class PlanChoiceValidator {
                 .sorted(Comparator
                         .comparingInt(PlanChoice.RankedChoice::rank)
                         .thenComparing(PlanChoice.RankedChoice::id))
-                .findFirst();
+                .limit(limit)
+                .toList();
     }
 
     private static boolean isUsable(PlanChoice.RankedChoice entry,

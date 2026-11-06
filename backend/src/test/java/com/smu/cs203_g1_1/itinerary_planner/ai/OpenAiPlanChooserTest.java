@@ -63,6 +63,8 @@ class OpenAiPlanChooserTest {
                         "National Museum",
                         "museum",
                         "culture",
+                        "93 Stamford Road Singapore",
+                        "Mo-Su 10:00-19:00",
                         0.8,
                         "OPEN",
                         true,
@@ -88,7 +90,7 @@ class OpenAiPlanChooserTest {
     @Test
     void configuredChooserReturnsTheParsedChoice() {
         PlanChoice expected = new PlanChoice(List.of(
-                new PlanChoice.RankedChoice("Cult0001", 1, 0.9, "Matches history.")), false);
+                new PlanChoice.RankedChoice("Cult0001", 1, 0.9, "Matches history.", "Museum.")), false);
 
         when(chatClient.prompt()).thenReturn(requestSpec);
         when(requestSpec.system(anyString())).thenReturn(requestSpec);

@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -33,6 +34,7 @@ import com.smu.cs203_g1_1.itinerary_planner.planner.Candidate;
 import com.smu.cs203_g1_1.itinerary_planner.planner.CandidateFinder;
 import com.smu.cs203_g1_1.itinerary_planner.planner.CandidateRequest;
 import com.smu.cs203_g1_1.itinerary_planner.planner.CategoryGoalMapper;
+import com.smu.cs203_g1_1.itinerary_planner.planner.OpeningHours;
 import com.smu.cs203_g1_1.itinerary_planner.preference.TripPreference;
 import com.smu.cs203_g1_1.itinerary_planner.preference.TripPreferenceRepository;
 import com.smu.cs203_g1_1.itinerary_planner.preference.UserPreferenceRepository;
@@ -40,6 +42,7 @@ import com.smu.cs203_g1_1.itinerary_planner.rag.QueryEmbedder;
 import com.smu.cs203_g1_1.itinerary_planner.trips.Activity;
 import com.smu.cs203_g1_1.itinerary_planner.trips.ActivityRepository;
 import com.smu.cs203_g1_1.itinerary_planner.trips.Location;
+import com.smu.cs203_g1_1.itinerary_planner.trips.LocationRepository;
 import com.smu.cs203_g1_1.itinerary_planner.trips.Trip;
 import com.smu.cs203_g1_1.itinerary_planner.trips.TripRole;
 import com.smu.cs203_g1_1.itinerary_planner.trips.TripService;
@@ -65,11 +68,13 @@ public class SuggestionService {
     private static final int MAX_SUGGESTIONS_PER_REPLAN = 3;
     private static final int WINDOW_HOURS = 24;
     private static final int SHORTLIST_LIMIT = 5;
+    private static final int OPTION_LIMIT = 5;
     private static final int RAIN_WINDOW_FALLBACK_HOURS = 2;
     private static final int SEMANTIC_SHORTLIST = 8;
 
     private final SuggestionRepository suggestionRepository;
     private final ActivityRepository activityRepository;
+    private final LocationRepository locationRepository;
     private final TripService tripService;
     private final CandidateFinder candidateFinder;
     private final WeatherSourceResolver weatherSourceResolver;
@@ -83,6 +88,7 @@ public class SuggestionService {
 
     public SuggestionService(SuggestionRepository suggestionRepository,
                              ActivityRepository activityRepository,
+                             LocationRepository locationRepository,
                              TripService tripService,
                              CandidateFinder candidateFinder,
                              WeatherSourceResolver weatherSourceResolver,
@@ -94,6 +100,7 @@ public class SuggestionService {
                              Clock clock) {
         this.suggestionRepository = suggestionRepository;
         this.activityRepository = activityRepository;
+        this.locationRepository = locationRepository;
         this.tripService = tripService;
         this.candidateFinder = candidateFinder;
         this.weatherSourceResolver = weatherSourceResolver;
@@ -116,6 +123,11 @@ public class SuggestionService {
 
     @Transactional
     public SuggestionResponse accept(String suggestionId, String userId) {
+        return accept(suggestionId, userId, null);
+    }
+
+    @Transactional
+    public SuggestionResponse accept(String suggestionId, String userId, String locationId) {
         Suggestion suggestion = loadSuggestion(suggestionId);
         tripService.requireTripRole(suggestion.getTrip().getId(), userId, TripRole.EDITOR);
         requirePending(suggestion);
@@ -123,6 +135,29 @@ public class SuggestionService {
         Activity activity = suggestion.getActivity();
         Location current = suggestion.getCurrentLocation();
         Location proposed = suggestion.getProposedLocation();
+
+        String chosenId = locationId == null || locationId.isBlank()
+                ? proposed.getId()
+                : locationId.trim();
+
+        List<SuggestionResponse.Option> options = SuggestionResponse.from(suggestion).options();
+        boolean storedOption = options.stream()
+                .anyMatch(option -> option.location() != null
+                        && chosenId != null
+                        && chosenId.equals(option.location().id()));
+        if (!storedOption) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Unknown alternative for this suggestion");
+        }
+
+        Location chosen;
+        if (proposed.getId() != null && proposed.getId().equals(chosenId)) {
+            chosen = proposed;
+        } else {
+            chosen = locationRepository.findById(chosenId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "Unknown alternative for this suggestion"));
+        }
 
         List<Location> locations = activity.getLocations();
         int index = indexOf(locations, current);
@@ -134,7 +169,7 @@ public class SuggestionService {
                     "The activity no longer contains the suggested location");
         }
 
-        locations.set(index, proposed);
+        locations.set(index, chosen);
         activityRepository.save(activity);
 
         suggestion.setStatus(SuggestionStatus.ACCEPTED);
@@ -384,29 +419,54 @@ public class SuggestionService {
             }
 
             Candidate top = candidates.get(0);
-            PlanChoice.RankedChoice ranked =
-                    PlanChoiceValidator.pick(choice.orElse(null), candidateIds).orElse(null);
+            List<PlanChoice.RankedChoice> ranked =
+                    PlanChoiceValidator.pickAll(choice.orElse(null), candidateIds, OPTION_LIMIT);
 
-            Candidate selected = ranked == null ? null : candidates.stream()
-                    .filter(candidate -> ranked.id().equals(candidate.location().getId()))
-                    .findFirst()
-                    .orElse(null);
+            List<SuggestionResponse.Option> options = new ArrayList<>(OPTION_LIMIT);
+            Set<String> optionIds = new HashSet<>();
 
-            Location proposed;
-            String explanation;
-            String aiChoiceId;
-            if (selected != null) {
+            for (PlanChoice.RankedChoice entry : ranked) {
+                Candidate candidate = findCandidate(candidates, entry.id());
+                if (candidate == null) {
+                    continue;
+                }
+                Location location = candidate.location();
+                String description = entry.description();
+                if (description == null || description.isBlank()) {
+                    description = fallbackDescription(location);
+                }
+                options.add(new SuggestionResponse.Option(
+                        SuggestionResponse.ref(location),
+                        options.size() + 1,
+                        entry.reason(),
+                        description,
+                        true));
+                optionIds.add(entry.id());
+            }
+
+            for (Candidate candidate : candidates) {
+                if (options.size() >= OPTION_LIMIT) {
+                    break;
+                }
+                String id = candidate.location().getId();
+                if (id == null || !optionIds.add(id)) {
+                    continue;
+                }
+                options.add(new SuggestionResponse.Option(
+                        SuggestionResponse.ref(candidate.location()),
+                        options.size() + 1,
+                        fallbackReason(candidate),
+                        fallbackDescription(candidate.location()),
+                        false));
+            }
+
+            SuggestionResponse.Option first = options.get(0);
+            Candidate firstCandidate = findCandidate(candidates, first.location().id());
+            Location proposed = firstCandidate == null ? top.location() : firstCandidate.location();
+            String explanation = first.reason();
+            String aiChoiceId = first.aiPick() ? first.location().id() : null;
+            if (first.aiPick()) {
                 aiPicks++;
-                proposed = selected.location();
-                explanation = ranked.reason();
-                aiChoiceId = selected.location().getId();
-            } else {
-                proposed = top.location();
-                explanation = proposed.getName()
-                        + " is an indoor option about "
-                        + String.format(Locale.ROOT, "%.1f", top.distanceKm())
-                        + " km away.";
-                aiChoiceId = null;
             }
 
             Suggestion suggestion = new Suggestion();
@@ -419,6 +479,7 @@ public class SuggestionService {
             suggestion.setReason("Rain is expected during " + activity.getName() + ".");
             suggestion.setExplanation(explanation);
             suggestion.setCandidatesJson(serialiseCandidates(candidates));
+            suggestion.setOptionsJson(serialiseOptions(options));
             suggestion.setTopScoreChoiceId(top.location().getId());
             suggestion.setAiChoiceId(aiChoiceId);
             suggestion.setCreatedAt(Instant.now(clock));
@@ -430,7 +491,7 @@ public class SuggestionService {
 
             log.info("Created suggestion id={} for activity id={} on trip id={} chooser={}",
                     response.id(), activity.getId(), tripId,
-                    selected != null ? "LLM" : "FALLBACK");
+                    first.aiPick() ? "LLM" : "FALLBACK");
         }
 
         log.info("replan_metrics trip={} suggestions={} ai_attempts={} ai_picks={} fallbacks={} retrieval={} latency_ms={}",
@@ -485,10 +546,81 @@ public class SuggestionService {
                 location.getName(),
                 location.getCategory(),
                 location.getCategoryGroup(),
+                location.getAddress(),
+                location.getOpeningHours(),
                 candidate.distanceKm(),
                 candidate.openStatus().name(),
                 "INDOOR".equalsIgnoreCase(location.getIndoorClass()),
                 location.getEstCost());
+    }
+
+    private static Candidate findCandidate(List<Candidate> candidates, String id) {
+        return candidates.stream()
+                .filter(candidate -> Objects.equals(id, candidate.location().getId()))
+                .findFirst()
+                .orElse(null);
+    }
+
+    /**
+     * Why the candidate is a reasonable swap. Distance belongs here; the
+     * description answers what the place actually is.
+     */
+    private static String fallbackReason(Candidate candidate) {
+        StringBuilder reason = new StringBuilder("This is an indoor option about ")
+                .append(String.format(Locale.ROOT, "%.1f", candidate.distanceKm()))
+                .append(" km away");
+
+        if (candidate.openStatus() == OpeningHours.Status.OPEN) {
+            reason.append(", open at your arrival time");
+        } else if (candidate.openStatus() == OpeningHours.Status.CLOSED) {
+            reason.append(", but check its opening hours");
+        }
+
+        return reason.append(".").toString();
+    }
+
+    /**
+     * What the place is, built only from fields we actually hold: category,
+     * category group, address and opening hours. Never invents a specialty.
+     */
+    private static String fallbackDescription(Location location) {
+        StringBuilder description = new StringBuilder(location.getName());
+        String category = trimmedOrNull(location.getCategory());
+        String group = trimmedOrNull(location.getCategoryGroup());
+
+        if (category != null) {
+            description.append(" is a ").append(category);
+        } else if (group != null) {
+            description.append(" is a ").append(group).append(" place");
+        } else {
+            description.append(" is an indoor place");
+        }
+
+        String address = trimmedOrNull(location.getAddress());
+        if (address != null) {
+            description.append(" at ").append(address);
+        }
+
+        String hours = trimmedOrNull(location.getOpeningHours());
+        if (hours != null) {
+            description.append(", open ").append(hours);
+        }
+
+        return description.append(".").toString();
+    }
+
+    private static String trimmedOrNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private String serialiseOptions(List<SuggestionResponse.Option> options) {
+        try {
+            return objectMapper.writeValueAsString(options);
+        } catch (JsonProcessingException e) {
+            log.error("Could not serialise suggestion options", e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Could not build suggestion");
+        }
     }
 
     private String serialiseCandidates(List<Candidate> candidates) {

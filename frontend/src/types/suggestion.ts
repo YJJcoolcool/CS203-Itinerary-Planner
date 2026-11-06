@@ -10,6 +10,15 @@ export interface SuggestionLocationRef {
   longitude: number
 }
 
+/** One ranked alternative the user can choose for a rainy stop. */
+export interface SuggestionOption {
+  location: SuggestionLocationRef
+  rank: number
+  reason: string
+  description: string
+  aiPick: boolean
+}
+
 /** A rain-driven activity alternative proposed by the backend. */
 export interface Suggestion {
   id: string
@@ -21,6 +30,8 @@ export interface Suggestion {
   proposedLocation: SuggestionLocationRef
   reason: string
   explanation: string
+  /** Ordered best-first; 1–5 entries. May be absent on older cached data. */
+  options: SuggestionOption[]
   createdAt: string
   respondedAt: string | null
 }

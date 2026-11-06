@@ -128,6 +128,8 @@ public class OpenAiPlanChooser implements PlanChooser {
             entry.put("name", candidate.name());
             entry.put("category", candidate.category());
             entry.put("category_group", candidate.categoryGroup());
+            entry.put("address", candidate.address());
+            entry.put("opening_hours", candidate.openingHours());
             entry.put("distance_km", candidate.distanceKm());
             entry.put("opening_status", candidate.openingStatus());
             entry.put("indoor", candidate.indoor());

@@ -27,6 +27,11 @@ export interface Location {
   address?: string | null
   /** Free-form OSM opening_hours value, when known. */
   openingHours?: string | null
+  /**
+   * True for a place a user entered by hand (not seeded or from OSM). These
+   * belong to one trip and can be deleted by its editors (CGT-142, CGT-172).
+   */
+  manual?: boolean
 }
 
 /** An itinerary entry, as returned by `GET /api/trips/{tripId}/activities`. */

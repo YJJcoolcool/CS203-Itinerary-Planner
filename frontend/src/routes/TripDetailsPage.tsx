@@ -176,6 +176,7 @@ function TripDetailsContent({ tripId }: { tripId: string }) {
               key={itineraryRefreshKey}
               tripId={displayedTrip.id}
               countryCode={displayedTrip.countryCode}
+              tripStartDate={displayedTrip.startDate}
               canEdit={canEdit}
             />
 

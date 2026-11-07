@@ -447,6 +447,17 @@ export function createLocation(
   })
 }
 
+/**
+ * Deletes a place added by hand (CGT-172). Editor or owner of its trip only.
+ * Fails with 409 while an activity still uses the place, and 403 for shared places.
+ */
+export function deleteLocation(token: string | null, locationId: string): Promise<void> {
+  return request<void>(`/api/locations/${locationId}`, {
+    method: 'DELETE',
+    token,
+  })
+}
+
 /** Fetches all suggestions for a trip, including already answered ones. */
 export function getSuggestions(token: string | null, tripId: string): Promise<Suggestion[]> {
   return request<Suggestion[]>(`/api/trips/${tripId}/suggestions`, { token })

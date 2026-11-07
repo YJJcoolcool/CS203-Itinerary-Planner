@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
 
 import { useDocumentTitle } from '../lib/useDocumentTitle'
 import { Navbar } from '../components/Navbar'
@@ -98,6 +98,13 @@ function TripDetailsContent({ tripId }: { tripId: string }) {
     refresh()
   }, [refresh])
 
+  const navigate = useNavigate()
+
+  // CGT-167: after leaving, this trip is no longer ours to view.
+  const handleLeft = useCallback(() => {
+    navigate('/trips', { replace: true })
+  }, [navigate])
+
   const isOwner = Boolean(user && trip && trip.owner.id === user.id)
   const displayedTrip = trip && updatedTrip?.id === trip.id
     ? updatedTrip
@@ -147,7 +154,9 @@ function TripDetailsContent({ tripId }: { tripId: string }) {
             <TripMembersPanel
               trip={displayedTrip}
               myRole={myRole}
+              currentUserId={user?.id ?? null}
               onUpdated={handleUpdated}
+              onLeft={handleLeft}
             />
 
             <TripPreferencesPanel trip={displayedTrip} canEdit={canEdit} />

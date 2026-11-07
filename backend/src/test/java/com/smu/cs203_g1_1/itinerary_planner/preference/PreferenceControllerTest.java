@@ -83,9 +83,10 @@ class PreferenceControllerTest {
         UserPreference preference = new UserPreference("User0002");
         preference.setNotes("private note");
 
-        when(preferenceService.readUser("User0002")).thenReturn(preference);
+        when(userService.getCurrentUserId(jwt)).thenReturn("User0001");
+        when(preferenceService.readUserFor("User0001", "User0002")).thenReturn(preference);
 
-        assertNull(controller.byUser("User0002").notes());
+        assertNull(controller.byUser(jwt, "User0002").notes());
     }
 
     @Test

@@ -230,7 +230,11 @@ export function changeMemberRole(
   })
 }
 
-/** Removes a member from a trip. Owner-only; the owner can't be removed. Returns the updated trip. */
+/**
+ * Removes a member from a trip. The owner can remove anyone else; any member
+ * can pass their own id to leave the trip (CGT-167). The owner can't be
+ * removed or leave. Returns the updated trip.
+ */
 export function removeMember(
   token: string | null,
   tripId: string,
@@ -238,6 +242,22 @@ export function removeMember(
 ): Promise<Trip> {
   return request<Trip>(`/api/trips/${tripId}/members/${userId}`, {
     method: 'DELETE',
+    token,
+  })
+}
+
+/**
+ * Hands the trip to another member (CGT-168). Owner-only; the previous owner
+ * becomes an editor. Returns the updated trip.
+ */
+export function transferOwnership(
+  token: string | null,
+  tripId: string,
+  userId: string,
+): Promise<Trip> {
+  return request<Trip>(`/api/trips/${tripId}/owner`, {
+    method: 'PUT',
+    body: { userId },
     token,
   })
 }

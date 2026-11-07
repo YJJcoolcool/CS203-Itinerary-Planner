@@ -4,7 +4,7 @@ import type { FormEvent } from 'react'
 import { useAuth } from '@clerk/react'
 
 import { useBodyScrollLock } from '../../lib/useBodyScrollLock'
-import { ApiError, updateActivity } from '../../lib/api'
+import { ApiError, deleteLocation, updateActivity } from '../../lib/api'
 import { useCreateActivity } from '../../lib/useTrips'
 import { LocationSearch } from '../locations/LocationSearch'
 import type { Activity, GeoPlace, Location } from '../../types/trip'
@@ -76,6 +76,8 @@ export function CreateActivityModal({
   const [locations, setLocations] = useState<Location[]>(activityLocations ?? [])
   const [selectedLocationIds, setSelectedLocationIds] = useState<string[]>((activityLocations ?? []).map((location) => location.id),)
   const [isManualLocationOpen, setIsManualLocationOpen] = useState(false)
+  const [deletingLocationId, setDeletingLocationId] = useState<string | null>(null)
+  const [locationError, setLocationError] = useState<string | null>(null)
   const [errors, setErrors] = useState<FieldErrors>({})
   const nameRef = useRef<HTMLInputElement>(null)
   const titleId = useId()
@@ -143,6 +145,36 @@ export function CreateActivityModal({
     setSelectedLocationIds((current) =>
       current.includes(location.id) ? current : [...current, location.id],
     )
+  }
+
+  /**
+   * CGT-172: permanently deletes a place the user added by hand, then drops it
+   * from this form. The backend refuses (409) while any saved activity uses it.
+   */
+  async function handleDeleteLocation(location: Location) {
+    if (!window.confirm(`Delete "${location.name}"? It will be removed from this trip's places.`)) return
+
+    setDeletingLocationId(location.id)
+    setLocationError(null)
+
+    try {
+      const token = await getToken()
+      if (!token) throw new ApiError(401, 'No active session token is available.')
+
+      await deleteLocation(token, location.id)
+      setLocations((current) => current.filter((existing) => existing.id !== location.id))
+      setSelectedLocationIds((current) => current.filter((id) => id !== location.id))
+    } catch (cause) {
+      setLocationError(
+        cause instanceof ApiError && cause.status === 409
+          ? `"${location.name}" is still used by a saved activity. Untick it there and save first, then delete it.`
+          : cause instanceof Error && cause.message
+            ? cause.message
+            : 'Could not delete this place.',
+      )
+    } finally {
+      setDeletingLocationId(null)
+    }
   }
 
   /** Whether a search result has already been imported (matched on OSM identity). */
@@ -351,8 +383,8 @@ export function CreateActivityModal({
             {locations.length > 0 && (
               <ul className="flex max-h-40 flex-col gap-2 overflow-y-auto rounded-xl border border-border p-3">
                 {locations.map((location) => (
-                  <li key={location.id}>
-                    <label className="flex cursor-pointer items-start gap-3 rounded-lg p-2 hover:bg-surface-subtle">
+                  <li key={location.id} className="flex items-start gap-2">
+                    <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3 rounded-lg p-2 hover:bg-surface-subtle">
                       <input
                         type="checkbox"
                         checked={selectedLocationIds.includes(location.id)}
@@ -367,11 +399,34 @@ export function CreateActivityModal({
                         {location.category && (
                           <span className="block text-xs text-muted">{location.category}</span>
                         )}
+                        {location.manual && (
+                          <span className="block text-xs text-faint">Added by hand</span>
+                        )}
                       </span>
                     </label>
+
+                    {/* CGT-172: only places typed in by hand can be deleted; shared ones belong to everyone. */}
+                    {location.manual && (
+                      <button
+                        type="button"
+                        onClick={() => void handleDeleteLocation(location)}
+                        disabled={isBusy || deletingLocationId === location.id}
+                        aria-label={`Delete ${location.name}`}
+                        title="Delete this place"
+                        className={`mt-1 rounded-lg px-2 py-1 text-xs text-terracotta transition-colors hover:bg-terracotta/10 disabled:opacity-50 ${FOCUS_RING}`}
+                      >
+                        {deletingLocationId === location.id ? 'Deleting…' : 'Delete'}
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>
+            )}
+
+            {locationError && (
+              <p role="alert" className="text-xs text-terracotta">
+                {locationError}
+              </p>
             )}
 
             {/* Order only matters once there are two or more places to visit. */}

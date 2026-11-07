@@ -4,6 +4,7 @@ import { ApiError, deleteActivity } from '../../lib/api'
 import { useTripItinerary } from '../../lib/useTrips'
 import { CreateActivityModal } from './CreateActivityModal'
 import { ActivityRoute } from './ActivityRoute'
+import { groupActivitiesByDay, UNSCHEDULED_KEY } from './itineraryDays'
 import type { Activity, Location } from '../../types/trip'
 
 const FOCUS_RING =
@@ -12,17 +13,23 @@ const FOCUS_RING =
 const PILL =
   'inline-flex items-center rounded-full border border-border bg-surface-subtle px-2.5 py-0.5 font-mono text-[11px] text-muted'
 
-/** "Oct 14, 8:30 AM – 10:00 AM" in the viewer's locale; tolerant of missing times. */
+/**
+ * "8:30 AM – 10:00 AM" in the viewer's locale; the day heading above shows the
+ * date (CGT-171). An activity that ends on a later day shows the end date too.
+ */
 function formatTimeRange(start: string | null, end: string | null): string {
   const startDate = start ? new Date(start) : null
   const endDate = end ? new Date(end) : null
   if (!startDate || Number.isNaN(startDate.getTime())) return 'Time TBD'
 
-  const day = startDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
   const time = (date: Date) => date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
 
-  if (!endDate || Number.isNaN(endDate.getTime())) return `${day}, ${time(startDate)}`
-  return `${day}, ${time(startDate)} – ${time(endDate)}`
+  if (!endDate || Number.isNaN(endDate.getTime())) return time(startDate)
+  if (endDate.toDateString() !== startDate.toDateString()) {
+    const endDay = endDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    return `${time(startDate)} – ${endDay}, ${time(endDate)}`
+  }
+  return `${time(startDate)} – ${time(endDate)}`
 }
 
 function LocationList({
@@ -91,7 +98,7 @@ function ActivityItem({
           <p className="font-mono text-xs text-accent">
             {formatTimeRange(activity.startDateTime, activity.endDateTime)}
           </p>
-          <h3 className="mt-1 text-lg font-medium text-foreground">{activity.name}</h3>
+          <h4 className="mt-1 text-lg font-medium text-foreground">{activity.name}</h4>
         </div>
         <div className="flex items-center gap-2">
           {activity.status && <span className={PILL}>{activity.status}</span>}
@@ -126,16 +133,19 @@ function ActivityItem({
 }
 
 /**
- * Itinerary for a trip. Loads the activities first, then each activity's
- * locations (see `useTripItinerary`).
+ * Itinerary for a trip, grouped by day (CGT-171). Loads the activities first,
+ * then each activity's locations (see `useTripItinerary`).
  */
 export function TripItinerary({
   tripId,
   countryCode,
+  tripStartDate,
   canEdit,
 }: {
   tripId: string
   countryCode: string
+  /** `YYYY-MM-DD`; day headings count from it ("Day 1", "Day 2", ...). */
+  tripStartDate?: string | null
   canEdit: boolean
 }) {
   const { activities, locationsByActivity, isLoading, isLoadingLocations, error, refresh } =
@@ -149,6 +159,7 @@ export function TripItinerary({
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const visibleActivities = activities.filter((activity) => !hiddenIds.includes(activity.id))
+  const days = groupActivitiesByDay(visibleActivities, tripStartDate)
 
   /*
    * Hides the card straight away, then deletes in the background (CGT-136).
@@ -228,34 +239,51 @@ export function TripItinerary({
             No activities yet.
           </p>
         ) : (
-          <ol className="flex flex-col gap-3">
-            {visibleActivities.map((activity, index) => {
-              const nextActivity = visibleActivities[index + 1]
+          <div className="flex flex-col gap-8">
+            {days.map((day) => (
+              <section key={day.key} aria-labelledby={`itinerary-day-${day.key}`}>
+                <h3
+                  id={`itinerary-day-${day.key}`}
+                  className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 font-display text-lg font-medium tracking-tight text-foreground"
+                >
+                  {day.label}
+                  <span className="font-mono text-xs font-normal text-muted">
+                    {day.activities.length} {day.activities.length === 1 ? 'activity' : 'activities'}
+                  </span>
+                </h3>
 
-              return (
-                <Fragment key={activity.id}>
-                  <ActivityItem
-                    activity={activity}
-                    locations={locationsByActivity[activity.id]}
-                    isLoadingLocations={isLoadingLocations}
-                    onEdit={canEdit ? () => setEditingActivity(activity) : undefined}
-                    onDelete={canEdit ? () => void handleDelete(activity) : undefined}
-                  />
+                <ol className="flex flex-col gap-3">
+                  {day.activities.map((activity, index) => {
+                    // Directions only between stops on the same day; unscheduled ones have no times to route.
+                    const nextActivity = day.key === UNSCHEDULED_KEY ? undefined : day.activities[index + 1]
 
-                  {visibleActivities.length >= 2 && nextActivity && (
-                    <ActivityRoute
-                      tripId={tripId}
-                      countryCode={countryCode}
-                      fromActivity={activity}
-                      toActivity={nextActivity}
-                      fromLocations={locationsByActivity[activity.id]}
-                      toLocations={locationsByActivity[nextActivity.id]}
-                    />
-                  )}
-                </Fragment>
-              )
-            })}
-          </ol>
+                    return (
+                      <Fragment key={activity.id}>
+                        <ActivityItem
+                          activity={activity}
+                          locations={locationsByActivity[activity.id]}
+                          isLoadingLocations={isLoadingLocations}
+                          onEdit={canEdit ? () => setEditingActivity(activity) : undefined}
+                          onDelete={canEdit ? () => void handleDelete(activity) : undefined}
+                        />
+
+                        {nextActivity && (
+                          <ActivityRoute
+                            tripId={tripId}
+                            countryCode={countryCode}
+                            fromActivity={activity}
+                            toActivity={nextActivity}
+                            fromLocations={locationsByActivity[activity.id]}
+                            toLocations={locationsByActivity[nextActivity.id]}
+                          />
+                        )}
+                      </Fragment>
+                    )
+                  })}
+                </ol>
+              </section>
+            ))}
+          </div>
         )}
       </div>
 

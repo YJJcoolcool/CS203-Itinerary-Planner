@@ -49,6 +49,9 @@ public class TripController {
     // role is optional when adding a member (defaults to VIEWER)
     public record MemberRequest(TripRole role) { }
 
+    // CGT-168: the member who takes over the trip
+    public record OwnerTransferRequest(String userId) { }
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public Trip createTrip(
@@ -110,8 +113,15 @@ public class TripController {
         return tripService.changeMemberRole(userService.getCurrentUserId(jwt), tripId, userId, request.role());
     }
 
+    // Owner removes a member, or a member removes themselves to leave the trip (CGT-167)
     @DeleteMapping("/{tripId}/members/{userId}")
     public Trip removeMember(@AuthenticationPrincipal Jwt jwt, @PathVariable("tripId") String tripId, @PathVariable("userId") String userId) {
         return tripService.removeMember(userService.getCurrentUserId(jwt), tripId, userId);
+    }
+
+    // CGT-168: owner hands the trip to another member
+    @PutMapping("/{tripId}/owner")
+    public Trip transferOwnership(@AuthenticationPrincipal Jwt jwt, @PathVariable("tripId") String tripId, @RequestBody OwnerTransferRequest request) {
+        return tripService.transferOwnership(userService.getCurrentUserId(jwt), tripId, request == null ? null : request.userId());
     }
 }

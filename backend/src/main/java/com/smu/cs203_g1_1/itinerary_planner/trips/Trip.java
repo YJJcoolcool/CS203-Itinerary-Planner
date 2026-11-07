@@ -280,6 +280,28 @@ public class Trip {
         roles.remove(user.getId());
     }
 
+    /**
+     * Hands the trip to another member (CGT-168). They become OWNER and the
+     * previous owner stays on the trip as an EDITOR. This is the only way the
+     * owner role moves, so a trip always has exactly one owner.
+     */
+    public void transferOwnership(User newOwner) {
+        if (!hasMember(newOwner)) {
+            throw new IllegalArgumentException("The new owner must already be a member of the trip");
+        }
+        if (isOwner(newOwner)) {
+            throw new IllegalArgumentException("That user already owns this trip");
+        }
+
+        User previousOwner = owner;
+        owner = newOwner;
+        roles.put(newOwner.getId(), TripRole.OWNER);
+
+        if (previousOwner != null) {
+            roles.put(previousOwner.getId(), TripRole.EDITOR);
+        }
+    }
+
     public void addActivity(Activity activity) {
         itinerary.add(activity);
         activity.setTrip(this);

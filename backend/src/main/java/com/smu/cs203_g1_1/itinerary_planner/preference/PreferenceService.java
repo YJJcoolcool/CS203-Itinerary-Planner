@@ -16,15 +16,18 @@ import com.smu.cs203_g1_1.itinerary_planner.trips.Trip;
 import com.smu.cs203_g1_1.itinerary_planner.trips.TripRole;
 import com.smu.cs203_g1_1.itinerary_planner.trips.TripService;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * Owns user and trip preferences, including the group summary.
  *
- * <p>Visibility: a user's structured preference is readable by any signed-in
- * user (the controller omits free-text notes for other users). Trip preferences
- * are visible to members and writable by owners/editors.</p>
+ * <p>Visibility: a user's structured preference is readable by the user and
+ * by people who share a trip with them (CGT-173); the controller omits
+ * free-text notes for other users. Trip preferences are visible to members
+ * and writable by owners/editors.</p>
  */
 @Service
 public class PreferenceService {
@@ -65,6 +68,21 @@ public class PreferenceService {
     @Transactional(readOnly = true)
     public UserPreference readUser(String userId) {
         return userPreferences.findById(userId).orElseGet(() -> new UserPreference(userId));
+    }
+
+    /**
+     * Another user's preference as seen by {@code viewerId} (CGT-173): allowed
+     * for the user themselves or anyone who shares a trip with them, 403
+     * otherwise, so interests and dietary needs aren't visible to strangers.
+     */
+    @Transactional(readOnly = true)
+    public UserPreference readUserFor(String viewerId, String userId) {
+        if (!Objects.equals(viewerId, userId) && !tripService.sharesTrip(viewerId, userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                "You can only see the preferences of people you share a trip with");
+        }
+
+        return readUser(userId);
     }
 
     @Transactional

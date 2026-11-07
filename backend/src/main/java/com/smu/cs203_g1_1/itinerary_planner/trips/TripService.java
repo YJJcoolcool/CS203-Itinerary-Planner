@@ -229,13 +229,23 @@ public class TripService {
         return saved;
     }
 
+    /**
+     * Removes a member. The owner can remove anyone else; any member can
+     * remove themselves to leave the trip (CGT-167). The owner can't leave
+     * until they have handed the trip to someone else (CGT-168).
+     */
     @Transactional
     public Trip removeMember(String requesterId, String tripId, String userId) {
-        Trip trip = requireTripRole(tripId, requesterId, TripRole.OWNER);
+        boolean leaving = requesterId != null && requesterId.equals(userId);
+        Trip trip = leaving
+                ? getTripForMember(tripId, requesterId)
+                : requireTripRole(tripId, requesterId, TripRole.OWNER);
         User user = findUser(userId);
 
         if (trip.isOwner(user)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The trip owner cannot be removed");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, leaving
+                    ? "Transfer ownership to another member before leaving the trip"
+                    : "The trip owner cannot be removed");
         }
         if (!trip.hasMember(user)) {
             log.warn("User id={} is not a member of trip id={}", userId, tripId);
@@ -244,8 +254,49 @@ public class TripService {
 
         trip.removeMember(user);
         Trip saved = tripRepository.save(trip);
-        log.info("Removed user id={} from trip id={}", userId, tripId);
+        if (leaving) {
+            log.info("User id={} left trip id={}", userId, tripId);
+        } else {
+            log.info("Removed user id={} from trip id={}", userId, tripId);
+        }
         return saved;
+    }
+
+    /**
+     * Hands the trip to another member (CGT-168). OWNER only. The new owner
+     * gets OWNER and the previous owner stays on as an EDITOR.
+     */
+    @Transactional
+    public Trip transferOwnership(String requesterId, String tripId, String newOwnerId) {
+        Trip trip = requireTripRole(tripId, requesterId, TripRole.OWNER);
+
+        if (newOwnerId == null || newOwnerId.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The new owner is required");
+        }
+
+        User newOwner = findUser(newOwnerId);
+        if (trip.isOwner(newOwner)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You already own this trip");
+        }
+        if (!trip.hasMember(newOwner)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User is not a member of this trip");
+        }
+
+        trip.transferOwnership(newOwner);
+        Trip saved = tripRepository.save(trip);
+        log.info("Transferred trip id={} from user id={} to user id={}", tripId, requesterId, newOwnerId);
+        return saved;
+    }
+
+    /** True when the two users are on at least one trip together (CGT-173). */
+    @Transactional(readOnly = true)
+    public boolean sharesTrip(String userId, String otherUserId) {
+        if (userId == null || otherUserId == null) {
+            return false;
+        }
+
+        return tripRepository.findDistinctByOwnerIdOrUsersId(userId, userId).stream()
+                .anyMatch(trip -> trip.findRole(otherUserId).isPresent());
     }
 
     private User findUser(String userId) {

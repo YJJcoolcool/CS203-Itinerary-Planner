@@ -148,9 +148,12 @@ public class PreferenceController {
             userService.getCurrentUserId(jwt), request.summary()));
     }
 
+    /** Another user's preference; only for people who share a trip with them (CGT-173). */
     @GetMapping("/users/{userId}/preferences")
-    public UserPreferenceResponse byUser(@PathVariable("userId") String userId) {
-        return UserPreferenceResponse.publicView(preferenceService.readUser(userId));
+    public UserPreferenceResponse byUser(@AuthenticationPrincipal Jwt jwt,
+                                         @PathVariable("userId") String userId) {
+        return UserPreferenceResponse.publicView(
+            preferenceService.readUserFor(userService.getCurrentUserId(jwt), userId));
     }
 
     @GetMapping("/trips/{tripId}/preferences")

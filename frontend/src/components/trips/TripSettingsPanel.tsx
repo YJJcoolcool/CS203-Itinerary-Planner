@@ -8,6 +8,7 @@ import { useAuth } from '@clerk/react'
 import { publishableKey } from '../../auth/authConfiguration'
 import { useBodyScrollLock } from '../../lib/useBodyScrollLock'
 import { ApiError, updateTrip } from '../../lib/api'
+import { useFriends } from '../../lib/useFriends'
 import { useTripInvitations } from '../../lib/useInvitations'
 import { roleLabel } from '../../types/invitation'
 import type { TripRole } from '../../types/invitation'
@@ -16,6 +17,7 @@ import { CountrySelect } from './CountrySelect'
 import { DateTimePicker } from './DateTimePicker'
 import { DeleteTripDialog } from './DeleteTripDialog'
 import { TripCoverImagePicker } from './TripCoverImagePicker'
+import { avatarTone, initials, uniqueMembers } from './tripUtils'
 
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface'
@@ -50,17 +52,21 @@ function normalizeCountryCode(countryCode: string): string {
 }
 
 interface InvitationsSectionProps {
-  tripId: string
+  trip: Trip
 }
 
-function InvitationsSection({ tripId }: InvitationsSectionProps) {
+function InvitationsSection({ trip }: InvitationsSectionProps) {
   const {
     invitations,
     isLoading,
     error,
     send,
     cancel,
-  } = useTripInvitations(tripId)
+  } = useTripInvitations(trip.id)
+  const friends = useFriends()
+  // Friends not already on the trip; clicking one fills the email box (CGT-182).
+  const memberIds = new Set(uniqueMembers(trip).map((member) => member.id))
+  const invitableFriends = friends.filter((friend) => friend.email && !memberIds.has(friend.userId))
 
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<TripRole>('VIEWER')
@@ -172,6 +178,33 @@ function InvitationsSection({ tripId }: InvitationsSectionProps) {
           {isSending ? 'Sending…' : 'Send invite'}
         </button>
       </form>
+
+      {invitableFriends.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2" aria-label="Friends">
+          {invitableFriends.map((friend) => (
+            <button
+              key={friend.userId}
+              type="button"
+              disabled={isSending}
+              onClick={() => setEmail(friend.email ?? '')}
+              aria-pressed={email === friend.email}
+              className={`inline-flex items-center gap-2 rounded-full border py-1 pr-3 pl-1 text-sm transition-colors disabled:opacity-50 ${
+                email === friend.email
+                  ? 'border-accent/50 bg-accent-soft text-accent'
+                  : 'border-border bg-surface-subtle text-muted hover:border-border-strong hover:text-foreground'
+              } ${FOCUS_RING}`}
+            >
+              <span
+                aria-hidden="true"
+                className={`flex h-6 w-6 items-center justify-center rounded-full text-[0.625rem] font-semibold text-foreground ${avatarTone(friend.userId)}`}
+              >
+                {initials(friend.displayName)}
+              </span>
+              {friend.displayName ?? friend.email}
+            </button>
+          ))}
+        </div>
+      )}
 
       {feedback && (
         <p
@@ -546,7 +579,7 @@ export function TripSettingsPanel({
           <div className="my-7 border-t border-border" />
 
           <div ref={invitationsRef} className="scroll-mt-6">
-            <InvitationsSection tripId={trip.id} />
+            <InvitationsSection trip={trip} />
           </div>
 
           <div className="my-7 border-t border-border" />

@@ -4,8 +4,9 @@ import { useAuth } from '@clerk/react'
 import { ApiError, changeMemberRole, removeMember, transferOwnership } from '../../lib/api'
 import { roleLabel } from '../../types/invitation'
 import type { TripRole } from '../../types/invitation'
-import type { MemberRole, Trip } from '../../types/trip'
+import type { MemberRole, Trip, User } from '../../types/trip'
 import { CollapsibleSection } from '../CollapsibleSection'
+import { UserProfileModal } from '../profile/UserProfileModal'
 import { avatarTone, initials, roleOf, uniqueMembers } from './tripUtils'
 
 const FOCUS_RING =
@@ -24,7 +25,7 @@ const ERROR_ALERT =
  * Everyone on the trip with their role. The owner gets a role dropdown, a
  * "Make owner" button (CGT-168) and a remove button for each collaborator;
  * everyone else sees the role as text. Any member except the owner can leave
- * the trip from their own row (CGT-167).
+ * the trip from their own row (CGT-167). Clicking a member opens their profile (CGT-179).
  */
 export function TripMembersPanel({
   trip,
@@ -45,6 +46,7 @@ export function TripMembersPanel({
 
   const [busyUserId, setBusyUserId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [profileOf, setProfileOf] = useState<User | null>(null)
 
   const canManage = myRole === 'OWNER'
 
@@ -114,7 +116,12 @@ export function TripMembersPanel({
 
           return (
             <li key={member.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-              <div className="flex min-w-0 items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setProfileOf(member)}
+                aria-label={`View ${name}'s profile`}
+                className={`-m-1 flex min-w-0 items-center gap-3 rounded-xl p-1 text-left transition-colors hover:bg-surface-subtle ${FOCUS_RING}`}
+              >
                 <span
                   aria-hidden="true"
                   className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-foreground ${avatarTone(member.id)}`}
@@ -125,7 +132,7 @@ export function TripMembersPanel({
                   {name}
                   {isMe && <span className="ml-1 font-normal text-muted">(you)</span>}
                 </p>
-              </div>
+              </button>
 
               {showControls ? (
                 <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -180,6 +187,15 @@ export function TripMembersPanel({
           )
         })}
       </ul>
+
+      {profileOf && (
+        <UserProfileModal
+          userId={profileOf.id}
+          displayName={profileOf.displayName}
+          isSelf={profileOf.id === currentUserId}
+          onClose={() => setProfileOf(null)}
+        />
+      )}
     </CollapsibleSection>
   )
 }

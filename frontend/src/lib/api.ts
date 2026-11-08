@@ -1,3 +1,4 @@
+import type { Friend, FriendRequest, Friendship } from '../types/friend'
 import type { TripInvitation, TripRole } from '../types/invitation'
 import type {
   TripPreferences,
@@ -382,6 +383,43 @@ export function respondToInvitation(
     body: { status },
     token,
   })
+}
+
+/** Current user's accepted friends, sorted by name. */
+export function getFriends(token: string | null): Promise<Friend[]> {
+  return request<Friend[]>('/api/users/me/friends', { token })
+}
+
+/** Pending friend requests addressed to the current user, newest first. */
+export function getFriendRequests(token: string | null): Promise<FriendRequest[]> {
+  return request<FriendRequest[]>('/api/users/me/friend-requests', { token })
+}
+
+/** Sends a friend request; accepts theirs instead if they already asked. */
+export function sendFriendRequest(token: string | null, userId: string): Promise<Friendship> {
+  return request<Friendship>('/api/users/me/friend-requests', {
+    method: 'POST',
+    body: { userId },
+    token,
+  })
+}
+
+/** Accepts or rejects a friend request addressed to the current user. */
+export function respondToFriendRequest(
+  token: string | null,
+  requestId: string,
+  accept: boolean,
+): Promise<void> {
+  return request<void>(`/api/users/me/friend-requests/${requestId}`, {
+    method: 'PATCH',
+    body: { accept },
+    token,
+  })
+}
+
+/** How the current user relates to another user (drives the profile's friend button). */
+export function getFriendship(token: string | null, userId: string): Promise<Friendship> {
+  return request<Friendship>(`/api/users/${userId}/friendship`, { token })
 }
 
 /**

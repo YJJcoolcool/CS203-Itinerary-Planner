@@ -13,6 +13,7 @@ import { roleLabel } from '../../types/invitation'
 import type { TripRole } from '../../types/invitation'
 import type { Trip } from '../../types/trip'
 import { CountrySelect } from './CountrySelect'
+import { DateTimePicker } from './DateTimePicker'
 import { DeleteTripDialog } from './DeleteTripDialog'
 import { TripCoverImagePicker } from './TripCoverImagePicker'
 
@@ -459,18 +460,18 @@ export function TripSettingsPanel({
                     >
                       Start date
                     </label>
-                    <input
+                    <DateTimePicker
+                      dateOnly
                       id="trip-settings-start"
-                      type="date"
-                      required
+                      label="Start date"
+                      placeholder="Add start date"
                       value={startDate}
-                      onChange={(event) => {
-                        setStartDate(event.target.value)
+                      onChange={(value) => {
+                        setStartDate(value)
                         setSaveSuccess(false)
                         setSaveError(null)
                       }}
                       disabled={isSaving}
-                      className="input-field w-full"
                     />
                   </div>
 
@@ -481,19 +482,19 @@ export function TripSettingsPanel({
                     >
                       End date
                     </label>
-                    <input
+                    <DateTimePicker
+                      dateOnly
                       id="trip-settings-end"
-                      type="date"
-                      required
+                      label="End date"
+                      placeholder="Add end date"
                       min={startDate || undefined}
                       value={endDate}
-                      onChange={(event) => {
-                        setEndDate(event.target.value)
+                      onChange={(value) => {
+                        setEndDate(value)
                         setSaveSuccess(false)
                         setSaveError(null)
                       }}
                       disabled={isSaving}
-                      className="input-field w-full"
                     />
                   </div>
                 </div>

@@ -137,15 +137,17 @@ function normalizeTime(value: string | undefined): string {
   return DEFAULT_TIME
 }
 
-function formatTrigger(value: string): string {
+function formatTrigger(value: string, dateOnly: boolean): string {
   const date = parseLocal(value)
   const parts = parseParts(value)
   if (!date || !parts) return ''
 
-  const [hours, minutes] = parts.time.split(':').map(Number)
-  const withTime = new Date(date.getFullYear(), date.getMonth(), date.getDate(), hours, minutes)
   const sameYear = date.getFullYear() === new Date().getFullYear()
   const dateLabel = (sameYear ? SHORT_DATE_FORMATTER : SHORT_DATE_WITH_YEAR_FORMATTER).format(date)
+  if (dateOnly) return dateLabel
+
+  const [hours, minutes] = parts.time.split(':').map(Number)
+  const withTime = new Date(date.getFullYear(), date.getMonth(), date.getDate(), hours, minutes)
   const timeLabel = TIME_FORMATTER.format(withTime)
   return `${dateLabel} · ${timeLabel}`
 }
@@ -207,14 +209,16 @@ function CloseIcon() {
 }
 
 export interface DateTimePickerProps {
-  /** `YYYY-MM-DDTHH:mm`, or `''` for no selection. */
+  /** `YYYY-MM-DDTHH:mm` (`YYYY-MM-DD` when `dateOnly`), or `''` for no selection. */
   value: string
   onChange: (value: string) => void
   label: string
   placeholder: string
   id?: string
-  /** Earliest allowed value, in the same `YYYY-MM-DDTHH:mm` format. */
+  /** Earliest allowed value, in the same format as `value`. */
   min?: string
+  /** Hides the time controls and emits `YYYY-MM-DD`. */
+  dateOnly?: boolean
   /** Time applied when a day is picked before a time has been chosen. */
   defaultTime?: string
   disabled?: boolean
@@ -234,6 +238,7 @@ export function DateTimePicker({
   placeholder,
   id,
   min,
+  dateOnly = false,
   defaultTime = DEFAULT_TIME,
   disabled = false,
   invalid = false,
@@ -307,9 +312,12 @@ export function DateTimePicker({
     return base
   }
 
+  function emitDay(datePart: string) {
+    onChange(dateOnly ? datePart : `${datePart}T${effectiveTimeForDay(datePart)}`)
+  }
+
   function selectDay(day: Date) {
-    const datePart = toDatePart(day)
-    onChange(`${datePart}T${effectiveTimeForDay(datePart)}`)
+    emitDay(toDatePart(day))
 
     if (day.getMonth() !== viewMonth.getMonth() || day.getFullYear() !== viewMonth.getFullYear()) {
       setViewMonth(startOfMonth(day))
@@ -332,7 +340,7 @@ export function DateTimePicker({
 
   function selectToday() {
     if (minParts && today < minParts.date) return
-    onChange(`${today}T${effectiveTimeForDay(today)}`)
+    emitDay(today)
     setViewMonth(startOfMonth(new Date()))
   }
 
@@ -352,7 +360,7 @@ export function DateTimePicker({
   }
 
   const fieldLabel = label.replace(' (optional)', '')
-  const triggerText = valueParts ? formatTrigger(value) : ''
+  const triggerText = valueParts ? formatTrigger(value, dateOnly) : ''
   const timeAnchorDay = valueParts?.date ?? quickDay
   const selectedTime =
     valueParts?.time ??
@@ -495,49 +503,51 @@ export function DateTimePicker({
               })}
             </div>
 
-            <div className="mt-2 border-t border-border pt-3">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-medium text-muted">Time</span>
-                <input
-                  type="time"
-                  value={selectedTime}
-                  min={timeMin}
-                  onChange={(event) => selectTime(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') event.preventDefault()
-                  }}
-                  aria-label="Exact time"
-                  className="input-field w-[7.5rem] px-2 py-1 text-xs tabular-nums"
-                />
+            {!dateOnly && (
+              <div className="mt-2 border-t border-border pt-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-medium text-muted">Time</span>
+                  <input
+                    type="time"
+                    value={selectedTime}
+                    min={timeMin}
+                    onChange={(event) => selectTime(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') event.preventDefault()
+                    }}
+                    aria-label="Exact time"
+                    className="input-field w-[7.5rem] px-2 py-1 text-xs tabular-nums"
+                  />
+                </div>
+  
+                <div className="mt-2 grid grid-cols-2 gap-1.5">
+                  {TIME_PRESETS.map((preset) => {
+                    const isSelected = valueParts?.time === preset.time
+                    const isDisabled = presetDisabled(preset.time)
+  
+                    return (
+                      <button
+                        key={preset.time}
+                        type="button"
+                        onClick={() => selectTime(preset.time)}
+                        disabled={isDisabled}
+                        aria-pressed={isSelected}
+                        className={`rounded-lg border px-2.5 py-1.5 text-left text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                          isSelected
+                            ? 'border-accent/60 bg-accent-soft text-accent'
+                            : 'border-border text-muted hover:border-border-strong hover:text-foreground'
+                        } ${FOCUS_RING}`}
+                      >
+                        <span className="block font-medium">{preset.label}</span>
+                        <span className="block text-[0.625rem] tabular-nums text-faint">
+                          {formatTime(preset.time)}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
-
-              <div className="mt-2 grid grid-cols-2 gap-1.5">
-                {TIME_PRESETS.map((preset) => {
-                  const isSelected = valueParts?.time === preset.time
-                  const isDisabled = presetDisabled(preset.time)
-
-                  return (
-                    <button
-                      key={preset.time}
-                      type="button"
-                      onClick={() => selectTime(preset.time)}
-                      disabled={isDisabled}
-                      aria-pressed={isSelected}
-                      className={`rounded-lg border px-2.5 py-1.5 text-left text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-                        isSelected
-                          ? 'border-accent/60 bg-accent-soft text-accent'
-                          : 'border-border text-muted hover:border-border-strong hover:text-foreground'
-                      } ${FOCUS_RING}`}
-                    >
-                      <span className="block font-medium">{preset.label}</span>
-                      <span className="block text-[0.625rem] tabular-nums text-faint">
-                        {formatTime(preset.time)}
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
+            )}
 
             <div className="mt-2 flex items-center justify-between gap-2 border-t border-border pt-2">
               <button

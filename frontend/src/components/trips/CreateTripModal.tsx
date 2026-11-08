@@ -4,6 +4,7 @@ import type { FormEvent } from 'react'
 import { useBodyScrollLock } from '../../lib/useBodyScrollLock'
 import { useCreateTrip } from '../../lib/useTrips'
 import { CountrySelect } from './CountrySelect'
+import { DateTimePicker } from './DateTimePicker'
 import { TripCoverImagePicker } from './TripCoverImagePicker'
 
 const FOCUS_RING =
@@ -157,14 +158,15 @@ export function CreateTripModal({
               <label htmlFor={`${titleId}-start`} className="text-xs font-medium text-muted">
                 Start date
               </label>
-              <input
+              <DateTimePicker
+                dateOnly
                 id={`${titleId}-start`}
-                type="date"
+                label="Start date"
+                placeholder="Add start date"
                 value={startDate}
-                onChange={(event) => setStartDate(event.target.value)}
-                className="input-field"
-                aria-invalid={Boolean(errors.startDate)}
-                aria-describedby={errors.startDate ? `${titleId}-start-error` : undefined}
+                onChange={setStartDate}
+                invalid={Boolean(errors.startDate)}
+                describedBy={errors.startDate ? `${titleId}-start-error` : undefined}
               />
               {errors.startDate && (
                 <p id={`${titleId}-start-error`} role="alert" className="text-xs text-terracotta">
@@ -177,15 +179,16 @@ export function CreateTripModal({
               <label htmlFor={`${titleId}-end`} className="text-xs font-medium text-muted">
                 End date
               </label>
-              <input
+              <DateTimePicker
+                dateOnly
                 id={`${titleId}-end`}
-                type="date"
+                label="End date"
+                placeholder="Add end date"
                 value={endDate}
                 min={startDate || undefined}
-                onChange={(event) => setEndDate(event.target.value)}
-                className="input-field"
-                aria-invalid={Boolean(errors.endDate)}
-                aria-describedby={errors.endDate ? `${titleId}-end-error` : undefined}
+                onChange={setEndDate}
+                invalid={Boolean(errors.endDate)}
+                describedBy={errors.endDate ? `${titleId}-end-error` : undefined}
               />
               {errors.endDate && (
                 <p id={`${titleId}-end-error`} role="alert" className="text-xs text-terracotta">

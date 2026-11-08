@@ -184,7 +184,7 @@ function TripDetailsContent({ tripId }: { tripId: string }) {
               key={displayedTrip.id}
               tripId={displayedTrip.id}
               canEdit={canEdit}
-              onAccepted={() => setItineraryRefreshKey((key) => key + 1)}
+              onItineraryChanged={() => setItineraryRefreshKey((key) => key + 1)}
             />
           </>
         ) : null}

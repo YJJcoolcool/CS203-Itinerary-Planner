@@ -25,6 +25,8 @@ public record SuggestionResponse(
         TriggerSource triggerSource,
         LocationRef currentLocation,
         LocationRef proposedLocation,
+        /** The option actually applied; null until accepted (CGT-169). */
+        LocationRef acceptedLocation,
         String reason,
         String explanation,
         List<Option> options,
@@ -46,6 +48,7 @@ public record SuggestionResponse(
 
     public static SuggestionResponse from(Suggestion suggestion) {
         Location current = suggestion.getCurrentLocation();
+        Location accepted = suggestion.getAcceptedLocation();
         List<Option> options = options(suggestion);
         return new SuggestionResponse(
                 suggestion.getId(),
@@ -56,6 +59,7 @@ public record SuggestionResponse(
                 suggestion.getTriggerSource(),
                 current == null ? null : ref(current),
                 ref(suggestion.getProposedLocation()),
+                accepted == null ? null : ref(accepted),
                 suggestion.getReason(),
                 suggestion.getExplanation(),
                 options,

@@ -536,6 +536,20 @@ export function rejectSuggestion(
   })
 }
 
+/**
+ * Reverses an applied suggestion, putting the original place back (CGT-169).
+ * Editor or owner only; 409 once the activity has changed since it was applied.
+ */
+export function undoSuggestion(
+  token: string | null,
+  suggestionId: string,
+): Promise<Suggestion> {
+  return request<Suggestion>(`/api/suggestions/${suggestionId}/undo`, {
+    method: 'POST',
+    token,
+  })
+}
+
 /** Fetches the signed-in user's travel preferences. */
 export function getMyPreferences(token: string | null): Promise<UserPreferences> {
   return request<UserPreferences>('/api/users/me/preferences', { token })

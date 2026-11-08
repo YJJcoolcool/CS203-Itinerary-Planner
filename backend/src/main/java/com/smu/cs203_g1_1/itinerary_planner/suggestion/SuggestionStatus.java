@@ -4,5 +4,7 @@ package com.smu.cs203_g1_1.itinerary_planner.suggestion;
 public enum SuggestionStatus {
     PENDING,
     ACCEPTED,
-    REJECTED
+    REJECTED,
+    /** Was accepted, then reversed by the user (CGT-169). */
+    UNDONE
 }

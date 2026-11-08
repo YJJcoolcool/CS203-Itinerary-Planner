@@ -514,6 +514,115 @@ class SuggestionServiceTest {
                 () -> suggestionService.list("Nope0001", owner.getId()));
     }
 
+    // ----- CGT-169: undo an accepted suggestion -----
+
+    @Test
+    void acceptRecordsWhichOptionWasApplied() {
+        SuggestionResponse created = replan().get(0);
+        SuggestionResponse.Option alternative = nonTopOption(created);
+
+        SuggestionResponse accepted = suggestionService.accept(created.id(), owner.getId(), alternative.location().id());
+
+        assertEquals(alternative.location().id(), accepted.acceptedLocation().id());
+    }
+
+    @Test
+    void undoPutsTheOriginalPlaceBack() {
+        SuggestionResponse created = replan().get(0);
+        suggestionService.accept(created.id(), owner.getId());
+
+        SuggestionResponse undone = suggestionService.undo(created.id(), owner.getId());
+
+        assertEquals(SuggestionStatus.UNDONE, undone.status());
+        entityManager.flush();
+        entityManager.clear();
+        Activity reloaded = activityRepository.findById(activity.getId()).orElseThrow();
+        assertEquals(List.of(dropped.getId()), reloaded.getLocations().stream().map(Location::getId).toList());
+    }
+
+    @Test
+    void undoWorksForANonTopOptionAndKeepsThePlaceInPosition() {
+        activity.setLocations(new ArrayList<>(List.of(food, dropped)));
+        activityRepository.saveAndFlush(activity);
+        SuggestionResponse created = replan().get(0);
+        SuggestionResponse.Option alternative = created.options().stream()
+                .filter(option -> !option.location().id().equals(food.getId()))
+                .filter(option -> !option.location().id().equals(created.proposedLocation().id()))
+                .findFirst()
+                .orElse(created.options().get(0));
+        suggestionService.accept(created.id(), owner.getId(), alternative.location().id());
+
+        suggestionService.undo(created.id(), owner.getId());
+
+        entityManager.flush();
+        entityManager.clear();
+        Activity reloaded = activityRepository.findById(activity.getId()).orElseThrow();
+        assertEquals(List.of(food.getId(), dropped.getId()),
+                reloaded.getLocations().stream().map(Location::getId).toList());
+    }
+
+    @Test
+    void onlyEditorsCanUndoAndOnlyOnce() {
+        SuggestionResponse created = replan().get(0);
+        suggestionService.accept(created.id(), owner.getId());
+
+        assertStatus(HttpStatus.FORBIDDEN, () -> suggestionService.undo(created.id(), viewer.getId()));
+        assertStatus(HttpStatus.FORBIDDEN, () -> suggestionService.undo(created.id(), stranger.getId()));
+
+        suggestionService.undo(created.id(), owner.getId());
+        assertStatus(HttpStatus.CONFLICT, () -> suggestionService.undo(created.id(), owner.getId()));
+    }
+
+    @Test
+    void pendingOrRejectedSuggestionsCannotBeUndone() {
+        SuggestionResponse pending = replan().get(0);
+        assertStatus(HttpStatus.CONFLICT, () -> suggestionService.undo(pending.id(), owner.getId()));
+
+        suggestionService.reject(pending.id(), owner.getId());
+        assertStatus(HttpStatus.CONFLICT, () -> suggestionService.undo(pending.id(), owner.getId()));
+    }
+
+    @Test
+    void undoIsRefusedOnceTheActivityHasChanged() {
+        SuggestionResponse created = replan().get(0);
+        suggestionService.accept(created.id(), owner.getId());
+        entityManager.flush();
+        entityManager.clear();
+
+        // Someone edits the activity and replaces the applied place.
+        Activity edited = activityRepository.findById(activity.getId()).orElseThrow();
+        edited.setLocations(new ArrayList<>(List.of(locationRepository.findById(food.getId()).orElseThrow())));
+        activityRepository.saveAndFlush(edited);
+
+        assertStatus(HttpStatus.CONFLICT, () -> suggestionService.undo(created.id(), owner.getId()));
+    }
+
+    @Test
+    void pollerNeverReproposesAnUndoneStop() {
+        SuggestionResponse created = replan().get(0);
+        suggestionService.accept(created.id(), owner.getId());
+        suggestionService.undo(created.id(), owner.getId());
+
+        assertTrue(suggestionService.replanForSystem(
+                trip.getId(), owner.getId(), AT, TriggerSource.POLL_IMMINENT).isEmpty());
+    }
+
+    @Test
+    void manualReplanAfterUndoCanSuggestAgain() {
+        SuggestionResponse created = replan().get(0);
+        suggestionService.accept(created.id(), owner.getId());
+        suggestionService.undo(created.id(), owner.getId());
+
+        assertEquals(1, replan().size());
+    }
+
+    private static SuggestionResponse.Option nonTopOption(SuggestionResponse created) {
+        return created.options().stream()
+                .filter(option -> !option.location().id().equals(created.proposedLocation().id()))
+                .findFirst()
+                .orElseThrow();
+    }
+
     // ----- helpers -----
 
     private List<SuggestionResponse> replan() {

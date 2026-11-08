@@ -173,10 +173,57 @@ public class SuggestionService {
         activityRepository.save(activity);
 
         suggestion.setStatus(SuggestionStatus.ACCEPTED);
+        // Remember which option was applied so it can be undone (CGT-169).
+        suggestion.setAcceptedLocation(chosen);
         suggestion.setRespondedAt(Instant.now(clock));
         Suggestion saved = suggestionRepository.save(suggestion);
 
         log.info("Accepted suggestion id={} for activity id={} on trip id={}",
+                suggestionId, activity.getId(), suggestion.getTrip().getId());
+        return SuggestionResponse.from(saved);
+    }
+
+    /**
+     * Reverses an accepted suggestion (CGT-169): the applied alternative is
+     * swapped back out for the original place, in the same position.
+     * EDITOR or above. Refused with 409 once the activity has changed so that
+     * it no longer holds the applied place, or already holds the original again.
+     */
+    @Transactional
+    public SuggestionResponse undo(String suggestionId, String userId) {
+        Suggestion suggestion = loadSuggestion(suggestionId);
+        tripService.requireTripRole(suggestion.getTrip().getId(), userId, TripRole.EDITOR);
+
+        if (suggestion.getStatus() != SuggestionStatus.ACCEPTED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Only an applied suggestion can be undone");
+        }
+
+        Location original = suggestion.getCurrentLocation();
+        Location applied = suggestion.getAcceptedLocation();
+        if (original == null || applied == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "This suggestion can't be undone");
+        }
+
+        Activity activity = suggestion.getActivity();
+        List<Location> locations = activity.getLocations();
+        int index = indexOf(locations, applied);
+        if (index < 0 || indexOf(locations, original) >= 0) {
+            log.warn("Undo refused for suggestion id={}: activity id={} has changed since it was applied",
+                    suggestionId, activity.getId());
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "The activity has changed since this suggestion was applied");
+        }
+
+        locations.set(index, original);
+        activityRepository.save(activity);
+
+        suggestion.setStatus(SuggestionStatus.UNDONE);
+        suggestion.setRespondedAt(Instant.now(clock));
+        Suggestion saved = suggestionRepository.save(suggestion);
+
+        log.info("Undid suggestion id={} for activity id={} on trip id={}",
                 suggestionId, activity.getId(), suggestion.getTrip().getId());
         return SuggestionResponse.from(saved);
     }
@@ -327,10 +374,12 @@ public class SuggestionService {
             }
 
             // Automated ticks must not nag about a stop the traveller already
-            // rejected; the manual path stays free to ask again.
+            // rejected or undid (CGT-169); the manual path stays free to ask again.
             if (trigger != TriggerSource.MANUAL
-                    && suggestionRepository.existsByActivityIdAndStatus(
-                            activity.getId(), SuggestionStatus.REJECTED)) {
+                    && (suggestionRepository.existsByActivityIdAndStatus(
+                            activity.getId(), SuggestionStatus.REJECTED)
+                        || suggestionRepository.existsByActivityIdAndStatus(
+                            activity.getId(), SuggestionStatus.UNDONE))) {
                 continue;
             }
 

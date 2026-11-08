@@ -11,7 +11,10 @@ const PRIMARY_BUTTON =
 const SECONDARY_BUTTON =
   `inline-flex items-center justify-center rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-muted transition-colors hover:border-border-strong hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`
 
-type Decision = 'accept' | 'reject'
+type Decision = 'accept' | 'reject' | 'undo'
+
+/** How many applied swaps stay listed with an Undo button (CGT-169). */
+const RECENTLY_APPLIED_LIMIT = 5
 
 /**
  * Older suggestion payloads do not carry `options`. Build a single-option view
@@ -34,22 +37,44 @@ function optionsFor(suggestion: Suggestion): SuggestionOption[] {
 export interface SuggestionsPanelProps {
   tripId: string
   canEdit: boolean
-  onAccepted?: () => void
+  /** Called after the itinerary changes: a suggestion was applied or undone. */
+  onItineraryChanged?: () => void
 }
 
 /**
  * Rain-driven alternatives for a trip. Editors can check for new suggestions,
  * compare the ranked options for each stop, and apply one or dismiss the whole
- * suggestion; everyone can see the pending list.
+ * suggestion; everyone can see the pending list. Recently applied swaps are
+ * listed underneath so editors can undo them (CGT-169).
  */
-export function SuggestionsPanel({ tripId, canEdit, onAccepted }: SuggestionsPanelProps) {
-  const { suggestions, isLoading, error, isReplanning, replan, accept, reject, refresh } =
+export function SuggestionsPanel({ tripId, canEdit, onItineraryChanged }: SuggestionsPanelProps) {
+  const { suggestions, isLoading, error, isReplanning, replan, accept, reject, undo, refresh } =
     useSuggestions(tripId)
 
   const [acting, setActing] = useState<{ id: string; decision: Decision } | null>(null)
   const [selectedBySuggestion, setSelectedBySuggestion] = useState<Record<string, string>>({})
+  // Outcome of the last "Check now", so a check that finds nothing still says so.
+  const [checkResult, setCheckResult] = useState<string | null>(null)
 
   const pending = suggestions.filter((suggestion) => suggestion.status === 'PENDING')
+
+  // Newest first (the API orders by creation); only rows that know both places can be undone.
+  const recentlyApplied = suggestions
+    .filter((suggestion) =>
+      suggestion.status === 'ACCEPTED' && suggestion.acceptedLocation && suggestion.currentLocation)
+    .slice(0, RECENTLY_APPLIED_LIMIT)
+
+  async function handleCheckNow() {
+    setCheckResult(null)
+    const created = await replan()
+    if (created === null) return // the error banner explains what went wrong
+
+    setCheckResult(
+      created === 0
+        ? 'Checked just now: no new changes needed for the next 24 hours.'
+        : `Checked just now: found ${created} new ${created === 1 ? 'alternative' : 'alternatives'}.`,
+    )
+  }
 
   function handleSelect(suggestionId: string, locationId: string) {
     setSelectedBySuggestion((current) => ({ ...current, [suggestionId]: locationId }))
@@ -67,7 +92,10 @@ export function SuggestionsPanel({ tripId, canEdit, onAccepted }: SuggestionsPan
     try {
       if (decision === 'accept') {
         await accept(suggestion.id, locationId)
-        onAccepted?.()
+        onItineraryChanged?.()
+      } else if (decision === 'undo') {
+        await undo(suggestion.id)
+        onItineraryChanged?.()
       } else {
         await reject(suggestion.id)
       }
@@ -96,7 +124,7 @@ export function SuggestionsPanel({ tripId, canEdit, onAccepted }: SuggestionsPan
         {canEdit && (
           <button
             type="button"
-            onClick={() => void replan()}
+            onClick={() => void handleCheckNow()}
             disabled={isReplanning}
             aria-busy={isReplanning}
             className={SECONDARY_BUTTON}
@@ -107,6 +135,10 @@ export function SuggestionsPanel({ tripId, canEdit, onAccepted }: SuggestionsPan
       </div>
 
       <div className="mt-4" aria-live="polite" aria-busy={isReplanning}>
+        {checkResult && !isReplanning && (
+          <p className="mb-3 text-sm text-muted">{checkResult}</p>
+        )}
+
         {error && (
           <div
             role="alert"
@@ -285,6 +317,53 @@ export function SuggestionsPanel({ tripId, canEdit, onAccepted }: SuggestionsPan
               )
             })}
           </ul>
+        )}
+
+        {!isLoading && recentlyApplied.length > 0 && (
+          <div className="mt-6">
+            <h3 className="text-xs font-medium uppercase tracking-wide text-muted">
+              Recently applied
+            </h3>
+            <ul className="mt-2 divide-y divide-border rounded-2xl border border-border">
+              {recentlyApplied.map((suggestion) => {
+                const isUndoing = acting?.id === suggestion.id && acting.decision === 'undo'
+
+                return (
+                  <li
+                    key={suggestion.id}
+                    className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+                  >
+                    <p className="min-w-0 text-sm text-foreground">
+                      <span className="font-medium">{suggestion.activityName}</span>
+                      {': '}
+                      <span className="text-muted line-through">{suggestion.currentLocation?.name}</span>
+                      {' → '}
+                      {suggestion.acceptedLocation?.name}
+                    </p>
+
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm(
+                            `Undo this change and put "${suggestion.currentLocation?.name}" back in "${suggestion.activityName}"?`,
+                          )) {
+                            void handleDecision(suggestion, 'undo')
+                          }
+                        }}
+                        disabled={acting !== null}
+                        aria-busy={isUndoing}
+                        aria-label={`Undo the change to ${suggestion.activityName}`}
+                        className={SECONDARY_BUTTON}
+                      >
+                        {isUndoing ? 'Undoing…' : 'Undo'}
+                      </button>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
         )}
       </div>
     </section>

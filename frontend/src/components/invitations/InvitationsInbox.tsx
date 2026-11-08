@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
+import { useFriendRequests } from '../../lib/useFriends'
 import { useMyInvitations } from '../../lib/useInvitations'
+import type { FriendRequest } from '../../types/friend'
 import { roleLabel } from '../../types/invitation'
 import type { TripInvitation } from '../../types/invitation'
+import { UserProfileModal } from '../profile/UserProfileModal'
 import { formatDateRange } from '../trips/tripUtils'
 import { InvitationModal } from './InvitationModal'
 
@@ -27,14 +30,19 @@ function InboxIcon() {
   )
 }
 
-/** Navbar inbox: red dot while invites are pending; click an invite to accept/decline it. */
+/**
+ * Navbar inbox: red dot while trip invites or friend requests are pending. An
+ * invite opens accept/decline; a friend request opens the sender's profile (CGT-181).
+ */
 export function InvitationsInbox() {
   const { invitations, refresh, respond } = useMyInvitations()
+  const { requests, refresh: refreshRequests } = useFriendRequests()
   const [isOpen, setIsOpen] = useState(false)
   const [selected, setSelected] = useState<TripInvitation | null>(null)
+  const [requester, setRequester] = useState<FriendRequest | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
-  const count = invitations.length
+  const count = invitations.length + requests.length
 
   // Close the dropdown on outside click or Escape.
   useEffect(() => {
@@ -58,10 +66,10 @@ export function InvitationsInbox() {
       <button
         type="button"
         onClick={() => setIsOpen((open) => !open)}
-        aria-label={count > 0 ? `Invitations (${count} pending)` : 'Invitations'}
+        aria-label={count > 0 ? `Notifications (${count} pending)` : 'Notifications'}
         aria-haspopup="menu"
         aria-expanded={isOpen}
-        title="Invitations"
+        title="Notifications"
         className={`relative flex h-9 w-9 items-center justify-center rounded-full border border-border bg-surface-subtle text-muted transition-colors hover:border-border-strong hover:text-foreground ${FOCUS_RING}`}
       >
         <InboxIcon />
@@ -76,11 +84,34 @@ export function InvitationsInbox() {
       {isOpen && (
         <div
           role="menu"
-          aria-label="Invitations"
+          aria-label="Notifications"
           className="absolute right-0 z-50 mt-2 w-72 rounded-2xl border border-border bg-surface-raised p-2 shadow-2xl"
         >
+          {requests.length > 0 && (
+            <>
+              <p className="px-2 py-1.5 text-xs font-medium text-muted">Friend requests</p>
+              {requests.map((request) => (
+                <button
+                  key={request.id}
+                  role="menuitem"
+                  type="button"
+                  onClick={() => {
+                    setRequester(request)
+                    setIsOpen(false)
+                  }}
+                  className={`w-full rounded-xl px-2 py-2 text-left transition-colors hover:bg-surface-subtle ${FOCUS_RING}`}
+                >
+                  <span className="block text-sm font-medium text-foreground">
+                    {request.displayName ?? 'Someone'}
+                  </span>
+                  <span className="block text-xs text-muted">wants to be friends</span>
+                </button>
+              ))}
+            </>
+          )}
+
           <p className="px-2 py-1.5 text-xs font-medium text-muted">Invitations</p>
-          {count === 0 ? (
+          {invitations.length === 0 ? (
             <p className="px-2 py-4 text-center text-sm text-faint">No pending invitations</p>
           ) : (
             invitations.map((invitation) => (
@@ -117,6 +148,15 @@ export function InvitationsInbox() {
           onClose={() => setSelected(null)}
           onAccepted={(tripId) => navigate(`/trips/${tripId}`)}
           onStale={refresh}
+        />
+      )}
+
+      {requester && (
+        <UserProfileModal
+          userId={requester.userId}
+          displayName={requester.displayName}
+          onClose={() => setRequester(null)}
+          onFriendshipChange={refreshRequests}
         />
       )}
     </div>

@@ -49,6 +49,14 @@ class FlywayMigrationTest {
                 "V12 should index location.country_code");
     }
 
+    @Test
+    void friendshipsMigrationRunsAndMatchesTheEntity() {
+        assertTrue(columnExists("FRIENDSHIPS", "ADDRESSEE_ID"),
+                "V16 should create friendships");
+        assertTrue(indexExists("IDX_FRIENDSHIPS_ADDRESSEE_STATUS"),
+                "V16 should index incoming requests");
+    }
+
     private boolean columnExists(String table, String column) {
         Integer count = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM information_schema.columns "

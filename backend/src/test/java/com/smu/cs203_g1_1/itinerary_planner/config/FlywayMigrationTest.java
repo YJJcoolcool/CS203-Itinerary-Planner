@@ -57,6 +57,19 @@ class FlywayMigrationTest {
                 "V16 should index incoming requests");
     }
 
+    @Test
+    void suggestionUndoMigrationRunsAndAllowsTheNewStatus() {
+        assertTrue(columnExists("SUGGESTIONS", "ACCEPTED_LOCATION_ID"),
+                "V17 should add suggestions.accepted_location_id");
+
+        String statusCheck = jdbcTemplate.queryForObject(
+                "SELECT CHECK_CLAUSE FROM INFORMATION_SCHEMA.CHECK_CONSTRAINTS "
+                        + "WHERE UPPER(CONSTRAINT_NAME) = 'CK_SUGGESTIONS_STATUS'",
+                String.class);
+        assertTrue(statusCheck != null && statusCheck.contains("UNDONE"),
+                "V17 should allow the UNDONE status");
+    }
+
     private boolean columnExists(String table, String column) {
         Integer count = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM information_schema.columns "

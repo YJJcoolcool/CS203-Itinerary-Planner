@@ -8,6 +8,7 @@ import {
   getSuggestions,
   rejectSuggestion,
   replanTrip,
+  undoSuggestion,
 } from './api'
 
 /** How often the open trip page re-checks for new suggestions. */
@@ -20,12 +21,17 @@ export interface UseSuggestionsResult {
   isLoading: boolean
   error: string | null
   isReplanning: boolean
-  /** Checks the weather and reloads the list. Failures are reported via `error`. */
-  replan: () => Promise<void>
+  /**
+   * Checks the weather and reloads the list. Resolves to how many new
+   * suggestions were created, or null if the check failed (reported via `error`).
+   */
+  replan: () => Promise<number | null>
   /** Accepts a suggestion, optionally with a chosen option id. Rejects with the API error after recording a friendly message. */
   accept: (suggestionId: string, locationId?: string) => Promise<void>
   /** Dismisses a suggestion. Rejects with the API error after recording a friendly message. */
   reject: (suggestionId: string) => Promise<void>
+  /** Reverses an applied suggestion (CGT-169). Rejects with the API error after recording a friendly message. */
+  undo: (suggestionId: string) => Promise<void>
   /** Refetches the list without clearing the current one. */
   refresh: () => void
 }
@@ -49,6 +55,9 @@ function useConfiguredSuggestions(tripId: string): UseSuggestionsResult {
   const [isReplanning, setIsReplanning] = useState(false)
   const [reloadCount, setReloadCount] = useState(0)
   const hasLoaded = useRef(false)
+  // Each fetch takes a ticket; only the newest may write the list, so a slow
+  // poll that started before "Check now" can't overwrite its fresher result.
+  const latestFetch = useRef(0)
 
   const reload = useCallback(() => setReloadCount((count) => count + 1), [])
   const refresh = useCallback(() => {
@@ -66,8 +75,9 @@ function useConfiguredSuggestions(tripId: string): UseSuggestionsResult {
         const token = await getToken()
         if (cancelled) return
         if (!token) throw new ApiError(401, NO_SESSION_MESSAGE)
+        const ticket = ++latestFetch.current
         const result = await getSuggestions(token, tripId)
-        if (!cancelled) {
+        if (!cancelled && ticket === latestFetch.current) {
           setSuggestions(result)
           setLoadError(null)
           hasLoaded.current = true
@@ -112,11 +122,18 @@ function useConfiguredSuggestions(tripId: string): UseSuggestionsResult {
       const token = await getToken()
       if (!token) throw new ApiError(401, NO_SESSION_MESSAGE)
 
-      await replanTrip(token, tripId)
+      const created = await replanTrip(token, tripId)
+      const ticket = ++latestFetch.current
       const result = await getSuggestions(token, tripId)
-      setSuggestions(result)
+      if (ticket === latestFetch.current) {
+        // Belt and braces: whatever the list says, show what was just created.
+        const known = new Set(result.map((suggestion) => suggestion.id))
+        setSuggestions([...created.filter((suggestion) => !known.has(suggestion.id)), ...result])
+      }
+      return created.length
     } catch (cause) {
       setActionError(describeError(cause, 'Could not check for weather alternatives. Please try again.'))
+      return null
     } finally {
       setIsReplanning(false)
     }
@@ -168,6 +185,29 @@ function useConfiguredSuggestions(tripId: string): UseSuggestionsResult {
     [getToken, refresh],
   )
 
+  const undo = useCallback(
+    async (suggestionId: string) => {
+      setActionError(null)
+
+      try {
+        const token = await getToken()
+        if (!token) throw new ApiError(401, NO_SESSION_MESSAGE)
+
+        const updated = await undoSuggestion(token, suggestionId)
+        setSuggestions((current) =>
+          current.map((suggestion) =>
+            suggestion.id === suggestionId ? updated : suggestion,
+          ),
+        )
+        refresh()
+      } catch (cause) {
+        setActionError(describeError(cause, 'Could not undo this change. Please try again.'))
+        throw cause
+      }
+    },
+    [getToken, refresh],
+  )
+
   if (!isLoaded) {
     return {
       suggestions: [],
@@ -177,6 +217,7 @@ function useConfiguredSuggestions(tripId: string): UseSuggestionsResult {
       replan,
       accept,
       reject,
+      undo,
       refresh,
     }
   }
@@ -190,6 +231,7 @@ function useConfiguredSuggestions(tripId: string): UseSuggestionsResult {
       replan,
       accept,
       reject,
+      undo,
       refresh,
     }
   }
@@ -202,6 +244,7 @@ function useConfiguredSuggestions(tripId: string): UseSuggestionsResult {
     replan,
     accept,
     reject,
+    undo,
     refresh,
   }
 }
@@ -218,6 +261,7 @@ function useUnconfiguredSuggestions(): UseSuggestionsResult {
     replan: notConfigured,
     accept: notConfigured,
     reject: notConfigured,
+    undo: notConfigured,
     refresh: () => {},
   }
 }

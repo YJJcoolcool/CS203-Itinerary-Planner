@@ -53,6 +53,13 @@ public class SuggestionController {
         return suggestionService.reject(suggestionId, userService.getCurrentUserId(jwt));
     }
 
+    /** CGT-169: puts the original place back after an accepted suggestion. */
+    @PostMapping("/suggestions/{suggestionId}/undo")
+    public SuggestionResponse undo(@AuthenticationPrincipal Jwt jwt,
+                                   @PathVariable("suggestionId") String suggestionId) {
+        return suggestionService.undo(suggestionId, userService.getCurrentUserId(jwt));
+    }
+
     @AiRateLimited
     @PostMapping("/trips/{tripId}/replan")
     public List<SuggestionResponse> replan(

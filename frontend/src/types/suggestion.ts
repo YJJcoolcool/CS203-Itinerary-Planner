@@ -1,5 +1,5 @@
-/** Mirrors backend SuggestionStatus. */
-export type SuggestionStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED'
+/** Mirrors backend SuggestionStatus. UNDONE: applied, then reversed (CGT-169). */
+export type SuggestionStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'UNDONE'
 
 /** The slice of a location shown alongside a suggestion. */
 export interface SuggestionLocationRef {
@@ -28,6 +28,8 @@ export interface Suggestion {
   status: SuggestionStatus
   currentLocation: SuggestionLocationRef | null
   proposedLocation: SuggestionLocationRef
+  /** The option actually applied; null until accepted. May be absent on older cached data. */
+  acceptedLocation?: SuggestionLocationRef | null
   reason: string
   explanation: string
   /** Ordered best-first; 1–5 entries. May be absent on older cached data. */

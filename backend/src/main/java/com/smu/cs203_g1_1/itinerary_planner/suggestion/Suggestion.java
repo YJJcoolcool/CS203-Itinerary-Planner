@@ -49,6 +49,15 @@ public class Suggestion {
     @JoinColumn(name = "proposed_location_id", nullable = false)
     private Location proposedLocation;
 
+    /**
+     * The option the user actually applied (CGT-169). It can differ from
+     * {@link #proposedLocation} because any ranked option can be accepted; undo
+     * swaps this place back out for {@link #currentLocation}.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "accepted_location_id")
+    private Location acceptedLocation;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 16)
     private SuggestionStatus status = SuggestionStatus.PENDING;
@@ -128,6 +137,14 @@ public class Suggestion {
 
     public void setProposedLocation(Location proposedLocation) {
         this.proposedLocation = proposedLocation;
+    }
+
+    public Location getAcceptedLocation() {
+        return acceptedLocation;
+    }
+
+    public void setAcceptedLocation(Location acceptedLocation) {
+        this.acceptedLocation = acceptedLocation;
     }
 
     public SuggestionStatus getStatus() {

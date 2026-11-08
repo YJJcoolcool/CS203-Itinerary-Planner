@@ -72,6 +72,15 @@ class SuggestionControllerTest {
     }
 
     @Test
+    void undoUsesResolvedUserId() {
+        when(userService.getCurrentUserId(jwt)).thenReturn("User0001");
+
+        controller.undo(jwt, "Sugg0001");
+
+        verify(suggestionService).undo("Sugg0001", "User0001");
+    }
+
+    @Test
     void replanPassesNullWhenBodyIsMissing() {
         when(userService.getCurrentUserId(jwt)).thenReturn("User0001");
         when(suggestionService.replan("Trip0001", "User0001", null)).thenReturn(List.of());

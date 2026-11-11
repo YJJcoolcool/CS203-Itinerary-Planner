@@ -9,6 +9,7 @@ import type { MemberRole, Trip, User } from '../../types/trip'
 import { CollapsibleSection } from '../CollapsibleSection'
 import { ConfirmDialog } from '../ConfirmDialog'
 import { UserProfileModal } from '../profile/UserProfileModal'
+import { RoleSelect } from './RoleSelect'
 import { avatarTone, initials, roleOf, uniqueMembers } from './tripUtils'
 
 const FOCUS_RING =
@@ -162,16 +163,13 @@ export function TripMembersPanel({
 
               {showControls ? (
                 <div className="flex shrink-0 flex-wrap items-center gap-2">
-                  <select
-                    aria-label={`Role for ${name}`}
-                    value={role}
+                  <RoleSelect
+                    ariaLabel={`Role for ${name}`}
+                    value={role === 'EDITOR' ? 'EDITOR' : 'VIEWER'}
                     disabled={isBusy}
-                    onChange={(event) => void handleRoleChange(member.id, event.target.value as TripRole)}
-                    className="input-field w-28"
-                  >
-                    <option value="VIEWER">Viewer</option>
-                    <option value="EDITOR">Editor</option>
-                  </select>
+                    onChange={(next) => void handleRoleChange(member.id, next)}
+                    className="w-28"
+                  />
                   <button
                     type="button"
                     disabled={isBusy}

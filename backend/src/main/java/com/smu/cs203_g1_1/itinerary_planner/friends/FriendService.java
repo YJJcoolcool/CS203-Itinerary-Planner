@@ -98,6 +98,22 @@ public class FriendService {
         log.info("User id={} {} friend request {}", userId, accept ? "accepted" : "rejected", requestId);
     }
 
+    /**
+     * Removes a friend, or cancels a request the viewer sent (CGT-197). Incoming
+     * requests are rejected through {@link #respond} instead.
+     */
+    @Transactional
+    public void remove(String viewerId, String otherId) {
+        Friendship friendship = friendshipRepository.findBetween(viewerId, otherId)
+                .filter(f -> f.getStatus() == Friendship.Status.ACCEPTED
+                        || f.getRequester().getId().equals(viewerId))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "No friend or sent request to remove"));
+        friendshipRepository.delete(friendship);
+        log.info("User id={} removed {} with user id={}", viewerId,
+                friendship.getStatus() == Friendship.Status.ACCEPTED ? "friendship" : "friend request", otherId);
+    }
+
     @Transactional(readOnly = true)
     public List<FriendResponse> friends(String userId) {
         return friendshipRepository.findInvolving(userId, Friendship.Status.ACCEPTED).stream()

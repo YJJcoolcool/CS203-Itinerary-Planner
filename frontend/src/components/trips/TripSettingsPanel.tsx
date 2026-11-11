@@ -16,6 +16,7 @@ import type { Trip } from '../../types/trip'
 import { CountrySelect } from './CountrySelect'
 import { DateTimePicker } from './DateTimePicker'
 import { DeleteTripDialog } from './DeleteTripDialog'
+import { RoleSelect } from './RoleSelect'
 import { TripCoverImagePicker } from './TripCoverImagePicker'
 import { avatarTone, initials, uniqueMembers } from './tripUtils'
 
@@ -63,7 +64,7 @@ function InvitationsSection({ trip }: InvitationsSectionProps) {
     send,
     cancel,
   } = useTripInvitations(trip.id)
-  const friends = useFriends()
+  const { friends } = useFriends()
   // Friends not already on the trip; clicking one fills the email box (CGT-182).
   const memberIds = new Set(uniqueMembers(trip).map((member) => member.id))
   const invitableFriends = friends.filter((friend) => friend.email && !memberIds.has(friend.userId))
@@ -78,7 +79,6 @@ function InvitationsSection({ trip }: InvitationsSectionProps) {
   } | null>(null)
 
   const inputId = useId()
-  const roleId = useId()
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -155,19 +155,13 @@ function InvitationsSection({ trip }: InvitationsSectionProps) {
           className="input-field min-w-0 flex-1"
         />
 
-        <label htmlFor={roleId} className="sr-only">
-          Role
-        </label>
-        <select
-          id={roleId}
+        <RoleSelect
+          ariaLabel="Role"
           value={role}
-          onChange={(event) => setRole(event.target.value as TripRole)}
+          onChange={setRole}
           disabled={isSending}
-          className="input-field sm:w-32 sm:shrink-0"
-        >
-          <option value="VIEWER">Viewer</option>
-          <option value="EDITOR">Editor</option>
-        </select>
+          className="sm:w-32 sm:shrink-0"
+        />
 
         <button
           type="submit"

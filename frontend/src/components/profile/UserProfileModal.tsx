@@ -6,6 +6,7 @@ import {
   ApiError,
   getFriendship,
   getUserPreferences,
+  removeFriendship,
   respondToFriendRequest,
   sendFriendRequest,
 } from '../../lib/api'
@@ -13,6 +14,7 @@ import { useBodyScrollLock } from '../../lib/useBodyScrollLock'
 import type { Friendship } from '../../types/friend'
 import { INDOOR_PREFERENCE_LABELS } from '../../types/preference'
 import type { UserPreferences } from '../../types/preference'
+import { ConfirmDialog } from '../ConfirmDialog'
 import { PreferenceChip } from '../preferences/PreferenceChip'
 import { avatarTone, initials } from '../trips/tripUtils'
 
@@ -22,6 +24,8 @@ const FOCUS_RING =
 const PRIMARY_BUTTON = `inline-flex items-center justify-center rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-contrast transition-colors hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`
 
 const GHOST_BUTTON = `inline-flex items-center justify-center rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-muted transition-colors hover:border-border-strong hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`
+
+const DANGER_BUTTON = `inline-flex items-center justify-center rounded-xl border border-terracotta/40 px-4 py-2.5 text-sm font-medium text-terracotta transition-colors hover:bg-terracotta/10 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`
 
 function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1)
@@ -54,6 +58,7 @@ export function UserProfileModal({
   const [friendship, setFriendship] = useState<Friendship | null>(null)
   const [isBusy, setIsBusy] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [isConfirmingRemove, setIsConfirmingRemove] = useState(false)
 
   useBodyScrollLock()
 
@@ -105,6 +110,13 @@ export function UserProfileModal({
     act(async (token) => {
       await respondToFriendRequest(token, requestId, accept)
       return { relation: accept ? 'FRIENDS' : 'NONE', requestId: null }
+    })
+
+  // Unfriend or cancel an outgoing request (CGT-197).
+  const remove = () =>
+    act(async (token) => {
+      await removeFriendship(token, userId)
+      return { relation: 'NONE', requestId: null }
     })
 
   const incomingId = friendship?.relation === 'INCOMING' ? friendship.requestId : null
@@ -201,8 +213,8 @@ export function UserProfileModal({
             </button>
           )}
           {friendship?.relation === 'OUTGOING' && (
-            <button type="button" disabled className={GHOST_BUTTON}>
-              Request sent
+            <button type="button" disabled={isBusy} onClick={() => void remove()} className={GHOST_BUTTON}>
+              {isBusy ? 'Cancelling…' : 'Cancel friend request'}
             </button>
           )}
           {incomingId && (
@@ -226,12 +238,37 @@ export function UserProfileModal({
             </>
           )}
           {friendship?.relation === 'FRIENDS' && (
-            <span className="inline-flex items-center justify-center rounded-xl border border-sage/40 bg-sage/10 px-4 py-2.5 text-sm font-medium text-sage">
-              Friends
-            </span>
+            <>
+              <button
+                type="button"
+                disabled={isBusy}
+                onClick={() => setIsConfirmingRemove(true)}
+                className={DANGER_BUTTON}
+              >
+                {isBusy ? 'Removing…' : 'Remove friend'}
+              </button>
+              <span className="inline-flex items-center justify-center rounded-xl border border-sage/40 bg-sage/10 px-4 py-2.5 text-sm font-medium text-sage">
+                Friends
+              </span>
+            </>
           )}
         </div>
       </div>
+
+      {isConfirmingRemove && (
+        <ConfirmDialog
+          title="Remove friend?"
+          confirmLabel="Remove friend"
+          onClose={() => setIsConfirmingRemove(false)}
+          onConfirm={() => {
+            setIsConfirmingRemove(false)
+            void remove()
+          }}
+        >
+          Remove <strong className="text-foreground">{name}</strong> from your friends? You can add them
+          again later from a trip you share.
+        </ConfirmDialog>
+      )}
     </div>,
     document.body,
   )

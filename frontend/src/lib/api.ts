@@ -417,6 +417,11 @@ export function respondToFriendRequest(
   })
 }
 
+/** Removes a friend, or cancels the current user's outgoing request to them. */
+export function removeFriendship(token: string | null, userId: string): Promise<void> {
+  return request<void>(`/api/users/${userId}/friendship`, { method: 'DELETE', token })
+}
+
 /** How the current user relates to another user (drives the profile's friend button). */
 export function getFriendship(token: string | null, userId: string): Promise<Friendship> {
   return request<Friendship>(`/api/users/${userId}/friendship`, { token })

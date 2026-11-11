@@ -48,10 +48,11 @@ export function useFriendRequests() {
   return { requests, refresh }
 }
 
-/** The signed-in user's friends, loaded once (CGT-182). Empty on failure. */
-export function useFriends(): Friend[] {
+/** The signed-in user's friends, loaded on mount (CGT-182). Empty on failure. */
+export function useFriends() {
   const { getToken } = useAuth()
   const [friends, setFriends] = useState<Friend[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     let cancelled = false
@@ -62,7 +63,9 @@ export function useFriends(): Friend[] {
         const result = await getFriends(token)
         if (!cancelled) setFriends(result)
       } catch {
-        // Bubbles are a shortcut; typing an email still works without them.
+        // Non-critical: callers show an empty list.
+      } finally {
+        if (!cancelled) setIsLoading(false)
       }
     })()
     return () => {
@@ -70,5 +73,5 @@ export function useFriends(): Friend[] {
     }
   }, [getToken])
 
-  return friends
+  return { friends, isLoading }
 }

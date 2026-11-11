@@ -63,7 +63,7 @@ function InvitationsSection({ trip }: InvitationsSectionProps) {
     send,
     cancel,
   } = useTripInvitations(trip.id)
-  const friends = useFriends()
+  const { friends } = useFriends()
   // Friends not already on the trip; clicking one fills the email box (CGT-182).
   const memberIds = new Set(uniqueMembers(trip).map((member) => member.id))
   const invitableFriends = friends.filter((friend) => friend.email && !memberIds.has(friend.userId))

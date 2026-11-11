@@ -4,6 +4,7 @@ import { useAuthConfiguration } from '../auth/authConfiguration'
 import { getClerkAppearance } from '../auth/clerkAppearance'
 import { useTheme } from '../lib/theme'
 import { InvitationsInbox } from './invitations/InvitationsInbox'
+import { FriendsMenu } from './profile/FriendsMenu'
 
 function CompassMark() {
   return (
@@ -119,6 +120,7 @@ function NavAuthControls() {
         </SignUpButton>
       </Show>
       <Show when="signed-in">
+        <FriendsMenu />
         <InvitationsInbox />
         <div className="flex items-center rounded-full border border-border bg-surface-subtle p-0.5">
           <UserButton appearance={getClerkAppearance(theme)} />

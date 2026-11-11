@@ -140,6 +140,42 @@ class FriendServiceTest {
     }
 
     @Test
+    void remove_unfriendsForBothSides() {
+        String requestId = friendService.sendRequest(alice.getId(), bob.getId()).requestId();
+        friendService.respond(bob.getId(), requestId, true);
+
+        // Either side can remove; the addressee does it here.
+        friendService.remove(bob.getId(), alice.getId());
+
+        assertTrue(friendService.friends(alice.getId()).isEmpty());
+        assertTrue(friendService.friends(bob.getId()).isEmpty());
+        assertEquals(Relation.NONE, friendService.relation(alice.getId(), bob.getId()).relation());
+    }
+
+    @Test
+    void remove_cancelsAnOutgoingRequestSoItCanBeSentAgain() {
+        friendService.sendRequest(alice.getId(), bob.getId());
+
+        friendService.remove(alice.getId(), bob.getId());
+
+        assertTrue(friendService.incomingRequests(bob.getId()).isEmpty());
+        assertEquals(Relation.OUTGOING, friendService.sendRequest(alice.getId(), bob.getId()).relation());
+    }
+
+    @Test
+    void remove_anIncomingRequest_is404() {
+        friendService.sendRequest(alice.getId(), bob.getId());
+
+        assertStatus(HttpStatus.NOT_FOUND, () -> friendService.remove(bob.getId(), alice.getId()));
+        assertEquals(Relation.INCOMING, friendService.relation(bob.getId(), alice.getId()).relation());
+    }
+
+    @Test
+    void remove_withNoRelation_is404() {
+        assertStatus(HttpStatus.NOT_FOUND, () -> friendService.remove(alice.getId(), bob.getId()));
+    }
+
+    @Test
     void deletingAUser_removesTheirFriendships() {
         // Saved directly: stranger is on no trip, so the user row can be deleted on its own.
         friendshipRepository.save(new Friendship(ID.generateID(), alice, stranger));

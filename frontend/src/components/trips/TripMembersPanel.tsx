@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { ReactNode } from 'react'
 import { useAuth } from '@clerk/react'
 
 import { ApiError, changeMemberRole, removeMember, transferOwnership } from '../../lib/api'
@@ -6,6 +7,7 @@ import { roleLabel } from '../../types/invitation'
 import type { TripRole } from '../../types/invitation'
 import type { MemberRole, Trip, User } from '../../types/trip'
 import { CollapsibleSection } from '../CollapsibleSection'
+import { ConfirmDialog } from '../ConfirmDialog'
 import { UserProfileModal } from '../profile/UserProfileModal'
 import { avatarTone, initials, roleOf, uniqueMembers } from './tripUtils'
 
@@ -47,6 +49,12 @@ export function TripMembersPanel({
   const [busyUserId, setBusyUserId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [profileOf, setProfileOf] = useState<User | null>(null)
+  const [confirm, setConfirm] = useState<{
+    title: string
+    message: ReactNode
+    confirmLabel: string
+    action: () => Promise<void>
+  } | null>(null)
 
   const canManage = myRole === 'OWNER'
 
@@ -73,23 +81,41 @@ export function TripMembersPanel({
     if (updated) onUpdated(updated)
   }
 
-  async function handleRemove(userId: string, name: string) {
-    if (!window.confirm(`Remove ${name} from this trip?`)) return
-    const updated = await run(userId, (token) => removeMember(token, trip.id, userId), 'Could not remove this member.')
-    if (updated) onUpdated(updated)
+  function handleRemove(userId: string, name: string) {
+    setConfirm({
+      title: 'Remove member?',
+      message: <>Remove <strong className="text-foreground">{name}</strong> from this trip?</>,
+      confirmLabel: 'Remove',
+      action: async () => {
+        const updated = await run(userId, (token) => removeMember(token, trip.id, userId), 'Could not remove this member.')
+        if (updated) onUpdated(updated)
+      },
+    })
   }
 
-  async function handleMakeOwner(userId: string, name: string) {
-    if (!window.confirm(`Make ${name} the owner of this trip? You'll stay on as an editor.`)) return
-    const updated = await run(userId, (token) => transferOwnership(token, trip.id, userId), 'Could not transfer ownership.')
-    if (updated) onUpdated(updated)
+  function handleMakeOwner(userId: string, name: string) {
+    setConfirm({
+      title: 'Transfer ownership?',
+      message: <>Make <strong className="text-foreground">{name}</strong> the owner of this trip? You&apos;ll stay on as an editor.</>,
+      confirmLabel: 'Make owner',
+      action: async () => {
+        const updated = await run(userId, (token) => transferOwnership(token, trip.id, userId), 'Could not transfer ownership.')
+        if (updated) onUpdated(updated)
+      },
+    })
   }
 
-  async function handleLeave(userId: string) {
-    if (!window.confirm(`Leave "${trip.name}"? You'll lose access unless someone invites you again.`)) return
-    const updated = await run(userId, (token) => removeMember(token, trip.id, userId), 'Could not leave this trip.')
-    // The page would now get a 403 for this trip, so don't hand it the update.
-    if (updated) onLeft()
+  function handleLeave(userId: string) {
+    setConfirm({
+      title: 'Leave trip?',
+      message: <>You are about to leave <strong className="text-foreground">{trip.name}</strong>. You&apos;ll lose access unless someone invites you again.</>,
+      confirmLabel: 'Leave trip',
+      action: async () => {
+        const updated = await run(userId, (token) => removeMember(token, trip.id, userId), 'Could not leave this trip.')
+        // The page would now get a 403 for this trip, so don't hand it the update.
+        if (updated) onLeft()
+      },
+    })
   }
 
   const members = uniqueMembers(trip)
@@ -149,7 +175,7 @@ export function TripMembersPanel({
                   <button
                     type="button"
                     disabled={isBusy}
-                    onClick={() => void handleMakeOwner(member.id, name)}
+                    onClick={() => handleMakeOwner(member.id, name)}
                     className={SECONDARY_BUTTON}
                   >
                     Make owner
@@ -157,7 +183,7 @@ export function TripMembersPanel({
                   <button
                     type="button"
                     disabled={isBusy}
-                    onClick={() => void handleRemove(member.id, name)}
+                    onClick={() => handleRemove(member.id, name)}
                     className={SECONDARY_BUTTON}
                   >
                     Remove
@@ -169,7 +195,7 @@ export function TripMembersPanel({
                   <button
                     type="button"
                     disabled={isBusy}
-                    onClick={() => void handleLeave(member.id)}
+                    onClick={() => handleLeave(member.id)}
                     className={DANGER_BUTTON}
                   >
                     Leave trip
@@ -195,6 +221,20 @@ export function TripMembersPanel({
           isSelf={profileOf.id === currentUserId}
           onClose={() => setProfileOf(null)}
         />
+      )}
+
+      {confirm && (
+        <ConfirmDialog
+          title={confirm.title}
+          confirmLabel={confirm.confirmLabel}
+          onClose={() => setConfirm(null)}
+          onConfirm={() => {
+            setConfirm(null)
+            void confirm.action()
+          }}
+        >
+          {confirm.message}
+        </ConfirmDialog>
       )}
     </CollapsibleSection>
   )

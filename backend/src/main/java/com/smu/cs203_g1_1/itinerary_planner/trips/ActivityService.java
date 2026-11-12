@@ -138,8 +138,19 @@ public class ActivityService {
                 activity.getStartDateTime(),
                 activity.getEndDateTime());
 
-        List<Location> locations
-                = resolveLocations(tripId, activity.getLocations());
+        List<Location> locations;
+
+        if (activity.getType() == ActivityType.FLIGHT) {
+            // The departure date is the source of truth for the flight date.
+            if (activity.getStartDateTime() != null) {
+                activity.setFlightDate(activity.getStartDateTime().toLocalDate());
+            }
+
+            validateFlight(activity);
+            locations = new ArrayList<>();
+        } else {
+            locations = resolveLocations(tripId, activity.getLocations());
+        }
 
         activity.setLocations(locations);
 
@@ -215,23 +226,41 @@ public class ActivityService {
         Activity activity
                 = findActivity(tripId, activityId);
 
-        validateTimes(
-                updatedActivity.getStartDateTime(),
-                updatedActivity.getEndDateTime());
+        validateTimes(updatedActivity.getStartDateTime(), updatedActivity.getEndDateTime());
 
-        List<Location> locations
-                = resolveLocations(
-                        tripId,
-                        updatedActivity.getLocations());
+        List<Location> locations;
 
-        activity.setName(
-                updatedActivity.getName());
+        if (updatedActivity.getType() == ActivityType.FLIGHT) {
+            if (updatedActivity.getStartDateTime() != null) {
+                updatedActivity.setFlightDate(
+                    updatedActivity.getStartDateTime().toLocalDate());
+            }
 
-        activity.setStartDateTime(
-                updatedActivity.getStartDateTime());
+            validateFlight(updatedActivity);
+            locations = new ArrayList<>();
+        } else {
+            locations = resolveLocations(
+                    tripId,
+                    updatedActivity.getLocations());
+        }
 
-        activity.setEndDateTime(
-                updatedActivity.getEndDateTime());
+        activity.setLocations(locations);
+
+        activity.setType(updatedActivity.getType());
+        activity.setName(updatedActivity.getName());
+
+        activity.setStartDateTime(updatedActivity.getStartDateTime());
+        activity.setEndDateTime(updatedActivity.getEndDateTime());
+
+        activity.setFlightNumber(updatedActivity.getFlightNumber());
+        activity.setFlightDate(updatedActivity.getFlightDate());
+        activity.setAirline(updatedActivity.getAirline());
+        activity.setDepartureAirportCode(updatedActivity.getDepartureAirportCode());
+        activity.setDepartureAirportName(updatedActivity.getDepartureAirportName());
+        activity.setDepartureTerminal(updatedActivity.getDepartureTerminal());
+        activity.setArrivalAirportCode(updatedActivity.getArrivalAirportCode());
+        activity.setArrivalAirportName(updatedActivity.getArrivalAirportName());
+        activity.setArrivalTerminal(updatedActivity.getArrivalTerminal());
 
         /*
          * The edit form doesn't send a status, so keep the current one
@@ -241,8 +270,6 @@ public class ActivityService {
             activity.setStatus(
                     updatedActivity.getStatus());
         }
-
-        activity.setLocations(locations);
 
         Activity saved = activityRepository.save(activity);
         log.info("Updated activity id={} in trip id={}", activityId, tripId);
@@ -333,5 +360,39 @@ public class ActivityService {
                     HttpStatus.BAD_REQUEST,
                     "Activity end time cannot be before start time");
         }
+    }
+
+    private void validateFlight(Activity activity) {
+        if (activity.getFlightNumber() == null || activity.getFlightNumber().isBlank()) {
+            throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "Flight number is required");
+        }
+
+        if (activity.getFlightDate() == null) {
+            throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "Flight date is required");
+        }
+
+        if (activity.getDepartureAirportCode() == null
+            || activity.getDepartureAirportCode().isBlank()
+            || activity.getArrivalAirportCode() == null
+            || activity.getArrivalAirportCode().isBlank()) {
+
+            throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "Departure and arrival airports are required");
+        }
+
+        if (activity.getStartDateTime() == null || activity.getEndDateTime() == null) {
+            throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "Departure and arrival times are required");
+        }
+
+        validateTimes(
+            activity.getStartDateTime(),
+            activity.getEndDateTime());
     }
 }

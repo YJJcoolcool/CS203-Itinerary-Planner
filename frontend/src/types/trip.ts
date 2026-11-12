@@ -34,14 +34,28 @@ export interface Location {
   manual?: boolean
 }
 
+export type ActivityType = 'ACTIVITY' | 'FLIGHT'
+
 /** An itinerary entry, as returned by `GET /api/trips/{tripId}/activities`. */
 export interface Activity {
   id: string
   name: string
-  /** ISO-8601 date-time with offset, e.g. `2026-10-14T08:30:00+09:00`. */
+  type: ActivityType
   startDateTime: string | null
   endDateTime: string | null
   status: string | null
+
+  flightNumber?: string | null
+  flightDate?: string | null
+  airline?: string | null
+
+  departureAirportCode?: string | null
+  departureAirportName?: string | null
+  departureTerminal?: string | null
+
+  arrivalAirportCode?: string | null
+  arrivalAirportName?: string | null
+  arrivalTerminal?: string | null
 }
 
 /** A member's access level on a trip. Mirrors backend TripRole. */
@@ -78,9 +92,21 @@ export interface CreateTripInput {
 /** Client-supplied fields for creating an activity. */
 export interface CreateActivityInput {
   name: string
+  type?: ActivityType
   startDateTime: string | null
   endDateTime: string | null
   locations: Pick<Location, 'id'>[]
+
+  flightNumber?: string
+  airline?: string
+
+  departureAirportCode?: string
+  departureAirportName?: string
+  departureTerminal?: string
+
+  arrivalAirportCode?: string
+  arrivalAirportName?: string
+  arrivalTerminal?: string
 }
 
 /** Structured address components of a geocoded place. */

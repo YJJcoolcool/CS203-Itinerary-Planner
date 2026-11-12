@@ -704,3 +704,44 @@ export function getWeatherOutlook(
     { token },
   )
 }
+
+export interface FlightRecord {
+  flightNumber: string
+  airline: string | null
+
+  departureAirportCode: string
+  departureAirportName: string | null
+  departureTerminal: string | null
+
+  arrivalAirportCode: string
+  arrivalAirportName: string | null
+  arrivalTerminal: string | null
+
+  departureTime: string
+  arrivalTime: string
+}
+
+export interface FlightLookupResponse {
+  status: 'SUCCESS' | 'NOT_FOUND' | 'AMBIGUOUS'
+  message: string
+  flights: FlightRecord[]
+}
+
+export function lookupFlight(
+  token: string | null,
+  tripId: string,
+  flightNumber: string,
+  flightDate: string,
+): Promise<FlightLookupResponse> {
+  return request<FlightLookupResponse>(
+    `/api/trips/${encodeURIComponent(tripId)}/flights/lookup`,
+    {
+      method: 'POST',
+      body: {
+        flightNumber,
+        flightDate,
+      },
+      token,
+    },
+  )
+}

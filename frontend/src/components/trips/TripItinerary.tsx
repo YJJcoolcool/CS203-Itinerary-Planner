@@ -6,6 +6,8 @@ import { CreateActivityModal } from './CreateActivityModal'
 import { ActivityRoute } from './ActivityRoute'
 import { groupActivitiesByDay, UNSCHEDULED_KEY } from './itineraryDays'
 import type { Activity, Location } from '../../types/trip'
+import { CreateFlightModal } from './CreateFlightModal'
+import { FlightItineraryCard } from './FlightItineraryCard'
 
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface'
@@ -158,6 +160,8 @@ export function TripItinerary({
   const [hiddenIds, setHiddenIds] = useState<string[]>([])
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
+  const [isCreateFlightModalOpen, setIsCreateFlightModalOpen] = useState(false)
+
   const visibleActivities = activities.filter((activity) => !hiddenIds.includes(activity.id))
   const days = groupActivitiesByDay(visibleActivities, tripStartDate)
 
@@ -195,13 +199,22 @@ export function TripItinerary({
         </h2>
 
         {canEdit && (
-          <button
-            type="button"
-            onClick={() => setIsCreateModalOpen(true)}
-            className={`rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-contrast transition-colors hover:bg-accent-strong ${FOCUS_RING}`}
-          >
-            + Add activity
-          </button>
+          <div className='flex gap-3'>
+            <button
+              type="button"
+              onClick={() => setIsCreateModalOpen(true)}
+              className={`rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-contrast transition-colors hover:bg-accent-strong ${FOCUS_RING}`}
+            >
+              + Add activity
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsCreateFlightModalOpen(true)}
+              className={`rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-contrast transition-colors hover:bg-accent-strong ${FOCUS_RING}`}
+            >
+              + Add flight
+            </button>
+          </div>
         )}
       </div>
 
@@ -259,13 +272,20 @@ export function TripItinerary({
 
                     return (
                       <Fragment key={activity.id}>
-                        <ActivityItem
-                          activity={activity}
-                          locations={locationsByActivity[activity.id]}
-                          isLoadingLocations={isLoadingLocations}
-                          onEdit={canEdit ? () => setEditingActivity(activity) : undefined}
-                          onDelete={canEdit ? () => void handleDelete(activity) : undefined}
-                        />
+                        {activity.type === 'FLIGHT' ? (
+                          <FlightItineraryCard
+                            activity={activity}
+                            onDelete={canEdit ? () => void handleDelete(activity) : undefined}
+                          />
+                        ) : (
+                          <ActivityItem
+                            activity={activity}
+                            locations={locationsByActivity[activity.id]}
+                            isLoadingLocations={isLoadingLocations}
+                            onEdit={canEdit ? () => setEditingActivity(activity) : undefined}
+                            onDelete={canEdit ? () => void handleDelete(activity) : undefined}
+                          />
+                        )}
 
                         {nextActivity && (
                           <ActivityRoute
@@ -301,6 +321,14 @@ export function TripItinerary({
           activity={editingActivity}
           activityLocations={locationsByActivity[editingActivity.id]}
           onClose={() => setEditingActivity(null)}
+          onCreated={refresh}
+        />
+      )}
+
+      {isCreateFlightModalOpen && (
+        <CreateFlightModal
+          tripId={tripId}
+          onClose={() => setIsCreateFlightModalOpen(false)}
           onCreated={refresh}
         />
       )}

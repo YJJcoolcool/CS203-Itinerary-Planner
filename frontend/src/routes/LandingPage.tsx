@@ -207,6 +207,7 @@ function CollaborationSection() {
       {
         id: 'demo-activity-1',
         name: 'Exploring Marina Bay',
+        type: 'ACTIVITY',
         startDateTime: null,
         endDateTime: null,
         status: null,
@@ -214,6 +215,7 @@ function CollaborationSection() {
       {
         id: 'demo-activity-2',
         name: 'Lunch in the City',
+        type: 'ACTIVITY',
         startDateTime: null,
         endDateTime: null,
         status: null,
@@ -221,6 +223,7 @@ function CollaborationSection() {
       {
         id: 'demo-activity-3',
         name: 'Shopping Spree',
+        type: 'ACTIVITY',
         startDateTime: null,
         endDateTime: null,
         status: null,

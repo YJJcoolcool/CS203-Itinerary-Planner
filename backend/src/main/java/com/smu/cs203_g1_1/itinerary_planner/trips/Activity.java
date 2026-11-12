@@ -46,6 +46,12 @@ public class Activity {
     @Column(name = "flight_date")
     private LocalDate flightDate;
 
+    @Column(name = "departure_time_zone")
+    private String departureTimeZone;
+
+    @Column(name = "arrival_time_zone")
+    private String arrivalTimeZone;
+
     @Column(length = 120)
     private String airline;
 
@@ -185,6 +191,22 @@ public class Activity {
 
     public void setFlightDate(LocalDate flightDate) {
         this.flightDate = flightDate;
+    }
+
+    public String getDepartureTimeZone() {
+        return departureTimeZone;
+    }
+
+    public void setDepartureTimeZone(String departureTimeZone) {
+        this.departureTimeZone = departureTimeZone;
+    }
+
+    public String getArrivalTimeZone() {
+        return arrivalTimeZone;
+    }
+
+    public void setArrivalTimeZone(String arrivalTimeZone) {
+        this.arrivalTimeZone = arrivalTimeZone;
     }
 
     public String getAirline() {

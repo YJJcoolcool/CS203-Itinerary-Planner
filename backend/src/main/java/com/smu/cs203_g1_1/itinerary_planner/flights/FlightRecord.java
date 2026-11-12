@@ -9,10 +9,12 @@ public record FlightRecord(
     String departureAirportCode,
     String departureAirportName,
     String departureTerminal,
+    String departureTimeZone,
 
     String arrivalAirportCode,
     String arrivalAirportName,
     String arrivalTerminal,
+    String arrivalTimeZone,
 
     ZonedDateTime departureTime,
     ZonedDateTime arrivalTime

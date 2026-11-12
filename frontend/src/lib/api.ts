@@ -707,6 +707,8 @@ export function getWeatherOutlook(
 
 export interface FlightRecord {
   flightNumber: string
+  departureTimeZone: string
+  arrivalTimeZone: string
   airline: string | null
 
   departureAirportCode: string

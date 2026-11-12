@@ -47,6 +47,8 @@ export interface Activity {
 
   flightNumber?: string | null
   flightDate?: string | null
+  departureTimeZone?: string | null
+  arrivalTimeZone?: string | null
   airline?: string | null
 
   departureAirportCode?: string | null
@@ -98,6 +100,8 @@ export interface CreateActivityInput {
   locations: Pick<Location, 'id'>[]
 
   flightNumber?: string
+  departureTimeZone?: string
+  arrivalTimeZone?: string
   airline?: string
 
   departureAirportCode?: string

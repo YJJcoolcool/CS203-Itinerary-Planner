@@ -94,9 +94,11 @@ public class OpenAIFlightLookupProvider implements FlightLookupProvider {
                   "departureAirportCode": "IATA code or null",
                   "departureAirportName": "airport name or null",
                   "departureTerminal": "terminal or null",
+                  "departureTimeZone": "IANA timezone identifier or null",
                   "arrivalAirportCode": "IATA code or null",
                   "arrivalAirportName": "airport name or null",
                   "arrivalTerminal": "terminal or null",
+                  "arrivalTimeZone": "IANA timezone identifier or null",
                   "departureTime": "ISO-8601 datetime with UTC offset or null",
                   "arrivalTime": "ISO-8601 datetime with UTC offset or null"
                 }
@@ -107,6 +109,11 @@ public class OpenAIFlightLookupProvider implements FlightLookupProvider {
                 - Include the timezone offset in both datetime fields.
                 - Return an empty array if no matching flight is found.
                 - Do not return flights with a different flight number or date.
+                - Return IANA timezone identifiers for both airports (e.g., Asia/Singapore)
+                - The departure timezone must correspond to the departure airport.
+                - The arrival timezone must correspond to the arrival airport.
+                - Do not return UTC offsets in place of IANA timezone identifiers.
+                - Use null if the timezone cannot be verified.
                 """.formatted(flightNumber, flightDate);
 
         return java.util.Map.of(
@@ -190,19 +197,21 @@ public class OpenAIFlightLookupProvider implements FlightLookupProvider {
             }
 
             flights.add(new FlightRecord(
-                    returnedFlightNumber,
-                    text(flight, "airline"),
+                returnedFlightNumber,
+                text(flight, "airline"),
 
-                    text(flight, "departureAirportCode"),
-                    text(flight, "departureAirportName"),
-                    text(flight, "departureTerminal"),
+                text(flight, "departureAirportCode"),
+                text(flight, "departureAirportName"),
+                text(flight, "departureTerminal"),
+                text(flight, "departureTimeZone"),
 
-                    text(flight, "arrivalAirportCode"),
-                    text(flight, "arrivalAirportName"),
-                    text(flight, "arrivalTerminal"),
+                text(flight, "arrivalAirportCode"),
+                text(flight, "arrivalAirportName"),
+                text(flight, "arrivalTerminal"),
+                text(flight, "arrivalTimeZone"),
 
-                    departureTime,
-                    arrivalTime
+                departureTime,
+                arrivalTime
             ));
         }
 

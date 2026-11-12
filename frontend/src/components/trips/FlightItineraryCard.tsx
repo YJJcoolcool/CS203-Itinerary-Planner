@@ -12,82 +12,71 @@ interface FlightItineraryCardProps {
   onDelete?: () => void
 }
 
-/**
- * Extracts the wall-clock components from an ISO timestamp.
- *
- * Using the timestamp's own offset is important: we want to display
- * the airport's local time, not the viewer's browser time.
- */
-function getWallClockParts(value: string | null): {
-  year: number
-  month: number
-  day: number
-  hour: number
-  minute: number
-} | null {
-  if (!value) return null
+function formatTime(
+  value: string | null,
+  timeZone: string | null | undefined,
+): string {
+  if (!value || !timeZone) return 'Time TBD'
 
-  const match =
-    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(value)
+  const date = new Date(value)
 
-  if (!match) return null
+  if (Number.isNaN(date.getTime())) return 'Time TBD'
 
-  return {
-    year: Number(match[1]),
-    month: Number(match[2]),
-    day: Number(match[3]),
-    hour: Number(match[4]),
-    minute: Number(match[5]),
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZone,
+    }).format(date)
+  } catch {
+    return 'Time TBD'
   }
 }
 
-/**
- * Creates a UTC Date from wall-clock components.
- *
- * UTC is deliberately used as a formatting container so the browser
- * cannot shift the airport's local time into the viewer's timezone.
- */
-function toFormattingDate(value: string): Date | null {
-  const parts = getWallClockParts(value)
-  if (!parts) return null
+function formatDate(
+  value: string | null,
+  timeZone: string | null | undefined,
+): string {
+  if (!value || !timeZone) return ''
 
-  return new Date(
-    Date.UTC(
-      parts.year,
-      parts.month - 1,
-      parts.day,
-      parts.hour,
-      parts.minute,
-    ),
-  )
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) return ''
+
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      timeZone,
+    }).format(date)
+  } catch {
+    return ''
+  }
 }
 
-function formatTime(value: string | null): string {
-  if (!value) return 'Time TBD'
+/** Gets the UTC offset applicable at this instant in the given timezone. */
+function formatUtcOffset(
+  value: string | null,
+  timeZone: string | null | undefined,
+): string | null {
+  if (!value || !timeZone) return null
 
-  const date = toFormattingDate(value)
-  if (!date || Number.isNaN(date.getTime())) return 'Time TBD'
+  const date = new Date(value)
 
-  return new Intl.DateTimeFormat(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZone: 'UTC',
-  }).format(date)
-}
+  if (Number.isNaN(date.getTime())) return null
 
-function formatDate(value: string | null): string {
-  if (!value) return ''
+  try {
+    const parts = new Intl.DateTimeFormat('en', {
+      timeZone,
+      timeZoneName: 'shortOffset',
+    }).formatToParts(date)
 
-  const date = toFormattingDate(value)
-  if (!date || Number.isNaN(date.getTime())) return ''
-
-  return new Intl.DateTimeFormat(undefined, {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'UTC',
-  }).format(date)
+    return parts.find((part) => part.type === 'timeZoneName')?.value ?? null
+  } catch {
+    return null
+  }
 }
 
 /** Calculates actual elapsed flight time, accounting for UTC offsets. */
@@ -121,35 +110,24 @@ function formatDuration(
   return `${hours}h ${minutes}m`
 }
 
-function getUtcOffset(value: string | null): string | null {
-  if (!value) return null
-
-  // Z represents UTC+00:00.
-  if (/[Zz]$/.test(value)) return 'UTC+00:00'
-
-  // Supports +08:00, -05:00, and ZonedDateTime strings
-  // such as 2026-12-20T23:55:00+08:00[Asia/Singapore].
-  const match = /([+-]\d{2}:\d{2})(?:\[[^\]]+\])?$/.exec(value)
-
-  return match ? `UTC${match[1]}` : null
-}
-
 function Airport({
   code,
   name,
   terminal,
   dateTime,
+  timeZone,
   alignment = 'left',
 }: {
   code: string | null | undefined
   name: string | null | undefined
   terminal: string | null | undefined
   dateTime: string | null
+  timeZone: string | null | undefined
   alignment?: 'left' | 'right'
 }) {
-  const time = formatTime(dateTime)
-  const date = formatDate(dateTime)
-  const offset = getUtcOffset(dateTime)
+  const time = formatTime(dateTime, timeZone)
+  const date = formatDate(dateTime, timeZone)
+  const offset = formatUtcOffset(dateTime, timeZone)
 
   return (
     <div className={`min-w-0 ${alignment === 'right' ? 'text-right' : ''}`}>
@@ -263,6 +241,7 @@ export function FlightItineraryCard({
             name={activity.departureAirportName}
             terminal={activity.departureTerminal}
             dateTime={activity.startDateTime}
+            timeZone={activity.departureTimeZone}
             alignment="left"
           />
 
@@ -295,6 +274,7 @@ export function FlightItineraryCard({
             name={activity.arrivalAirportName}
             terminal={activity.arrivalTerminal}
             dateTime={activity.endDateTime}
+            timeZone={activity.arrivalTimeZone}
             alignment="right"
           />
         </div>

@@ -255,12 +255,16 @@ public class ActivityService {
         activity.setFlightNumber(updatedActivity.getFlightNumber());
         activity.setFlightDate(updatedActivity.getFlightDate());
         activity.setAirline(updatedActivity.getAirline());
+
         activity.setDepartureAirportCode(updatedActivity.getDepartureAirportCode());
         activity.setDepartureAirportName(updatedActivity.getDepartureAirportName());
         activity.setDepartureTerminal(updatedActivity.getDepartureTerminal());
+        activity.setDepartureTimeZone(updatedActivity.getDepartureTimeZone());
+
         activity.setArrivalAirportCode(updatedActivity.getArrivalAirportCode());
         activity.setArrivalAirportName(updatedActivity.getArrivalAirportName());
         activity.setArrivalTerminal(updatedActivity.getArrivalTerminal());
+        activity.setArrivalTimeZone(updatedActivity.getArrivalTimeZone());
 
         /*
          * The edit form doesn't send a status, so keep the current one

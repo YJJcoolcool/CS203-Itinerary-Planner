@@ -33,6 +33,8 @@ type FlightFormMode = 'SEARCH' | 'REVIEW' | 'MANUAL'
 
 interface FlightForm {
   flightNumber: string
+  departureTimeZone: string
+  arrivalTimeZone: string
   airline: string
 
   departureAirportCode: string
@@ -50,6 +52,8 @@ interface FlightForm {
 
 const EMPTY_FORM: FlightForm = {
   flightNumber: '',
+  departureTimeZone: '',
+  arrivalTimeZone: '',
   airline: '',
 
   departureAirportCode: '',
@@ -119,6 +123,8 @@ function isValidDateTime(value: string): boolean {
 function createFormFromFlight(flight: FlightRecord): FlightForm {
   return {
     flightNumber: flight.flightNumber ?? '',
+    departureTimeZone: flight.departureTimeZone ?? '',
+    arrivalTimeZone: flight.arrivalTimeZone ?? '',
     airline: flight.airline ?? '',
 
     departureAirportCode: flight.departureAirportCode ?? '',
@@ -476,6 +482,8 @@ export function CreateFlightModal({
         type: 'FLIGHT',
 
         flightNumber: form.flightNumber.trim().toUpperCase(),
+        departureTimeZone: form.departureTimeZone || form.departureOffset,
+        arrivalTimeZone: form.arrivalTimeZone || form.arrivalOffset,
         airline: form.airline.trim() || undefined,
 
         departureAirportCode: form.departureAirportCode.trim().toUpperCase(),

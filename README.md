@@ -54,3 +54,31 @@ npm run build
 ```
 
 This generates the production frontend in `frontend/dist/`.
+
+## Testing and Code Coverage
+
+From the project's root directory:
+
+```bash
+cd backend
+./mvnw test
+```
+
+This runs the backend test suite and writes a JaCoCo coverage report to
+`backend/target/site/jacoco/index.html` (machine-readable data in `jacoco.xml`).
+
+To additionally enforce the coverage floor (default 75% of lines), run:
+
+```bash
+cd backend
+./mvnw verify
+```
+
+Notes:
+
+- Override or relax the floor with `-Djacoco.line.coverage.minimum=0.70`, or skip
+  coverage instrumentation entirely with `-Djacoco.skip=true`.
+- Open the HTML report with `open target/site/jacoco/index.html` (macOS).
+- CI uploads the report as the `backend-jacoco-report` artifact on every run.
+- If you see Flyway "duplicate version" errors after switching branches, stale
+  migration files are lingering in `target/classes`; run `./mvnw clean test`.
